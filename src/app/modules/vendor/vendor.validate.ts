@@ -3,7 +3,7 @@ import { Role } from "./vendor.interface";
 
  
 
- export const userZodSchema = z.object({
+ export const vendorZodSchema = z.object({
     user_name: z
             .string({error: "Name must be string type!"})
             .min(3, "Name must be at least minimum 3 characters!")
@@ -20,7 +20,7 @@ import { Role } from "./vendor.interface";
  });
 
 
- export const userUpdateZodSchema = z.object({
+ export const vendorUpdateZodSchema = z.object({
     user_name: z
             .string({error: "Name must be string type!"})
             .min(3, "Name must be at least minimum 3 characters!")

@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema<IVendor>({
     email: { type: String, required: true, unique: true, lowercase:true },
     password: { type: String },
     isVerified: { type: Boolean, default: false },
-    role: { type: String, enum: [...Object.values(Role)], default: Role.USER },
+    role: { type: String, enum: [...Object.values(Role)], default: Role.VENDOR },
     auths: [authProviderSchema]
 }, {
     versionKey: false,
@@ -41,5 +41,4 @@ const userSchema = new mongoose.Schema<IVendor>({
 
 
 const Vendor = mongoose.model<IVendor>("vendor", userSchema);
-
 export default Vendor;
