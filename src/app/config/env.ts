@@ -17,18 +17,16 @@ interface EnvInterfaces {
   // CLOUDINARY_API_KEY: string;
   // CLOUDINARY_NAME: string;
 
-  // REDIS_HOST: string;
-  // REDIS_PORT: string;
-  // REDIS_USERNAME: string;
-  // REDIS_PASSWORD: string;
+  REDIS_HOST: string;
+  REDIS_PORT: string;
 
   REQUEST_RATE_LIMIT: number;
   REQUEST_RATE_LIMIT_TIME: number;
 
-  // EMAIL_HOST: string;
-  // EMAIL_PORT: string;
-  // EMAIL_USER: string;
-  // EMAIL_PASSWORD: string;
+  EMAIL_HOST: string;
+  EMAIL_PORT: string;
+  EMAIL_USER: string;
+  EMAIL_PASSWORD: string;
 
   GOOGLE_OAUTH_ID: string;
   GOOGLE_OAUTH_SECRET: string;
@@ -57,14 +55,13 @@ const loadEnvVarbles = (): EnvInterfaces => {
     'REQUEST_RATE_LIMIT',
     'REQUEST_RATE_LIMIT_TIME',
      
-    // 'REDIS_HOST',
-    // 'REDIS_PORT',
-    // 'REDIS_USERNAME',
-    // 'REDIS_PASSWORD',
-    // 'EMAIL_HOST',
-    // 'EMAIL_PORT',
-    // 'EMAIL_USER',
-    // 'EMAIL_PASSWORD',
+    'REDIS_HOST',
+    'REDIS_PORT',
+
+    'EMAIL_HOST',
+    'EMAIL_PORT',
+    'EMAIL_USER',
+    'EMAIL_PASSWORD',
 
     "GOOGLE_OAUTH_SECRET",
     "GOOGLE_OAUTH_ID",
@@ -100,15 +97,13 @@ const loadEnvVarbles = (): EnvInterfaces => {
     REQUEST_RATE_LIMIT_TIME: Number(process.env.REQUEST_RATE_LIMIT_TIME) as number,
     REQUEST_RATE_LIMIT:Number( process.env.REQUEST_RATE_LIMIT) as number,
 
-    // REDIS_HOST: process.env.REDIS_HOST as string,
-    // REDIS_PORT: process.env.REDIS_PORT as string,
-    // REDIS_USERNAME: process.env.REDIS_USERNAME as string,
-    // REDIS_PASSWORD: process.env.REDIS_PASSWORD as string,
+    REDIS_HOST: process.env.REDIS_HOST as string,
+    REDIS_PORT: process.env.REDIS_PORT as string,
 
-    // EMAIL_PASSWORD: process.env.EMAIL_PASSWORD as string,
-    // EMAIL_USER: process.env.EMAIL_USER as string,
-    // EMAIL_PORT: process.env.EMAIL_PORT as string,
-    // EMAIL_HOST: process.env.EMAIL_HOST as string,
+    EMAIL_PASSWORD: process.env.EMAIL_PASSWORD as string,
+    EMAIL_USER: process.env.EMAIL_USER as string,
+    EMAIL_PORT: process.env.EMAIL_PORT as string,
+    EMAIL_HOST: process.env.EMAIL_HOST as string,
 
     GOOGLE_OAUTH_ID: process.env.GOOGLE_OAUTH_ID as string,
     GOOGLE_OAUTH_SECRET: process.env.GOOGLE_OAUTH_SECRET as string,

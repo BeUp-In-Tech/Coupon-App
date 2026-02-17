@@ -9,7 +9,7 @@ import { JwtPayload } from "jsonwebtoken";
 
 
 const registerUser = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const result = await userServices.registerUser(req.body);
+    const result = await userServices.registerUserService(req.body);
     SendResponse(res, {
         success: true,
         statusCode: StatusCodes.CREATED,
@@ -20,11 +20,35 @@ const registerUser = CatchAsync(async (req: Request, res: Response, next: NextFu
 
 const updateUser = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
-    const result = await userServices.updateUser(user, req.body);
+    const result = await userServices.updateUserService(user, req.body);
     SendResponse(res, {
         success: true,
-        statusCode: StatusCodes.CREATED,
+        statusCode: StatusCodes.OK,
         message: "User updated!",
+        data: result
+    })
+});
+
+
+const sendVerificationOTP = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.body;
+    const result = await userServices.sendVerificationOtpService(email);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "6 digit OTP sent",
+        data: result
+    })
+});
+
+
+const verifyProfile = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const {email, otp} = req.body;
+    const result = await userServices.verifyUserProfileService(email, otp);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Profile verified",
         data: result
     })
 });
@@ -33,5 +57,7 @@ const updateUser = CatchAsync(async (req: Request, res: Response, next: NextFunc
 
 export const userControllers = {
     registerUser,
-    updateUser
+    updateUser,
+    sendVerificationOTP,
+    verifyProfile
 }

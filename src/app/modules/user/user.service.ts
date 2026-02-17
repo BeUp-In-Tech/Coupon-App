@@ -3,10 +3,13 @@ import AppError from "../../errorHelpers/AppError";
 import { IAuthProvider, IUser, Role,   } from "./user.interface";
 import User from "./user.model";
 import { JwtPayload } from "jsonwebtoken";
+import { randomOTPGenerator } from "../../utils/randomOTPGenerator";
+import { redisClient } from "../../config/redis.config";
+import { sendEmail } from "../../utils/sendMail";
 
 
 // CREATE VENDOR SERVICE
-const registerUser = async (payload: IUser) => {
+const registerUserService = async (payload: IUser) => {
      const { email, ...rest } = payload;
 
   const isVendor = await User.findOne({ email });
@@ -32,7 +35,7 @@ const registerUser = async (payload: IUser) => {
 }
 
 // UPDATE USER
-const updateUser = async (user: JwtPayload, payload: Partial<IUser>) => {
+const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
 
   // Allowed field to update data
   const ALLOWED_FIELDS = ['user_name'];
@@ -66,9 +69,69 @@ const updateUser = async (user: JwtPayload, payload: Partial<IUser>) => {
 };
 
 
+// SEND VERFICATION OTP
+const sendVerificationOtpService = async (email: string) => {
+  const  user  = await User.findOne({ email }).select("user_name email") as Partial<IUser>;
+
+   // Generate OTP
+  const otp = randomOTPGenerator(100000, 999999);
+
+  // Store OTP in Redis with expiration (e.g., 5 minutes)
+  await redisClient.set(`otp:${user.email}`, otp, {
+    EX: 300
+  }); 
+
+  // Prepare email template data
+  const templateData = {
+    otp: otp,
+    name: user.user_name,
+    expirationTime: '5 minutes',  
+  };
+
+  // Send OTP email
+    await sendEmail({
+      to:  user.email as string,
+      subject: 'Profile Verification OTP',
+      templateName: 'otp',
+      templateData: templateData
+    });
+
+  return null;
+}
+
+
+const verifyUserProfileService = async (email: string, otp: number) => {
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+   // Retrieve OTP from Redis
+  const storedOtp = await redisClient.get(`otp:${user.email}`);
+
+  if (!storedOtp) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP has expired or not found. Please request a new OTP.');
+  }
+
+  // Check if OTP matches
+  if (Number(storedOtp) !== otp) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid OTP. Please try again.')
+  }
+
+  user.isVerified = true;
+  await user.save();
+
+  // OTP is valid, delete OTP from Redis
+  await redisClient.del(`otp:${user.email}`);
+  return null;
+}
+
+
 
 
 export const userServices = {
-    registerUser,
-    updateUser
+    registerUserService,
+    updateUserService,
+    sendVerificationOtpService,
+    verifyUserProfileService
 }
