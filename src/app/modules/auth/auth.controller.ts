@@ -4,13 +4,16 @@ import { NextFunction, Request, Response } from 'express';
 import { CatchAsync } from '../../utils/CatchAsync';
 import passport from 'passport';
 import AppError from '../../errorHelpers/AppError';
-import httpStatus from 'http-status-codes';
+import httpStatus, { StatusCodes } from 'http-status-codes';
 import { SetCookies } from '../../utils/setCookie';
 import { createUserTokens } from '../../utils/user.tokens';
 import { JwtPayload } from 'jsonwebtoken';
 import env from '../../config/env';
 import { SendResponse } from '../../utils/SendResponse';
+import { authService } from './auth.service';
 
+
+// REGISTER WITH GOOGLE
 const googleRegister = CatchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const redirect = (req.query?.redirect as string) || '/';
@@ -23,6 +26,8 @@ const googleRegister = CatchAsync(
   }
 );
 
+
+//  GOOGLE CALLBACK
 const googleCallback = CatchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     let redirectTo = req.query.state ? (req.query.state as string) : '';
@@ -39,6 +44,8 @@ const googleCallback = CatchAsync(
   }
 );
 
+
+// CREDENTIAL LOGIN
 const credentialsLogin = CatchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     passport.authenticate('local', async (err: any, user: any, info: any) => {
@@ -60,8 +67,24 @@ const credentialsLogin = CatchAsync(
   }
 );
 
+
+// CHANGE PASSWORD
+const changePassword = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const { userId } = req.user as JwtPayload;
+  const { oldPassword, newPassword } = req.body;
+  await authService.changePasswordService(userId, oldPassword, newPassword);
+  
+  SendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Password has been changed",
+    data: null
+  })
+})
+
 export const authController = {
   googleRegister,
   googleCallback,
-  credentialsLogin
+  credentialsLogin,
+  changePassword
 };
