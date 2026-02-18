@@ -5,6 +5,7 @@ import AppError from '../errorHelpers/AppError';
 import httpStatus, { StatusCodes } from 'http-status-codes';
 import env from '../config/env';
 import User from '../modules/user/user.model';
+import { IsActiveUser } from '../modules/user/user.interface';
 
 
 
@@ -40,6 +41,21 @@ export const checkAuth =
       if (!isUser.isVerified) {
         throw new AppError(StatusCodes.BAD_REQUEST, "Your are not verified");
       }
+
+       if (
+        isUser.isActive === IsActiveUser.INACTIVE ||
+        isUser.isActive === IsActiveUser.BLOCKED
+      ) {
+        throw new AppError(
+          httpStatus.FORBIDDEN,
+          'User is Blocked or Inactive!'
+        );
+      }
+
+      if (isUser.isDeleted) {
+        throw new AppError(httpStatus.FORBIDDEN, 'The user was deleted!');
+      }
+
 
       if (restRole.length && !restRole.includes(verifyUser.role)) {
         throw new AppError( httpStatus.FORBIDDEN, 'You are not permitted to access this route')

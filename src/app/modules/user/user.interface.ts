@@ -9,12 +9,20 @@ export interface IAuthProvider {
     providerId: string;
 }
 
+export enum IsActiveUser {
+    ACTIVE = "ACTIVE",
+    INACTIVE = "INACTIVE",
+    BLOCKED = "BLOCKED"
+}
+
 export interface IUser {
     _id: string;
     user_name: string;
     email: string;
     password?: string;
     isVerified?: boolean;
+    isDeleted?: boolean;
+    isActive?: IsActiveUser;
     role?: Role;
     auths?: IAuthProvider[]
 }

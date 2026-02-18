@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IAuthProvider, IUser, Role } from './user.interface';
+import { IAuthProvider, IsActiveUser, IUser, Role } from './user.interface';
 import bcrypt from 'bcrypt';
 import env from '../../config/env';
 
@@ -19,6 +19,8 @@ const userSchema = new mongoose.Schema<IUser>({
     email: { type: String, required: true, unique: true, lowercase:true },
     password: { type: String },
     isVerified: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false },
+    isActive: { type: String, enum: [...Object.keys(IsActiveUser)] , default: IsActiveUser.ACTIVE },
     role: { type: String, enum: [...Object.values(Role)], default: Role.VENDOR },
     auths: [authProviderSchema]
 }, {

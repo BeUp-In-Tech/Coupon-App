@@ -82,9 +82,24 @@ const changePassword = CatchAsync(async (req: Request, res: Response, next: Next
   })
 })
 
+
+// FORGET PASSWORD
+const forgetPassword = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const { email } = req.params;
+  await authService.forgetPasswordService(email as string);
+
+  SendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Password reset OTP sent",
+    data: null
+  })
+})
+
 export const authController = {
   googleRegister,
   googleCallback,
   credentialsLogin,
-  changePassword
+  changePassword,
+  forgetPassword
 };

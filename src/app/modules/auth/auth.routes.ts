@@ -10,6 +10,8 @@ const router = Router();
 router.post('/login', authController.credentialsLogin);
 // CHANGE PASSWORD
 router.post('/change_password', checkAuth(...Object.keys(Role)), authController.changePassword);
+// FORGET PASSWORD
+router.get('/forget_password/:email', authController.forgetPassword);
 
 // GOOGLE LOGIN
 router.get('/google', authController.googleRegister);
