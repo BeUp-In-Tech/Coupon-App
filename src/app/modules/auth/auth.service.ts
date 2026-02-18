@@ -7,6 +7,7 @@ import { redisClient } from '../../config/redis.config';
 import { sendEmail } from '../../utils/sendMail';
 import { IsActiveUser } from '../user/user.interface';
 import env from '../../config/env';
+import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
 
 // CHANGE PASSWORD
 const changePasswordService = async (
@@ -88,7 +89,82 @@ const forgetPasswordService = async (email: string) => {
   return null;
 };
 
+// VERIFY RESET PASSWORD OTP
+const verifyForgetPasswordOTPService = async (email: string, otp: string) => {
+  if (!email) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Email required!');
+  }
+
+  // CHECK USER
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'No user found!');
+  }
+
+  if (!otp || otp.length < 6) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Wrong OTP!');
+  }
+
+  // OTP MATCHING PART
+  const getOTP = await redisClient.get(`otp:${email}`);
+
+  if (!getOTP) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP has expired!');
+  }
+
+  // Matching otp
+  const isOTPMatched = await bcrypt.compare(otp, getOTP); // COMPARE WITH OTP
+  if (!isOTPMatched) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP is not matched!');
+  }
+
+  const jwtPayload = { email, verified: true };
+  const jwtToken =  jwt.sign(jwtPayload, env.OTP_JWT_ACCESS_SECRET, {
+    expiresIn: env.OTP_JWT_ACCESS_EXPIRATION,
+  } as SignOptions);
+
+  // DELETED OTP AFTER USED
+  await redisClient.del(`otp:${email}`);
+  return jwtToken;
+};
+
+// RESET PASSWORD
+const resetPasswordService = async (token: string, newPassword: string) => {
+  if (!token) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Token must required!');
+  }
+
+  const verifyToken = jwt.verify(
+    token,
+    env.OTP_JWT_ACCESS_SECRET
+  ) as JwtPayload;
+
+  
+
+  if (!verifyToken) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid token or expired!');
+  }
+
+  if (!verifyToken?.verified) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "OTP wasn't verfied yet");
+  }
+
+  // CHECK USER
+  const user = await User.findOne({ email: verifyToken?.email });
+  if (!user) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'No user found!');
+  }
+
+  // SET NEW PASSWORD
+  user.password = newPassword;
+  await user.save();
+
+  return null;
+};
+
 export const authService = {
   changePasswordService,
-  forgetPasswordService
+  forgetPasswordService,
+  verifyForgetPasswordOTPService,
+  resetPasswordService
 };

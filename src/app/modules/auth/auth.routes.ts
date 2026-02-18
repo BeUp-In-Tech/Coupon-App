@@ -12,6 +12,10 @@ router.post('/login', authController.credentialsLogin);
 router.post('/change_password', checkAuth(...Object.keys(Role)), authController.changePassword);
 // FORGET PASSWORD
 router.get('/forget_password/:email', authController.forgetPassword);
+// VERIFY FORGET PASSWORD OTP
+router.post('/verify_otp', authController.verifyForgetPasswordOTP);
+// RESET PASSWORD
+router.post('/reset_password', authController.resetPassword);
 
 // GOOGLE LOGIN
 router.get('/google', authController.googleRegister);

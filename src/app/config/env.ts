@@ -5,12 +5,15 @@ interface EnvInterfaces {
   PORT: string;
   MONGO_URI: string;
   NODE_ENV: 'development' | 'production';
+
   JWT_ACCESS_SECRET: string;
   JWT_ACCESS_EXPIRATION: string;
   JWT_REFRESH_SECRET: string;
   JWT_REFRESH_EXPIRATION: string;
-  BCRYPT_SALT_ROUND: string;
+  OTP_JWT_ACCESS_SECRET: string;
+  OTP_JWT_ACCESS_EXPIRATION: string;
 
+  BCRYPT_SALT_ROUND: string;
   FRONTEND_URL: string;
 
   // CLOUDINARY_SECRET: string;
@@ -40,12 +43,15 @@ const loadEnvVarbles = (): EnvInterfaces => {
     'PORT',
     'MONGO_URI',
     'NODE_ENV',
+
     'JWT_ACCESS_SECRET',
     'JWT_ACCESS_EXPIRATION',
     'JWT_REFRESH_SECRET',
     'JWT_REFRESH_EXPIRATION',
+    'OTP_JWT_ACCESS_SECRET',
+    'OTP_JWT_ACCESS_EXPIRATION',
+
     'BCRYPT_SALT_ROUND',
- 
     'FRONTEND_URL',
  
     // 'CLOUDINARY_NAME',
@@ -87,6 +93,9 @@ const loadEnvVarbles = (): EnvInterfaces => {
 
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET as string,
     JWT_REFRESH_EXPIRATION: process.env.JWT_REFRESH_EXPIRATION as string,
+
+    OTP_JWT_ACCESS_SECRET: process.env.OTP_JWT_ACCESS_SECRET as string,
+    OTP_JWT_ACCESS_EXPIRATION: process.env.OTP_JWT_ACCESS_EXPIRATION as string,
 
     FRONTEND_URL: process.env.FRONTEND_URL as string,
 

@@ -86,13 +86,43 @@ const changePassword = CatchAsync(async (req: Request, res: Response, next: Next
 // FORGET PASSWORD
 const forgetPassword = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
   const { email } = req.params;
-  await authService.forgetPasswordService(email as string);
+  const result = await authService.forgetPasswordService(email as string);
 
   SendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
     message: "Password reset OTP sent",
-    data: null
+    data: result
+  })
+})
+
+
+// VERIFY FORGET PASSWORD OTP
+const verifyForgetPasswordOTP = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const { email, otp } = req.body;
+  const result = await authService.verifyForgetPasswordOTPService(email as string, otp);
+
+  SendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "OTP verified",
+    data: result
+  })
+})
+
+
+// VERIFY FORGET PASSWORD OTP
+const resetPassword = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const token = req.headers.token as string;
+  
+  const { newPassword } = req.body;
+  const result = await authService.resetPasswordService(token, newPassword);
+
+  SendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Password reset success",
+    data: result
   })
 })
 
@@ -101,5 +131,7 @@ export const authController = {
   googleCallback,
   credentialsLogin,
   changePassword,
-  forgetPassword
+  forgetPassword,
+  verifyForgetPasswordOTP,
+  resetPassword
 };
