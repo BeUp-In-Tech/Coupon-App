@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 export enum Role {
     USER = "USER",
     VENDOR = "VENDOR",
@@ -16,7 +18,7 @@ export enum IsActiveUser {
 }
 
 export interface IUser {
-    _id: string;
+    _id?: Types.ObjectId;
     user_name: string;
     email: string;
     password?: string;
