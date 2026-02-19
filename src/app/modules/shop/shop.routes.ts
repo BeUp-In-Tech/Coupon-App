@@ -9,6 +9,7 @@ import { Role } from "../user/user.interface";
 const router = Router();
 
 router.post('/cerate_shop', validateRequest(shopValidationSchema), checkAuth(Role.VENDOR),  shopController.createShop);
+router.get('/shop_details', checkAuth(Role.VENDOR),  shopController.getShopDetails);
 
 
 export const shopRouter =  router;

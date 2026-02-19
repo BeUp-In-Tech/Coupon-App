@@ -20,6 +20,22 @@ const createShop = CatchAsync(async (req: Request, res: Response, next: NextFunc
     })
 });
 
+
+const  getShopDetails = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const result = await shopServices.getShopDetailsService( user.userId);
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.CREATED,
+        message: "Sho details fetched!",
+        data: result
+    })
+});
+
+
+
 export const shopController = {
-    createShop
+    createShop,
+    getShopDetails
 }

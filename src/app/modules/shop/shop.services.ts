@@ -66,7 +66,18 @@ const createShopService = async (userId: string, payload: IShop) => {
   return shop;
 };
 
+const getShopDetailsService = async (userId: string) => {
+  const isShopExist = await Shop.findOne({vendor: userId});
+
+  if (!isShopExist) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Shop not found");
+  }
+
+  return isShopExist;
+}
+
 
 export const shopServices = {
-    createShopService
+    createShopService,
+    getShopDetailsService
 }
