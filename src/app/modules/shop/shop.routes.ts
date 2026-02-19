@@ -12,4 +12,5 @@ router.post('/cerate_shop', validateRequest(shopValidationSchema), checkAuth(Rol
 router.get('/shop_details', checkAuth(Role.VENDOR),  shopController.getShopDetails);
 
 
+
 export const shopRouter =  router;
