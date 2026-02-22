@@ -21,7 +21,7 @@ export const updateShopValidationSchema = z.object({
     .optional(),
 
   description: z.string().min(10, 'Description too short').max(1000).optional(),
-  shop_approval: z.nativeEnum(ShopApproval),
+  shop_approval: z.nativeEnum(ShopApproval).optional(),
 
   coord: z
     .tuple([
