@@ -128,7 +128,6 @@ const getShopDetailsService = async (userId: string, shopId?: string) => {
   return isShopExist;
 };
 
-
 // UPDATE SHOP
 const updateShopService = async (
   userId: string,
@@ -224,6 +223,8 @@ const updateShopService = async (
 
   return updatedShop;
 };
+
+
 
 export const shopServices = {
   createShopService,
