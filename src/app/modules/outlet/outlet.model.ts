@@ -5,7 +5,7 @@ const OutletSchema = new Schema<IOutlet>(
   {
     shop: { type: Schema.Types.ObjectId, ref: "shop", required: true },
     address: { type: String, required: true, trim: true },
-
+    zip_code: { type: String, required: true, trim: true},
     location: {
       type: { type: String, enum: ["Point"], required: true },
       coordinates: {
@@ -18,7 +18,7 @@ const OutletSchema = new Schema<IOutlet>(
       },
     },
 
-    isActive: { type: Boolean, default: true, index: true },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

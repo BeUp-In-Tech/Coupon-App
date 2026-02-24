@@ -11,7 +11,4 @@ export interface IOutlet {
 
   location: GeoPoint;
   isActive: boolean;
-
-  createdAt?: Date;
-  updatedAt?: Date;
 }

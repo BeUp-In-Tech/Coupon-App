@@ -1,5 +1,5 @@
 import { model, Schema } from 'mongoose';
-import { IShop, LocationType, ShopApproval } from './shop.interface';
+import { IShop, ShopApproval } from './shop.interface';
 
 const ShopSchema = new Schema<IShop>(
   {
@@ -31,17 +31,6 @@ const ShopSchema = new Schema<IShop>(
       type: String,
       enum: Object.values(ShopApproval),
       default: ShopApproval.PENDING,
-    },
-    location: {
-      type: {
-        type: String,
-        enum: [...Object.values(LocationType)],
-        required: true,
-      },
-    },
-    zip_code: {
-      type: String,
-      required: true,
     },
     website: {
       type: String,

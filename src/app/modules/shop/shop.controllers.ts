@@ -10,10 +10,12 @@ import { JwtPayload } from "jsonwebtoken";
 const createShop = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
      const payload = {
-      ...req.body,
-      business_logo: req.file?.path as string
+      shop: {
+        ...req.body.shop,
+        business_logo: req.file?.path as string
+      },
+     outlet: req.body.outlet
     };
-
     
     const result = await shopServices.createShopService( user.userId, payload);
     SendResponse(res, {
