@@ -4,8 +4,6 @@ import { vendorRoutes } from '../modules/user/user.routes';
 import { shopRouter } from '../modules/shop/shop.routes';
 import { categoryRouter } from '../modules/categories/categories.routes';
 
-
-
 export const router = Router();
 
 const moduleRoutes = [
@@ -24,7 +22,7 @@ const moduleRoutes = [
    {
     path: '/category',
     route: categoryRouter
-   }
+},
 ];
 
 moduleRoutes.forEach((r) => {
