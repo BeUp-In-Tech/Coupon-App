@@ -11,6 +11,8 @@ const router = express.Router();
 router.post('/register', validateRequest(userZodSchema), userControllers.registerUser);
 // UPDATE USER
 router.patch('/', validateRequest(userUpdateZodSchema), checkAuth(...Object.keys(Role)), userControllers.updateUser);
+// GET ME
+router.get('/get_me', checkAuth(...Object.keys(Role)), userControllers.getMe);
 // SEND VERIFICATION OTP
 router.post('/verification_otp', userControllers.sendVerificationOTP);
 // VERIFY PROFILE

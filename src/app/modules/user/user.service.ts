@@ -36,7 +36,6 @@ const registerUserService = async (payload: IUser) => {
   return creatUser;
 }
 
-
 // UPDATE USER
 const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
 
@@ -71,6 +70,16 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
   return update;
 };
 
+// GET ME
+const getMeSerevice = async (userId: string) => {
+  const user = await User.findById(userId).select('-password').lean();
+
+  if (!user) {
+    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  return user;
+}
 
 // SEND VERFICATION OTP
 const sendVerificationOtpService = async (email: string) => {
@@ -129,7 +138,6 @@ const verifyUserProfileService = async (email: string, otp: number) => {
   return null;
 }
 
-
 // REGISTER USER FCM TOKEN
 const registerPushTokenService = async (_userId: string, payload: IFcmToken) => {
     const userId = new Types.ObjectId(_userId);
@@ -173,7 +181,6 @@ const registerPushTokenService = async (_userId: string, payload: IFcmToken) => 
     return null;
 };
 
-
 // UNREGISTER PUSH
 const unregisterPushTokenService = async (deviceId: string, _userId: string) => {
     const userId = new Types.ObjectId(_userId);
@@ -190,7 +197,6 @@ const unregisterPushTokenService = async (deviceId: string, _userId: string) => 
 
     return null;
 };
-
 
 // LIST OF LOGGED IN DEVICES
 const listMyDevicesService = async (_userId: string) => {
@@ -211,6 +217,7 @@ const listMyDevicesService = async (_userId: string) => {
 export const userServices = {
     registerUserService,
     updateUserService,
+    getMeSerevice,
     sendVerificationOtpService,
     verifyUserProfileService,
     registerPushTokenService,

@@ -29,6 +29,17 @@ const updateUser = CatchAsync(async (req: Request, res: Response, next: NextFunc
     })
 });
 
+const getMe = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const result = await userServices.getMeSerevice(user.userId);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Fetch my details",
+        data: result
+    })
+});
+
 
 const sendVerificationOTP = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const { email } = req.body;
@@ -96,6 +107,7 @@ const getMyDeviceList = CatchAsync(async (req: Request, res: Response, next: Nex
 export const userControllers = {
     registerUser,
     updateUser,
+    getMe,
     sendVerificationOTP,
     verifyProfile,
     registerPushToken,
