@@ -11,7 +11,7 @@ import { removeTokenFromOtherUsers } from '../../utils/removeToken';
 import { Shop } from '../shop/shop.model';
 import { createUserTokens } from '../../utils/user.tokens';
 
-// CREATE VENDOR SERVICE
+// 1. CREATE VENDOR SERVICE
 const registerUserService = async (payload: IUser) => {
   const { email, ...rest } = payload;
 
@@ -42,7 +42,8 @@ const registerUserService = async (payload: IUser) => {
   return {tokens, createUser};
 };
 
-// UPDATE USER
+
+// 2. UPDATE USER
 const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
   // Allowed field to update data
   const ALLOWED_FIELDS = ['user_name'];
@@ -84,7 +85,8 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
   return update;
 };
 
-// GET ME
+
+// 3. GET ME
 const getMeSerevice = async (userId: string) => {
   const _user = await User.findById(userId).select('-password').lean();
   if (!_user) {
@@ -106,7 +108,8 @@ const getMeSerevice = async (userId: string) => {
   return user;
 };
 
-// SEND VERFICATION OTP
+
+// 4. SEND VERFICATION OTP
 const sendVerificationOtpService = async (email: string) => {
   const user = (await User.findOne({ email }).select(
     'user_name email'
@@ -138,7 +141,8 @@ const sendVerificationOtpService = async (email: string) => {
   return null;
 };
 
-// VERIFY USER PROFILE
+
+//5. VERIFY USER PROFILE
 const verifyUserProfileService = async (email: string, otp: number) => {
   const user = await User.findOne({ email });
   if (!user) {
@@ -171,7 +175,8 @@ const verifyUserProfileService = async (email: string, otp: number) => {
   return null;
 };
 
-// REGISTER USER FCM TOKEN
+
+// 6. REGISTER USER FCM TOKEN
 const registerPushTokenService = async (
   _userId: string,
   payload: IFcmToken
@@ -217,7 +222,8 @@ const registerPushTokenService = async (
   return null;
 };
 
-// UNREGISTER PUSH
+
+// 7. UNREGISTER PUSH
 const unregisterPushTokenService = async (
   deviceId: string,
   _userId: string
@@ -237,7 +243,8 @@ const unregisterPushTokenService = async (
   return null;
 };
 
-// LIST OF LOGGED IN DEVICES
+
+// 8. LIST OF LOGGED IN DEVICES
 const listMyDevicesService = async (_userId: string) => {
   const userId = new Types.ObjectId(_userId);
 
