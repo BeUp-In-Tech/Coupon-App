@@ -19,6 +19,7 @@ export interface IService {
     highlight: string[];
     description: string;
     images: string[];
+    deletedImages: string[];
     isPromoted?: boolean;
     promotedUntil?: Date;
     couponType: CouponType,

@@ -31,7 +31,7 @@ const createService = CatchAsync(async (req: Request, res: Response, next: NextF
 
 
 // DELETE SHOP
-const deleteShop = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const deleteService = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
     const serviceId = req.params.serviceId as string;
 
@@ -46,8 +46,32 @@ const deleteShop = CatchAsync(async (req: Request, res: Response, next: NextFunc
 });
 
 
+// DELETE SHOP
+const updateService = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const serviceId = req.params.serviceId as string;
+    const payload = {
+      ...req.body,
+      images: req.files
+        ? (req.files as Express.Multer.File[]).map((file) => file.path)
+        : [],
+    };
+    
+
+    const result = await servicesLayer.updateService( user, serviceId, payload);
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Service updated",
+        data: result
+    })
+});
+
+
 
 export const serviceControllers = {
     createService,
-    deleteShop
+    deleteService,
+    updateService
 }

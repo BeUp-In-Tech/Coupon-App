@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ServiceModel } from './service.model';
 import mongoose, { Types } from 'mongoose';
@@ -103,7 +104,7 @@ const createService = async (params: {
 }
 
 
-// 2. Service Delete API
+// 2. DELETE SERVICE 
 const deleteService = async (user: JwtPayload, serviceId: string) => {
   if (user.role !== Role.VENDOR ) {
     throw new AppError(StatusCodes.FORBIDDEN, "Only vendor can delete");
@@ -132,15 +133,12 @@ const deleteService = async (user: JwtPayload, serviceId: string) => {
    */
  }
 
-
-
  // 6. Delete images asynchronously using promises
  setImmediate( async() => {
   try {
     const imageDeletionPromises = isServiceExist.images.map(image => deleteImageFromCLoudinary(image));
     await Promise.all(imageDeletionPromises);
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error("Error deleting images from Cloudinary:", error);
   }
  })
@@ -148,7 +146,83 @@ const deleteService = async (user: JwtPayload, serviceId: string) => {
   return null
 }
 
+
+// 3. UPDATE SERVICE
+/**
+ * @param user - Authenticated user (vendor)
+ * @param serviceId - The service to update
+ * @param payload - The updated data
+ * @returns The updated service
+ */
+
+export const updateService = async (user: JwtPayload, serviceId: string, payload: IService) => {
+  // Check if the vendor is allowed to update
+  const service = await ServiceModel.findById(serviceId);
+  if (!service) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Service not found");
+  }
+
+  if (service.user.toString() !== user.userId) {
+    throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized to update this service");
+  }
+
+  // Ensure the service can only be updated within 30 minutes of creation
+  const serviceCreationTime = new Date(service.createdAt).getTime();
+  const currentTime = Date.now();
+  const timeDifference = currentTime - serviceCreationTime;
+  if (timeDifference > 30 * 60 * 1000) { // 30 minutes
+    throw new AppError(StatusCodes.FORBIDDEN, "You can only update the service within 30 minutes of creation");
+  }
+
+  // Initialize the array to hold the updated images
+  let updatedImages: string[] = [...service.images];
+
+
+
+  // ======= Image Update and Deletion Handling ==================
+
+  // 1. If there are new images, add them to the existing images
+  if (payload.images && payload.images.length > 0) {
+    updatedImages = [...new Set([...updatedImages, ...payload.images.map((url: string) => url.trim())])];
+  }
+
+  // 2. If images are marked for deletion, remove them from the existing images list
+  if (payload.deletedImages && payload.deletedImages.length > 0) {
+    updatedImages = updatedImages.filter((image: string) => !payload.deletedImages.includes(image));
+  }
+
+  // ======= VALIDATE AND BUILD UPDATE PAYLOAD =======
+  const updateData: any = {};
+
+  if (payload.title) updateData.title = payload.title.trim();
+  if (payload.description) updateData.description = payload.description.trim();
+  if (payload.reguler_price !== undefined) updateData.reguler_price = payload.reguler_price;
+  if (payload.discount !== undefined) updateData.discount = payload.discount;
+
+  // Update the images if there were changes
+  if (updatedImages.length !== service.images.length || !updatedImages.every((val, index) => val === service.images[index])) {
+    updateData.images = updatedImages;
+  }
+
+  // ======= UPDATE THE SERVICE =======
+  const updatedService = await ServiceModel.findByIdAndUpdate(serviceId, updateData, { runValidators: true, new: true });
+
+  // ======= DELETE IMAGES FROM CLOUDINARY (ASYNCHRONOUSLY) =======
+  if (payload.deletedImages && payload.deletedImages.length > 0) {
+    try {
+      await Promise.all(
+        payload.deletedImages.map((url) => deleteImageFromCLoudinary(url)) // Assuming you have this function for deletion
+      );
+    } catch (error) {
+      console.log(`Cloudinary image deleting error`, error);
+    }
+  }
+
+  return updatedService;
+};
+
 export const servicesLayer = {
   createService,
-  deleteService
+  deleteService,
+  updateService
 }
