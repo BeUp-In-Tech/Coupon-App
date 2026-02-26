@@ -19,6 +19,10 @@ const ShopSchema = new Schema<IShop>(
       lowercase: true,
       trim: true,
     },
+    business_phone: {
+      country_code: {type: String, require: true, trim: true },
+      phone_number: {type: String, require: true, trim: true },
+    },
     business_logo: {
       type: String,
       required: true,

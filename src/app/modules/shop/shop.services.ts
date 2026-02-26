@@ -45,6 +45,7 @@ const createShopService = async (userId: string, payload: ShopCreatePayload) => 
           vendor: vendorId,
           business_name: payload.shop.business_name.trim(),
           business_email: payload.shop.business_email.toLowerCase().trim(),
+          business_phone: payload.shop.business_phone,
           business_logo: payload.shop.business_logo,
           description: payload.shop.description.trim(),
           website: payload.shop.website?.trim(),

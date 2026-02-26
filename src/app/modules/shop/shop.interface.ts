@@ -12,6 +12,10 @@ export interface IShop {
     vendor: Types.ObjectId;
     business_name: string;
     business_email: string;
+    business_phone: {
+        country_code: string,
+        phone_number: string
+    };
     business_logo: string;
     description: string;
     shop_approval: ShopApproval;

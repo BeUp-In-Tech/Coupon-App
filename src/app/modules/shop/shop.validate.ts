@@ -1,6 +1,18 @@
 import z from 'zod';
 import { ShopApproval } from './shop.interface';
 
+const businessPhoneSchema = z.object({
+  country_code: z
+    .string()
+    .min(1, "Country code is required")
+    .regex(/^\+?[1-9]\d{1,14}$/, "Invalid country code format"),  // Regex for valid country code (international)
+  
+  phone_number: z
+    .string()
+    .min(1, "Phone number is required")
+    .regex(/^\d{10,15}$/, "Phone number must be between 10 and 15 digits"),  // Regex for valid phone number (simplified)
+});
+
 
 export const shopValidationSchema = z.object({
 
@@ -14,6 +26,8 @@ export const shopValidationSchema = z.object({
       .string()
       .email("Invalid business email")
       .toLowerCase(),
+
+    business_phone: businessPhoneSchema,
 
     description: z
       .string()
