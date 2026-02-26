@@ -156,17 +156,18 @@ const deleteService = async (user: JwtPayload, serviceId: string) => {
  */
 
 export const updateService = async (user: JwtPayload, serviceId: string, payload: IService) => {
-  // Check if the vendor is allowed to update
+  // CHECK IF THE SERVICE EXISTS
   const service = await ServiceModel.findById(serviceId);
   if (!service) {
     throw new AppError(StatusCodes.NOT_FOUND, "Service not found");
   }
 
+  // CHECK IF THE USER IS AUTHORIZED TO UPDATE THE SERVICE
   if (service.user.toString() !== user.userId) {
     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized to update this service");
   }
 
-  // Ensure the service can only be updated within 30 minutes of creation
+  // ENSURE THE SERVICE CAN ONLY BE UPDATED WITHIN 30 MINUTES OF CREATION
   const serviceCreationTime = new Date(service.createdAt).getTime();
   const currentTime = Date.now();
   const timeDifference = currentTime - serviceCreationTime;
@@ -174,24 +175,34 @@ export const updateService = async (user: JwtPayload, serviceId: string, payload
     throw new AppError(StatusCodes.FORBIDDEN, "You can only update the service within 30 minutes of creation");
   }
 
-  // Initialize the array to hold the updated images
+  // INITIALIZE THE ARRAY TO HOLD THE UPDATED IMAGES
   let updatedImages: string[] = [...service.images];
 
-
-
-  // ======= Image Update and Deletion Handling ==================
-
-  // 1. If there are new images, add them to the existing images
+  // IMAGE UPDATE AND DELETION HANDLING
   if (payload.images && payload.images.length > 0) {
     updatedImages = [...new Set([...updatedImages, ...payload.images.map((url: string) => url.trim())])];
   }
 
-  // 2. If images are marked for deletion, remove them from the existing images list
   if (payload.deletedImages && payload.deletedImages.length > 0) {
     updatedImages = updatedImages.filter((image: string) => !payload.deletedImages.includes(image));
   }
 
-  // ======= VALIDATE AND BUILD UPDATE PAYLOAD =======
+  // HIGHLIGHT UPDATE HANDLING
+  let updatedHighlights: string[] = [...service.highlight];  // start with existing highlights
+
+  if (payload.highlight && payload.highlight.length > 0) {
+    const newHighlights = Array.isArray(payload.highlight) 
+      ? payload.highlight.map((h: string) => h.trim())
+      : [(payload.highlight as string).trim()];  // Single value becomes array
+
+    updatedHighlights = [...new Set([...updatedHighlights, ...newHighlights])];
+  }
+
+  if (payload.deletedHighlights && payload.deletedHighlights.length > 0) {
+    updatedHighlights = updatedHighlights.filter((highlight: string) => !(payload.deletedHighlights as string[]).includes(highlight));
+  }
+
+  // BUILD THE UPDATE PAYLOAD
   const updateData: any = {};
 
   if (payload.title) updateData.title = payload.title.trim();
@@ -199,19 +210,24 @@ export const updateService = async (user: JwtPayload, serviceId: string, payload
   if (payload.reguler_price !== undefined) updateData.reguler_price = payload.reguler_price;
   if (payload.discount !== undefined) updateData.discount = payload.discount;
 
-  // Update the images if there were changes
+  // ONLY UPDATE IMAGES IF CHANGES WERE MADE
   if (updatedImages.length !== service.images.length || !updatedImages.every((val, index) => val === service.images[index])) {
     updateData.images = updatedImages;
   }
 
-  // ======= UPDATE THE SERVICE =======
+  // ONLY UPDATE HIGHLIGHTS IF CHANGES WERE MADE
+  if (updatedHighlights.length !== service.highlight.length || !updatedHighlights.every((val, index) => val === service.highlight[index])) {
+    updateData.highlight = updatedHighlights;
+  }
+
+  // UPDATE THE SERVICE IN DATABASE
   const updatedService = await ServiceModel.findByIdAndUpdate(serviceId, updateData, { runValidators: true, new: true });
 
-  // ======= DELETE IMAGES FROM CLOUDINARY (ASYNCHRONOUSLY) =======
+  // DELETE IMAGES FROM CLOUDINARY ASYNCHRONOUSLY IF NEEDED
   if (payload.deletedImages && payload.deletedImages.length > 0) {
     try {
       await Promise.all(
-        payload.deletedImages.map((url) => deleteImageFromCLoudinary(url)) // Assuming you have this function for deletion
+        payload.deletedImages.map((url) => deleteImageFromCLoudinary(url))
       );
     } catch (error) {
       console.log(`Cloudinary image deleting error`, error);
@@ -221,8 +237,100 @@ export const updateService = async (user: JwtPayload, serviceId: string, payload
   return updatedService;
 };
 
+
 export const servicesLayer = {
   createService,
   deleteService,
   updateService
 }
+
+
+
+// UPDATE SERVICE CODE (FOR FUTURE UNEXPECTED BUGS FOR CURRENT ONE, I WILL REUSE IT)
+
+// export const updateService = async (user: JwtPayload, serviceId: string, payload: IService) => {
+//   // Check if the vendor is allowed to update
+//   const service = await ServiceModel.findById(serviceId);
+//   if (!service) {
+//     throw new AppError(StatusCodes.NOT_FOUND, "Service not found");
+//   }
+
+//   if (service.user.toString() !== user.userId) {
+//     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized to update this service");
+//   }
+
+//   // Ensure the service can only be updated within 30 minutes of creation
+//   const serviceCreationTime = new Date(service.createdAt).getTime();
+//   const currentTime = Date.now();
+//   const timeDifference = currentTime - serviceCreationTime;
+//   if (timeDifference > 30 * 60 * 1000) { // 30 minutes
+//     throw new AppError(StatusCodes.FORBIDDEN, "You can only update the service within 30 minutes of creation");
+//   }
+
+//   // Initialize the array to hold the updated images
+//   let updatedImages: string[] = [...service.images];
+
+//   // ======= Image Update and Deletion Handling ==================
+//   // 1. If there are new images, add them to the existing images
+//   if (payload.images && payload.images.length > 0) {
+//     updatedImages = [...new Set([...updatedImages, ...payload.images.map((url: string) => url.trim())])];
+//   }
+
+//   // 2. If images are marked for deletion, remove them from the existing images list
+//   if (payload.deletedImages && payload.deletedImages.length > 0) {
+//     updatedImages = updatedImages.filter((image: string) => !payload.deletedImages.includes(image));
+//   }
+
+//   // ======= Highlight Update Handling ============================
+//   let updatedHighlights: string[] = [...service.highlight];  // start with existing highlights
+
+//   // 1. If there are new highlights, add them to the existing ones
+//   if (payload.highlight && payload.highlight.length > 0) {
+//     // If highlight is a single string, make it an array
+//     const newHighlights = Array.isArray(payload.highlight) 
+//       ? payload.highlight.map((h: string) => h.trim())
+//       : [(payload.highlight as string).trim()];  // Single value becomes array
+
+//     updatedHighlights = [...new Set([...updatedHighlights, ...newHighlights])];
+//   }
+
+//   // If some highlights are marked for deletion, remove them from the existing highlights list
+//   if (payload.deletedHighlights && payload.deletedHighlights.length > 0) {
+//     updatedHighlights = updatedHighlights.filter((highlight: string) => !(payload.deletedHighlights as string[]).includes(highlight));
+//   }
+
+//   // ======= VALIDATE AND BUILD UPDATE PAYLOAD =======
+//   const updateData: any = {};
+
+//   if (payload.title) updateData.title = payload.title.trim();
+//   if (payload.description) updateData.description = payload.description.trim();
+//   if (payload.reguler_price !== undefined) updateData.reguler_price = payload.reguler_price;
+//   if (payload.discount !== undefined) updateData.discount = payload.discount;
+
+//   // Update the images if there were changes
+//   if (updatedImages.length !== service.images.length || !updatedImages.every((val, index) => val === service.images[index])) {
+//     updateData.images = updatedImages;
+//   }
+
+//   // Update the highlights if there were changes
+//   if (updatedHighlights.length !== service.highlight.length || !updatedHighlights.every((val, index) => val === service.highlight[index])) {
+//     updateData.highlight = updatedHighlights;
+//   }
+
+//   // ======= UPDATE THE SERVICE =======
+//   const updatedService = await ServiceModel.findByIdAndUpdate(serviceId, updateData, { runValidators: true, new: true });
+
+
+//   // ======= DELETE IMAGES FROM CLOUDINARY (ASYNCHRONOUSLY) =======
+//   if (payload.deletedImages && payload.deletedImages.length > 0) {
+//     try {
+//       await Promise.all(
+//         payload.deletedImages.map((url) => deleteImageFromCLoudinary(url)) // Assuming you have this function for deletion
+//       );
+//     } catch (error) {
+//       console.log(`Cloudinary image deleting error`, error);
+//     }
+//   }
+
+//   return updatedService;
+// };

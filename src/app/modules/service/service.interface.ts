@@ -17,6 +17,7 @@ export interface IService {
     reguler_price: number;
     discount: number;
     highlight: string[];
+    deletedHighlights: [];
     description: string;
     images: string[];
     deletedImages: string[];

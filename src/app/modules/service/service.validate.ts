@@ -82,6 +82,7 @@ export const UpdateServiceZodSchema = z.object({
   reguler_price: z.number().nonnegative().optional(),
   discount: z.number().min(0).max(100).optional(),
   highlight: z.array(z.string().min(1).max(120)).max(20).optional(),
+  deletedHighlights: z.array(z.string().min(1).max(120)).max(20).optional(),
   description: z.string().min(10).max(5000).trim().optional(),
   deletedImages: z.array(z.string().url()).optional(), // Images should be an array of valid URLs
   couponType: z.nativeEnum(CouponType).optional(),
