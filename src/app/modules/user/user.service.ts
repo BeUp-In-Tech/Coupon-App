@@ -1,18 +1,18 @@
-import { StatusCodes } from "http-status-codes";
-import AppError from "../../errorHelpers/AppError";
-import { IAuthProvider, IFcmToken, IUser, Role,   } from "./user.interface";
-import User from "./user.model";
-import { JwtPayload } from "jsonwebtoken";
-import { randomOTPGenerator } from "../../utils/randomOTPGenerator";
-import { redisClient } from "../../config/redis.config";
-import { sendEmail } from "../../utils/sendMail";
-import { Types } from "mongoose";
-import { removeTokenFromOtherUsers } from "../../utils/removeToken";
-
+import { StatusCodes } from 'http-status-codes';
+import AppError from '../../errorHelpers/AppError';
+import { IAuthProvider, IFcmToken, IUser, Role } from './user.interface';
+import User from './user.model';
+import { JwtPayload } from 'jsonwebtoken';
+import { randomOTPGenerator } from '../../utils/randomOTPGenerator';
+import { redisClient } from '../../config/redis.config';
+import { sendEmail } from '../../utils/sendMail';
+import { Types } from 'mongoose';
+import { removeTokenFromOtherUsers } from '../../utils/removeToken';
+import { Shop } from '../shop/shop.model';
 
 // CREATE VENDOR SERVICE
 const registerUserService = async (payload: IUser) => {
-     const { email, ...rest } = payload;
+  const { email, ...rest } = payload;
 
   const isVendor = await User.findOne({ email });
   if (isVendor) {
@@ -32,19 +32,21 @@ const registerUserService = async (payload: IUser) => {
   };
 
   // Create user
-  const creatUser = await User.create(userPayload); 
+  const creatUser = await User.create(userPayload);
   return creatUser;
-}
+};
 
 // UPDATE USER
 const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
-
   // Allowed field to update data
   const ALLOWED_FIELDS = ['user_name'];
 
   // Ensure that the user is not attempting to change their password
   if (payload.password) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "You can't change your password from here");
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "You can't change your password from here"
+    );
   }
 
   // Ensure that role modification is only allowed for admin users
@@ -58,76 +60,101 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
     }
   }
 
-    Object.keys(payload).forEach((key) => {
-      if (!ALLOWED_FIELDS.includes(key)) {
-        throw new AppError(StatusCodes.BAD_REQUEST, `Field '${key}' is not allowed to be updated`);
-      }
-    });
- 
-  
-  const update = await User.findByIdAndUpdate(user.userId, payload, {runValidators: true, new: true});
+  // Field whitelisting
+  Object.keys(payload).forEach((key) => {
+    if (!ALLOWED_FIELDS.includes(key)) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        `Field '${key}' is not allowed to be updated`
+      );
+    }
+  });
 
+  // Update user
+  const update = await User.findByIdAndUpdate(user.userId, payload, {
+    runValidators: true,
+    new: true,
+  });
   return update;
 };
 
 // GET ME
 const getMeSerevice = async (userId: string) => {
-  const user = await User.findById(userId).select('-password').lean();
-
-  if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+  const _user = await User.findById(userId).select('-password').lean();
+  if (!_user) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
+  const isShopExist = await Shop.findOne({ vendor: _user._id }).lean().select("_id");
+  
+  const user = {
+    user_name: _user.user_name,
+    email: _user.email,
+    isVerified: _user.isVerified,
+    role: _user.role,
+    isActive: _user.isActive,
+    deviceTokens: _user.deviceTokens,
+    isShopCreated: isShopExist ? true : false
+  }
+   
   return user;
-}
+};
 
 // SEND VERFICATION OTP
 const sendVerificationOtpService = async (email: string) => {
-  const  user  = await User.findOne({ email }).select("user_name email") as Partial<IUser>;
+  const user = (await User.findOne({ email }).select(
+    'user_name email'
+  )) as Partial<IUser>;
 
-   // Generate OTP
+  // Generate OTP
   const otp = randomOTPGenerator(100000, 999999);
 
   // Store OTP in Redis with expiration (e.g., 5 minutes)
   await redisClient.set(`otp:${user.email}`, otp, {
-    EX: 300
-  }); 
+    EX: 300,
+  });
 
   // Prepare email template data
   const templateData = {
     otp: otp,
     name: user.user_name,
-    expirationTime: '5 minutes',  
+    expirationTime: '5 minutes',
   };
 
   // Send OTP email
-    await sendEmail({
-      to:  user.email as string,
-      subject: 'Profile Verification OTP',
-      templateName: 'otp',
-      templateData: templateData
-    });
+  await sendEmail({
+    to: user.email as string,
+    subject: 'Profile Verification OTP',
+    templateName: 'otp',
+    templateData: templateData,
+  });
 
   return null;
-}
+};
 
 // VERIFY USER PROFILE
 const verifyUserProfileService = async (email: string, otp: number) => {
   const user = await User.findOne({ email });
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, "User not found");
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-   // Retrieve OTP from Redis
+  // Retrieve OTP from Redis
   const storedOtp = await redisClient.get(`otp:${user.email}`);
 
   if (!storedOtp) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP has expired or not found. Please request a new OTP.');
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'OTP has expired or not found. Please request a new OTP.'
+    );
   }
 
   // Check if OTP matches
   if (Number(storedOtp) !== otp) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid OTP. Please try again.')
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Invalid OTP. Please try again.'
+    );
   }
 
   user.isVerified = true;
@@ -136,91 +163,94 @@ const verifyUserProfileService = async (email: string, otp: number) => {
   // OTP is valid, delete OTP from Redis
   await redisClient.del(`otp:${user.email}`);
   return null;
-}
+};
 
 // REGISTER USER FCM TOKEN
-const registerPushTokenService = async (_userId: string, payload: IFcmToken) => {
-    const userId = new Types.ObjectId(_userId);
-    const { token, platform, deviceId, deviceName } = payload;
+const registerPushTokenService = async (
+  _userId: string,
+  payload: IFcmToken
+) => {
+  const userId = new Types.ObjectId(_userId);
+  const { token, platform, deviceId, deviceName } = payload;
 
-    await removeTokenFromOtherUsers(token, _userId);
+  await removeTokenFromOtherUsers(token, _userId);
 
-    // 1) Try update existing device entry (by deviceId)
-    const updateResult = await User.updateOne(
-      { _id: userId, "deviceTokens.deviceId": deviceId },
+  // 1) Try update existing device entry (by deviceId)
+  const updateResult = await User.updateOne(
+    { _id: userId, 'deviceTokens.deviceId': deviceId },
+    {
+      $set: {
+        'deviceTokens.$.token': token,
+        'deviceTokens.$.platform': platform,
+        'deviceTokens.$.deviceName': deviceName || '',
+        'deviceTokens.$.lastSeenAt': new Date(),
+        'deviceTokens.$.isActive': true,
+      },
+    }
+  );
+
+  // 2) If no entry exists for this deviceId, push new
+  if (updateResult.matchedCount === 0) {
+    await User.updateOne(
+      { _id: userId },
       {
-        $set: {
-          "deviceTokens.$.token": token,
-          "deviceTokens.$.platform": platform,
-          "deviceTokens.$.deviceName": deviceName || "",
-          "deviceTokens.$.lastSeenAt": new Date(),
-          "deviceTokens.$.isActive": true,
+        $push: {
+          deviceTokens: {
+            token,
+            platform,
+            deviceId,
+            deviceName: deviceName || '',
+            lastSeenAt: new Date(),
+            isActive: true,
+          },
         },
       }
     );
+  }
 
-    // 2) If no entry exists for this deviceId, push new
-    if (updateResult.matchedCount === 0) {
-      await User.updateOne(
-        { _id: userId },
-        {
-          $push: {
-            deviceTokens: {
-              token,
-              platform,
-              deviceId,
-              deviceName: deviceName || "",
-              lastSeenAt: new Date(),
-              isActive: true,
-            },
-          },
-        }
-      );
-    }
-
-    return null;
+  return null;
 };
 
 // UNREGISTER PUSH
-const unregisterPushTokenService = async (deviceId: string, _userId: string) => {
-    const userId = new Types.ObjectId(_userId);
+const unregisterPushTokenService = async (
+  deviceId: string,
+  _userId: string
+) => {
+  const userId = new Types.ObjectId(_userId);
 
-    await User.updateOne(
-      { _id: userId, "deviceTokens.deviceId": deviceId },
-      {
-        $set: {
-          "deviceTokens.$.isActive": false,
-          "deviceTokens.$.lastSeenAt": new Date(),
-        },
-      }
-    );
+  await User.updateOne(
+    { _id: userId, 'deviceTokens.deviceId': deviceId },
+    {
+      $set: {
+        'deviceTokens.$.isActive': false,
+        'deviceTokens.$.lastSeenAt': new Date(),
+      },
+    }
+  );
 
-    return null;
+  return null;
 };
 
 // LIST OF LOGGED IN DEVICES
 const listMyDevicesService = async (_userId: string) => {
-    const userId = new Types.ObjectId(_userId);
+  const userId = new Types.ObjectId(_userId);
 
-    const user = await User.findById(userId).select("deviceTokens").lean();
-    const devices = user?.deviceTokens || [];
+  const user = await User.findById(userId).select('deviceTokens').lean();
+  const devices = user?.deviceTokens || [];
 
-    // optional: show active first
-    devices.sort((a, b) => Number(b.isActive) - Number(a.isActive));
+  // optional: show active first
+  devices.sort((a, b) => Number(b.isActive) - Number(a.isActive));
 
-    return devices;
+  return devices;
 };
 
-
-
-
 export const userServices = {
-    registerUserService,
-    updateUserService,
-    getMeSerevice,
-    sendVerificationOtpService,
-    verifyUserProfileService,
-    registerPushTokenService,
-    unregisterPushTokenService,
-    listMyDevicesService
-}
+  registerUserService,
+  updateUserService,
+  getMeSerevice,
+  sendVerificationOtpService,
+  verifyUserProfileService,
+  registerPushTokenService,
+  unregisterPushTokenService,
+  listMyDevicesService,
+};
