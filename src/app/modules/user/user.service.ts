@@ -9,6 +9,7 @@ import { sendEmail } from '../../utils/sendMail';
 import { Types } from 'mongoose';
 import { removeTokenFromOtherUsers } from '../../utils/removeToken';
 import { Shop } from '../shop/shop.model';
+import { createUserTokens } from '../../utils/user.tokens';
 
 // CREATE VENDOR SERVICE
 const registerUserService = async (payload: IUser) => {
@@ -32,8 +33,13 @@ const registerUserService = async (payload: IUser) => {
   };
 
   // Create user
-  const creatUser = await User.create(userPayload);
-  return creatUser;
+  const createUser = await User.create(userPayload);
+
+  // Generate tokens
+  const tokens = await createUserTokens(createUser)
+
+  // Return
+  return {tokens, createUser};
 };
 
 // UPDATE USER
