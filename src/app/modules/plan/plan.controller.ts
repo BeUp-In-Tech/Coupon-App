@@ -37,7 +37,29 @@ const getPlan = CatchAsync(async (req: Request, res: Response, next: NextFunctio
 });
 
 
+// UPDATE PLAN
+const updatePlan = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const planId = req.params.planId as string;
+    const payload = {
+        ...req.body,
+        icon: req.file?.path as string
+    }
+
+    console.log(req.body);
+
+    const result = await planServices.updatePlanService(user, planId, payload);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Plan updated",
+        data: result
+    })
+});
+
+
 export const planControllers = {
     createPlan,
-    getPlan
+    getPlan,
+    updatePlan
 }

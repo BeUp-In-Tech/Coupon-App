@@ -1,6 +1,9 @@
 import { Types } from "mongoose";
 
-type Currency = "usd" | "eur";
+export enum Currency {
+    USD = 'USD',
+    EUR = 'EUR'
+}
 
 export interface IPlan {
     _id?: Types.ObjectId;
