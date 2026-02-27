@@ -48,13 +48,26 @@ const userSchema = new mongoose.Schema<IUser>({
 
 
 // Hashed password
- userSchema.pre('save', async function () {
-  if (!this.password) return;  
+//  userSchema.pre('save', async function () {
+//   if (!this.password) return;  
+//     const hashedPassword = await bcrypt.hash(
+//       this.password,
+//       parseInt(env.BCRYPT_SALT_ROUND)
+//     );
+//     this.password = hashedPassword;
+// });
+
+// Hashed password
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;  // Only hash the password if it has been modified
+  
+  if (this.password) {
     const hashedPassword = await bcrypt.hash(
       this.password,
       parseInt(env.BCRYPT_SALT_ROUND)
     );
     this.password = hashedPassword;
+  }
 });
 
 
