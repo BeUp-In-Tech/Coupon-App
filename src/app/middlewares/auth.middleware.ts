@@ -38,9 +38,6 @@ export const checkAuth =
         throw new AppError(StatusCodes.NOT_FOUND, "User not found");
       }
 
-      if (!isUser.isVerified) {
-        throw new AppError(StatusCodes.BAD_REQUEST, "Your are not verified");
-      }
 
        if (
         isUser.isActive === IsActiveUser.INACTIVE ||
