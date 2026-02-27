@@ -46,8 +46,6 @@ const updatePlan = CatchAsync(async (req: Request, res: Response, next: NextFunc
         icon: req.file?.path as string
     }
 
-    console.log(req.body);
-
     const result = await planServices.updatePlanService(user, planId, payload);
     SendResponse(res, {
         success: true,
@@ -58,8 +56,24 @@ const updatePlan = CatchAsync(async (req: Request, res: Response, next: NextFunc
 });
 
 
+// DELETE PLAN
+const deletePlan = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const planId = req.params.planId as string;
+
+    await planServices.deletePlanService(user, planId);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Plan deleted",
+        data: null
+    })
+});
+
+
 export const planControllers = {
     createPlan,
     getPlan,
-    updatePlan
+    updatePlan,
+    deletePlan
 }

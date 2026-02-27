@@ -29,4 +29,9 @@ router.patch(
   planControllers.updatePlan
 );
 
+// DELETE PLAN
+router.delete('/:planId', checkAuth(Role.ADMIN), planControllers.deletePlan);
+
+
+
 export const planRouter = router;

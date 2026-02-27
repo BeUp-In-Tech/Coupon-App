@@ -6,7 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import { Plan } from './plan.model';
 import { asynSingleImageDelete } from '../../utils/singleImageDeleteAsync';
 
-// =====1.CREATE PLAN=====
+// ========1.CREATE PLAN========
 const createPlanService = async (authUser: JwtPayload, payload: IPlan) => {
   // ENSURE USER IS ADMIN
   if (authUser.role !== Role.ADMIN) {
@@ -63,10 +63,10 @@ const createPlanService = async (authUser: JwtPayload, payload: IPlan) => {
   return plan;
 };
 
-// ======2.GET PLAN========
+// ========2.GET PLAN===========
 const getPlanService = async () => await Plan.find();
 
-// =======3.UPDATE PLAN======
+// ========3.UPDATE PLAN=======
 const updatePlanService = async (user: JwtPayload, planId: string, payload: Partial<IPlan>) => {
   // AUTHENTICATED USER IS ADMIN
   if (user.role !== Role.ADMIN) {
@@ -124,8 +124,31 @@ const updatePlanService = async (user: JwtPayload, planId: string, payload: Part
   // RETURN THE UPDATED PLAN
   return updatedPlan;
 };
+
+// =======4.DELETE PLAN==========
+const deletePlanService = async (user: JwtPayload, planId: string) => {
+
+  // USER MUST BE ADMIN
+  if (user.role !== Role.ADMIN) {
+    throw new AppError(StatusCodes.UNAUTHORIZED, "You can't delete this plan");
+  }
+
+  // CHECKING IS PLAN EXIST BY ID
+  const isPlan = await Plan.findById(planId);
+  if (!isPlan) {
+    throw new AppError(StatusCodes.NOT_FOUND, "Plan not found");
+  }
+
+  // PLAN DELETED HERE
+  await Plan.findByIdAndDelete(planId);
+  return null
+}
+
+
+
 export const planServices = {
   createPlanService,
   getPlanService,
-  updatePlanService
+  updatePlanService,
+  deletePlanService
 };
