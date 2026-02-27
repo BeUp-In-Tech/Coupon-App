@@ -5,6 +5,7 @@ import { shopRouter } from '../modules/shop/shop.routes';
 import { categoryRouter } from '../modules/categories/categories.routes';
 import { outletRouter } from '../modules/outlet/outlet.routes';
 import { serviceRouter } from '../modules/service/service.routes';
+import { planRouter } from '../modules/plan/plan.routes';
 
 export const router = Router();
 
@@ -32,6 +33,10 @@ const moduleRoutes = [
    {
     path: '/service',
     route: serviceRouter
+   }, 
+   {
+    path: '/plan',
+    route: planRouter
    }, 
 ];
 
