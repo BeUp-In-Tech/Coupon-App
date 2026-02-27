@@ -170,11 +170,31 @@ const updateService = async (user: JwtPayload, serviceId: string, payload: IServ
   // CHECK IF THE SERVICE EXISTS
   const service = await ServiceModel.findById(serviceId);
   if (!service) {
+    // Delete iamge from cloudinary
+    if (payload.images) {
+      try {
+      await Promise.all(payload.images.map(i => deleteImageFromCLoudinary(i)));
+    } catch (error: any) {
+      console.log("Cloudinary image deletation error: ", error.message)
+    }
+    }
+
+    // Throw Error
     throw new AppError(StatusCodes.NOT_FOUND, "Service not found");
   }
 
   // CHECK IF THE USER IS AUTHORIZED TO UPDATE THE SERVICE
   if (service.user.toString() !== user.userId) {
+    // Delete iamge from cloudinary
+    if (payload.images) {
+      try {
+      await Promise.all(payload.images.map(i => deleteImageFromCLoudinary(i)));
+    } catch (error: any) {
+      console.log("Cloudinary image deletation error: ", error.message)
+    }
+    }
+
+    // Throw Error
     throw new AppError(StatusCodes.UNAUTHORIZED, "You are not authorized to update this service");
   }
 
@@ -183,6 +203,14 @@ const updateService = async (user: JwtPayload, serviceId: string, payload: IServ
   const currentTime = Date.now();
   const timeDifference = currentTime - serviceCreationTime;
   if (timeDifference > 30 * 60 * 1000) { // 30 minutes
+    // Delete iamge from cloudinary
+    if (payload.images) {
+      try {
+      await Promise.all(payload.images.map(i => deleteImageFromCLoudinary(i)));
+    } catch (error: any) {
+      console.log("Cloudinary image deletation error: ", error.message)
+    }
+    }
     throw new AppError(StatusCodes.FORBIDDEN, "You can only update the service within 30 minutes of creation");
   }
 
