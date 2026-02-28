@@ -2,13 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ServiceModel } from './service.model';
 import mongoose, { Types } from 'mongoose';
-import {  CouponType, IService } from './service.interface';
+import { IService } from './service.interface';
 import { JwtPayload } from 'jsonwebtoken';
 import { Shop } from '../shop/shop.model';
 import { Role } from '../user/user.interface';
 import AppError from '../../errorHelpers/AppError';
 import StatusCodes from 'http-status-codes';
-import env from '../../config/env';
 import { deleteImageFromCLoudinary } from '../../config/cloudinary.config';
 
 
@@ -52,33 +51,8 @@ const createService = async (params: {
 
   const images = (payload.images || []).map((u) => u.trim()).filter(Boolean);
 
-
   // 4) Single-write QR auto generation (generate _id first)
   const _id = new Types.ObjectId();
-
- 
-  // Handle Coupon_code, Upc_code, qr_code here
-  let coupon: Record<string, string> = {};
-
-  if (payload.couponType === CouponType.COUPON_CODE) {
-    coupon.coupon_code = payload.coupon.coupon_code as string;
-  }
-
-  switch (payload.couponType) {
-    case CouponType.COUPON_CODE:
-      coupon.coupon_code = payload.coupon.coupon_code as string;
-      break
-    case CouponType.QR_CODE:
-      coupon.coupon_code = payload.coupon.coupon_code as string;
-      coupon.qr_code = `${env.BACKEND_URL}/api/v1/s/${_id}?type=${CouponType.QR_CODE}`;
-      break
-    case CouponType.UPC_CODE:
-      coupon.coupon_code = payload.coupon.coupon_code as string;
-      coupon.upc_code = payload.coupon.upc_code as string;
-      break
-    default: 
-    coupon = {...payload.coupon }
-  }
 
   // 5) Create
   const finalPayload = {
@@ -94,15 +68,12 @@ const createService = async (params: {
     highlight,
     description: payload.description,
     images,
- 
-    couponType: payload.couponType,
-    coupon
+    coupon: payload.coupon
   };
   const doc = await ServiceModel.create(finalPayload);
 
   return doc;
 }
-
 
 // GET SINGLE SERVICE
 const getSingleService = async (serviceId: string) => {
@@ -113,7 +84,6 @@ const getSingleService = async (serviceId: string) => {
 
   return isServiceExist;
 }
-
 
 // 2. DELETE SERVICE 
 const deleteService = async (user: JwtPayload, serviceId: string) => {
