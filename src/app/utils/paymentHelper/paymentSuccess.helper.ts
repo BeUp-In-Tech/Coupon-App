@@ -5,9 +5,9 @@ import { Promotion } from "../../modules/promotion/promotion.model";
 import { PromotionStatus } from "../../modules/promotion/promotion.interface";
 import { Voucher } from "../../modules/voucher/voucher.model";
 import Stripe from "stripe";
-import { ServiceModel } from "../../modules/service/service.model";
 import AppError from "../../errorHelpers/AppError";
 import { StatusCodes } from "http-status-codes";
+import { DealModel } from "../../modules/service/deal.model";
 
 
 export const paymentSuccessHandler = async (session: Stripe.Checkout.Session) => {
@@ -49,7 +49,7 @@ export const paymentSuccessHandler = async (session: Stripe.Checkout.Session) =>
 
 
             /* ---- ADDED PROMOTION DURATION DIRECTLY IN DEALS OR SERVICE */
-            const service = await ServiceModel.findOne({ _id: promotion.service });
+            const service = await DealModel.findOne({ _id: promotion.deal });
             if (!service) {
               throw new AppError(StatusCodes.NOT_FOUND, `Service not found`);
             }
