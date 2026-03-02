@@ -29,7 +29,8 @@ const createShop = CatchAsync(async (req: Request, res: Response, next: NextFunc
 
 const  getShopDetails = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const shopId = req.query.shopId as  string;
-    const result = await shopServices.getShopDetailsService(shopId);
+    const my_shop = req.query.myId as string;
+    const result = await shopServices.getShopDetailsService(shopId, my_shop);
 
     SendResponse(res, {
         success: true,

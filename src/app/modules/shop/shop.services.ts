@@ -123,17 +123,22 @@ const createShopService = async (
 };
 
 // GET SHOP DETAILS
-const getShopDetailsService = async (shopId: string) => {
-  const _shopId = new Types.ObjectId(shopId);
+const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
 
-  if (!shopId) {
-     throw new AppError(StatusCodes.NOT_FOUND, "Shop not found");
+ 
+  const shopQuery: Record<string, any> = {};
+
+  if (my_shop) {
+    shopQuery.vendor = new Types.ObjectId(my_shop);;
+  }else if(shopId) {
+    shopQuery._id =  new Types.ObjectId(shopId);
   }
+  
 
   // Aggregate shop
   const isShopExist = await Shop.aggregate([
     {
-      $match: {_id: _shopId },
+      $match: shopQuery,
     },
 
     {
