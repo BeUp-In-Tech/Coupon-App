@@ -94,8 +94,7 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
 // 3. GET ME
 const getMeSerevice = async (userId: string) => {
   const getRedisData = await redisClient.get(`user_me:${userId}`);
-  if (getRedisData) {
-    
+  if (getRedisData) {   
     return JSON.parse(getRedisData);
   }
   
@@ -108,6 +107,7 @@ const getMeSerevice = async (userId: string) => {
   const isShopExist = await Shop.findOne({ vendor: _user._id }).lean().select("_id");
   
   const user = {
+    _id: _user._id,
     user_name: _user.user_name,
     email: _user.email,
     isVerified: _user.isVerified,
@@ -116,6 +116,8 @@ const getMeSerevice = async (userId: string) => {
     deviceTokens: _user.deviceTokens,
     isShopCreated: isShopExist ? true : false
   }
+
+  redisClient.del(`user_me:${userId}`);
 
   // Store User into redis
   redisClient.set(`user_me:${userId}`, JSON.stringify(user), {
