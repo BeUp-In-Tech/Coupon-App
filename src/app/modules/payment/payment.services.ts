@@ -16,6 +16,9 @@ import { generateTransactionId } from '../../utils/generateTransactionId';
 import { PaymentProvider, PaymentStatus } from './payment.interface';
 import env from '../../config/env';
 import Stripe from 'stripe';
+import { Request } from 'express';
+import { paymentSuccessHandler } from '../../utils/paymentHelper/paymentSuccess.helper';
+import { paymentFailedHandler } from '../../utils/paymentHelper/paymentFailed.helper';
 
 // HELPER INTERFACE
 
@@ -39,7 +42,6 @@ const stripePay = async (
     ServiceModel.findById(serviceId),
     Plan.findById(planId),
     Shop.findOne({ vendor: user.userId }),
-
   ]);
 
   if (!service) throw new AppError(StatusCodes.NOT_FOUND, 'Service not found');
@@ -159,7 +161,7 @@ const stripePay = async (
       },
     ],
     mode: 'payment' as const,
-    expires_at: Math.floor(Date.now()/1000) + (30 * 60),
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     metadata: {
       payment: payment[0]._id.toString(),
       promotion: promotion[0]._id.toString(),
@@ -172,16 +174,32 @@ const stripePay = async (
   } as Stripe.Checkout.SessionCreateParams;
 
   const idempotencyKey = {
-    idempotencyKey: payment[0]._id.toString()
-  }
-
+    idempotencyKey: payment[0]._id.toString(),
+  };
 
   // STRIPE CHECKOUT
   try {
-    const stripeSession = await stripe.checkout.sessions.create(stripePayload, idempotencyKey);
+    const stripeSession = await stripe.checkout.sessions.create(
+      stripePayload,
+      idempotencyKey
+    );
+
+    // UPDATE STRIPE SESSION ID FOR GET FROM WEBHOOK
+    const updatePayment = PaymentModel.updateOne(
+      { _id: payment[0]._id },
+      { stripe_session_id: stripeSession.id }
+    );
+
+    const updatePromotion = Promotion.updateOne(
+      { _id: promotion[0]._id },
+      { stripe_session_id: stripeSession.id }
+    );
+
+    await Promise.all([updatePayment, updatePromotion]);
+
     return { checkout_url: stripeSession.url };
   } catch (error: any) {
-    // IF ERROR MAKE DB UPDATE WITH FAILED AND CANCELED 
+    // IF ERROR MAKE DB UPDATE WITH FAILED AND CANCELED
     await PaymentModel.updateOne(
       { _id: payment[0]._id },
       { payment_status: PaymentStatus.FAILED }
@@ -196,7 +214,45 @@ const stripePay = async (
   }
 };
 
+// WEBHOOK HANDLER
+const stripeWebhookHandling = async (req: Request) => {
+  const signature = req.headers['stripe-signature'] as string;
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      signature,
+      env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err: any) {
+    throw new AppError(StatusCodes.BAD_REQUEST, `Webhook Error: ${err.message} `);
+  }
+
+  /* ---------- HANDLE EVENTS ---------- */
+  switch (event.type) {
+    /* PAYMENT SUCCESS */
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await paymentSuccessHandler(session);
+      break;
+    }
+
+    /* PAYMENT FAILED / EXPIRED */
+    case 'checkout.session.expired':
+    case 'payment_intent.payment_failed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await paymentFailedHandler(session);
+      break;
+    }
+  }
+
+  return { received: true };
+};
+
 // EXPORT FUNCTION
 export const paymentService = {
   stripePay,
+  stripeWebhookHandling,
 };

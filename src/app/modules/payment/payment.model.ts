@@ -60,6 +60,14 @@ const PaymentSchema = new Schema<IPayment>(
       type: String,
       trim: true,
     },
+    stripe_session_id: {
+      type: String,
+      trim: true
+    },
+    payment_intent_id: {
+      type: String,
+      trim: true
+    }
   },
   {
     timestamps: true,

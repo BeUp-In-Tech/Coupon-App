@@ -7,6 +7,7 @@ import { paymentService } from "./payment.services";
 import { JwtPayload } from 'jsonwebtoken';
 
 
+// STRIPE CHECKOUT
 const stripePayment = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
     const {serviceId, planId, voucher} = req.body;
@@ -20,7 +21,20 @@ const stripePayment = CatchAsync(async (req: Request, res: Response, next: NextF
     })
 })
 
+// STRIPE WEBHOOK
+const stripeWebhook = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+ 
+    const result = await paymentService.stripeWebhookHandling(req);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.CREATED,
+        message: "Webhook listend",
+        data: result
+    })
+})
+
 
 export const paymentControllers = {
-    stripePayment
+    stripePayment,
+    stripeWebhook
 }

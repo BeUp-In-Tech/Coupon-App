@@ -26,4 +26,6 @@ export interface IPayment {
     provider: PaymentProvider;
     payment_status: PaymentStatus;
     invoice_url?: string;
+    stripe_session_id?: string;
+    payment_intent_id?: string;
 }
