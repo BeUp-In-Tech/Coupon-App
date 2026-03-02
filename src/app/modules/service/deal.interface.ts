@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 
-export interface IService {
+export interface IDeal {
     shop: Types.ObjectId;
     category: Types.ObjectId;
     user: Types.ObjectId;
@@ -18,4 +18,5 @@ export interface IService {
     coupon: string;
     total_views?: number;
     total_impression?: number;
+    createdAt?: Date;
 }   

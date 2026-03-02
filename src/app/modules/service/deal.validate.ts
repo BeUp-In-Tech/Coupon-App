@@ -4,7 +4,7 @@ import { z } from 'zod';
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');
 
 // CREATE ZOD SCHEMA
-export const CreateServiceZodSchema = z
+export const CreateDealZodSchema = z
   .object({
     shop: objectId,
     category: objectId,
@@ -23,7 +23,7 @@ export const CreateServiceZodSchema = z
   });
 
 // UPDATE ZOD SCHEMA
-export const UpdateServiceZodSchema = z.object({
+export const UpdateDealZodSchema = z.object({
   title: z.string("Title must be string").min(2).max(120).trim().optional(),
   reguler_price: z.number("Reguler price must be number").nonnegative().optional(),
   discount: z.number("Discount must be number").min(0).max(100).optional(),

@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { validateRequest } from '../../middlewares/validateRequest';
 import {
-  CreateServiceZodSchema,
-  UpdateServiceZodSchema,
-} from './service.validate';
+  CreateDealZodSchema,
+  UpdateDealZodSchema,
+} from './deal.validate';
 import { multerUpload } from '../../config/multer.config';
 import { checkAuth } from '../../middlewares/auth.middleware';
 import { Role } from '../user/user.interface';
-import { serviceControllers } from './service.controllers';
+import { dealsControllers } from './deal.controllers';
+
 
 const router = Router();
 
@@ -16,33 +17,36 @@ router.post(
   '/',
   checkAuth(Role.VENDOR),
   multerUpload.array('files'),
-  validateRequest(CreateServiceZodSchema),
-  serviceControllers.createService
+  validateRequest(CreateDealZodSchema),
+  dealsControllers.createDeals
 );
 
 // GET MY SERVICE
-router.get('/my_deals', checkAuth(Role.VENDOR), serviceControllers.getMyDeals);
+router.get('/my_deals', checkAuth(Role.VENDOR), dealsControllers.getMyDeals);
 
 // GET SINGLE SERVICE
 router.get(
   '/:serviceId',
-  serviceControllers.getSingleService
+  dealsControllers.getSingleDeals
 );
 
 // DELETE SERVICE
 router.delete(
   '/:serviceId',
   checkAuth(Role.VENDOR),
-  serviceControllers.deleteService
+  dealsControllers.deleteDeals
 );
 // UPDATE SERVICE
 router.patch(
   '/:serviceId',
   checkAuth(Role.VENDOR),
   multerUpload.array('files'),
-  validateRequest(UpdateServiceZodSchema),
-  serviceControllers.updateService
+  validateRequest(UpdateDealZodSchema),
+  dealsControllers.updateSingleDeals
 );
+
+// GET ALL DEALS
+router.get('/deals', dealsControllers.getAllDeals);
 
 
 

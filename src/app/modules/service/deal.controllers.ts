@@ -3,12 +3,12 @@ import { NextFunction, Request, Response } from "express";
 import { CatchAsync } from "../../utils/CatchAsync";
 import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
-import { servicesLayer } from "./service.services";
+import { servicesLayer } from "./deal.services";
 import { JwtPayload } from "jsonwebtoken";
 
 
 // CREATE SHOP
-const createService = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const createDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
 
     const payload = {
@@ -18,7 +18,7 @@ const createService = CatchAsync(async (req: Request, res: Response, next: NextF
         : [],
     };
 
-    const result = await servicesLayer.createService({ user, payload });
+    const result = await servicesLayer.createDealsService({ user, payload });
 
     SendResponse(res, {
         success: true,
@@ -29,11 +29,10 @@ const createService = CatchAsync(async (req: Request, res: Response, next: NextF
 });
 
 
-
 // GET SINGLE SERVICE
-const getSingleService = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const getSingleDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const serviceId = req.params.serviceId as string;
-    const result = await servicesLayer.getSingleService( serviceId );
+    const result = await servicesLayer.getSingleDealsService( serviceId );
 
     SendResponse(res, {
         success: true,
@@ -45,11 +44,11 @@ const getSingleService = CatchAsync(async (req: Request, res: Response, next: Ne
 
 
 // DELETE SHOP
-const deleteService = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const deleteDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
     const serviceId = req.params.serviceId as string;
 
-    const result = await servicesLayer.deleteService( user, serviceId );
+    const result = await servicesLayer.deleteDealsService( user, serviceId );
 
     SendResponse(res, {
         success: true,
@@ -61,7 +60,7 @@ const deleteService = CatchAsync(async (req: Request, res: Response, next: NextF
 
 
 // DELETE SHOP
-const updateService = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const updateSingleDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
     const serviceId = req.params.serviceId as string;
     const payload = {
@@ -71,7 +70,7 @@ const updateService = CatchAsync(async (req: Request, res: Response, next: NextF
         : [],
     };
     
-    const result = await servicesLayer.updateService( user, serviceId, payload);
+    const result = await servicesLayer.updateDealsService( user, serviceId, payload);
 
     SendResponse(res, {
         success: true,
@@ -85,7 +84,7 @@ const updateService = CatchAsync(async (req: Request, res: Response, next: NextF
 // DELETE SHOP
 const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
-    const result = await servicesLayer.getMyService( user.userId );
+    const result = await servicesLayer.getMyDealsService( user.userId );
 
     SendResponse(res, {
         success: true,
@@ -96,11 +95,28 @@ const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunc
 });
 
 
+// GET ALL DEALS
+const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const query = req.query as Record<string, string>;
+    const lng = Number(req.params.lng) as number;
+    const lat = Number(req.params.lat) as number;
+    const result = await servicesLayer.getAllDealsService(lng, lat, query);
 
-export const serviceControllers = {
-    createService,
-    deleteService,
-    updateService,
-    getSingleService,
-    getMyDeals
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Fetched all deals",
+        data: result
+    })
+});
+
+
+
+export const dealsControllers = {
+    createDeals,
+    getSingleDeals,
+    deleteDeals,
+    updateSingleDeals,
+    getMyDeals,
+    getAllDeals
 }

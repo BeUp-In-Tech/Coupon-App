@@ -1,7 +1,8 @@
 import mongoose, { Schema} from "mongoose";
+import { IDeal } from "./deal.interface";
 
 
-const ServiceSchema = new Schema(
+const dealSchema = new Schema<IDeal>(
   {
     shop: { type: Schema.Types.ObjectId, ref: "shop", required: true, index: true },
     user: { type: Schema.Types.ObjectId, ref: "user", required: true },
@@ -53,11 +54,11 @@ const ServiceSchema = new Schema(
 );
 
 // Indexes you’ll use often
-ServiceSchema.index({ shop: 1, category: 1 });
-ServiceSchema.index({ category: 1, promotedUntil: -1 });
+dealSchema.index({ shop: 1, category: 1 });
+dealSchema.index({ category: 1, promotedUntil: -1 });
 
 // Optional: make coupon codes unique per shop (only when exists)
-ServiceSchema.index(
+dealSchema.index(
   { shop: 1, "coupon.coupon_code": 1 },
   {
     unique: true,
@@ -66,4 +67,4 @@ ServiceSchema.index(
 );
 
 
-export const ServiceModel = mongoose.model("service", ServiceSchema);
+export const DealModel = mongoose.model<IDeal>("deal", dealSchema);
