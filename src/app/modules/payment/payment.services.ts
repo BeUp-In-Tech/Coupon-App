@@ -58,7 +58,7 @@ const stripePay = async (
     shop: shop._id,
     deal: dealId,
     status: {
-      $in: [PromotionStatus.ACTIVE, PromotionStatus.PENDING],
+      $in: [PromotionStatus.ACTIVE],
     },
   });
 
