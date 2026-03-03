@@ -18,7 +18,7 @@ import Stripe from 'stripe';
 import { Request } from 'express';
 import { paymentSuccessHandler } from '../../utils/paymentHelper/paymentSuccess.helper';
 import { paymentFailedHandler } from '../../utils/paymentHelper/paymentFailed.helper';
-import { DealModel } from '../service/deal.model';
+import { DealModel } from '../deal/deal.model';
 
 // HELPER INTERFACE
 
