@@ -17,7 +17,7 @@ const updateOutletService = async (outletId: string, userId: string, payload: Pa
     }
 
 
-    if (userId !== shop._id.toString()) {
+    if (userId !== shop.vendor.toString()) {
         throw new AppError(StatusCodes.FORBIDDEN, "Access denied, you can't update")
     }
 
@@ -31,6 +31,10 @@ const updateOutletService = async (outletId: string, userId: string, payload: Pa
 
 
     const updateOutlet = await OutletModel.findOneAndUpdate({_id: outletId, shop: shop._id}, payload, {runValidators: true, new: true });
+
+    if (!updateOutlet) {
+        throw new AppError(StatusCodes.BAD_REQUEST, "Outlet not found");
+    }
 
     return updateOutlet
     
