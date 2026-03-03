@@ -13,6 +13,7 @@ import { Category } from '../categories/categories.model';
 import { QueryBuilder } from '../../utils/QueryBuilder';
 import { OutletModel } from '../outlet/outlet.model';
 import { asynMultipleImageDelete } from '../../utils/singleImageDeleteAsync';
+import { ShopApproval } from '../shop/shop.interface';
 
 // 1. CREATE SERVICE
 const createDealsService = async (params: {
@@ -32,6 +33,8 @@ const createDealsService = async (params: {
 
   // IS SHOP EXIST BY USER ID
   const isShopExist = await Shop.findOne({ vendor: user.userId });
+
+  // THROW ERROR IF SHOP IS NOT FOUND
   if (!isShopExist) {
     if (payload.images) {
       await asynMultipleImageDelete(payload.images);
@@ -39,7 +42,32 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.NOT_FOUND,
-      "Shop not found or you don't have permission."
+      "No relatable shop found to upload this deal. Create a shop first."
+    );
+  }
+
+  // THROW ERROR IF SHOP ALREADY REJECTED
+  if (isShopExist.shop_approval === ShopApproval.REJECTED) {
+    if (payload.images) {
+      await asynMultipleImageDelete(payload.images);
+    }
+
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      "Your shop was rejected"
+    );
+  }
+
+
+  // THROW ERROR IF SHOP IS NOT APPROVED YET
+  if (isShopExist.shop_approval !== ShopApproval.APPROVED) {
+    if (payload.images) {
+      await asynMultipleImageDelete(payload.images);
+    }
+
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "Wait for shop approval"
     );
   }
 
@@ -93,17 +121,90 @@ const createDealsService = async (params: {
   return doc;
 };
 
-// GET SINGLE SERVICE
-const getSingleDealsService = async (serviceId: string) => {
-  const isServiceExist = await DealModel.findById(serviceId).lean();
-  if (!isServiceExist) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Service not found');
-  }
+// 2. VIEW SERVICE
+const getSingleDealsService = async (_dealId: string) => {
+  const dealId = new mongoose.Types.ObjectId(_dealId);
 
-  return isServiceExist;
+  const deal = await DealModel.aggregate([
+    {
+      $match: { _id: dealId }
+    },
+
+    {
+      $lookup: {
+        from: "categories",
+        localField: "category",
+        foreignField: "_id",
+        as: "category"
+      }
+    },
+
+     {
+      $unwind: "$category"
+    },
+
+    {
+      $lookup: {
+        from: "shops",
+        localField: "shop",
+        foreignField: "_id",
+        as: "shop"
+      }
+    },
+
+    {
+      $unwind: "$shop"
+    },
+
+    {
+      $project: {
+        "category.updatedAt": 0,
+        "category.createdAt": 0,
+        "shop.vendor": 0,
+        "shop.description": 0,
+        "shop.business_phone": 0,
+        "shop.business_email": 0,
+        "shop.business_logo": 0,
+        "shop.updatedAt": 0,
+        "shop.createdAt": 0,
+        "shop.__v": 0,
+      }
+    },
+
+    {
+      $lookup: {
+        from: "outlets",
+        localField: "available_in_outlet",
+        foreignField: "_id",
+        as: "available_outlet"
+      }
+    },
+
+    {
+      $project: {
+        available_in_outlet: 0,
+        activePromotion: 0,
+        "available_outlet.shop": 0,
+        "available_outlet.zip_code": 0,
+        "available_outlet.createdAt": 0,
+        "available_outlet.updatedAt": 0,
+        "available_outlet.__v": 0,
+      }
+    }, 
+
+])
+  
+const final_deal = deal[0];
+
+
+if (final_deal.length === 0) {
+  throw new AppError(StatusCodes.NOT_FOUND, "No deals found");
+}
+
+  return final_deal;
 };
 
-// 2. DELETE SERVICE
+// 3. DELETE SERVICE
 const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
   if (user.role !== Role.VENDOR) {
     throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can delete');
@@ -152,7 +253,7 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
   return null;
 };
 
-// 3. UPDATE SERVICE
+// 4. UPDATE SERVICE
 /**
  * @param user - Authenticated user (vendor)
  * @param serviceId - The service to update
@@ -309,7 +410,7 @@ const updateDealsService = async (
   return updatedService;
 };
 
-// 4. GET MY SERVICE
+// 5. GET MY SERVICE
 const getMyDealsService = async (
   userId: string,
   query: Record<string, string>
@@ -332,8 +433,8 @@ const getMyDealsService = async (
   };
 };
 
-// 5. GET ALL SERVICES
-const getAllDealsService = async (
+// 6. GET NEAREST DEALS
+const getNearestDealsService = async (
   userLng: number,
   userLat: number,
   query: Record<string, string>
@@ -452,5 +553,5 @@ export const servicesLayer = {
   updateDealsService,
   getSingleDealsService,
   getMyDealsService,
-  getAllDealsService,
+  getNearestDealsService,
 };

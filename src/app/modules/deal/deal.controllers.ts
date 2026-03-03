@@ -29,10 +29,10 @@ const createDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
 });
 
 
-// GET SINGLE SERVICE
+// VIEW DEAL
 const getSingleDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const serviceId = req.params.serviceId as string;
-    const result = await servicesLayer.getSingleDealsService( serviceId );
+    const dealId = req.params.serviceId as string;
+    const result = await servicesLayer.getSingleDealsService( dealId );
 
     SendResponse(res, {
         success: true,
@@ -97,11 +97,11 @@ const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunc
 
 
 // GET ALL DEALS
-const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const getNearestDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const query = req.query as Record<string, string>;
     const lng = Number(req.params.lng) as number;
     const lat = Number(req.params.lat) as number;
-    const result = await servicesLayer.getAllDealsService(lng, lat, query);
+    const result = await servicesLayer.getNearestDealsService(lng, lat, query);
 
     SendResponse(res, {
         success: true,
@@ -119,5 +119,5 @@ export const dealsControllers = {
     deleteDeals,
     updateSingleDeals,
     getMyDeals,
-    getAllDeals
+    getNearestDeals
 }

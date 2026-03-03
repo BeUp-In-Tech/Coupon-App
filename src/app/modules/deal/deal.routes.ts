@@ -21,8 +21,8 @@ router.post(
   dealsControllers.createDeals
 );
 
-// GET ALL DEALS
-router.get('/deals/:lng/:lat', dealsControllers.getAllDeals);
+// GET NEARESST DEALS
+router.get('/deals/:lng/:lat', dealsControllers.getNearestDeals);
 
 // GET MY SERVICE
 router.get('/my_deals', checkAuth(Role.VENDOR), dealsControllers.getMyDeals);
