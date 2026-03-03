@@ -7,7 +7,7 @@ import { Voucher } from "../../modules/voucher/voucher.model";
 import Stripe from "stripe";
 import AppError from "../../errorHelpers/AppError";
 import { StatusCodes } from "http-status-codes";
-import { DealModel } from "../../modules/service/deal.model";
+import { DealModel } from "../../modules/deal/deal.model";
 
 
 export const paymentSuccessHandler = async (session: Stripe.Checkout.Session) => {
