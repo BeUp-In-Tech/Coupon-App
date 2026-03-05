@@ -43,4 +43,6 @@ const ShopSchema = new Schema<IShop>(
   { timestamps: true }
 );
 
+ 
+
 export const Shop = model<IShop>('shop', ShopSchema);

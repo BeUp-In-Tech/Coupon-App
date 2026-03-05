@@ -42,7 +42,7 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.NOT_FOUND,
-      "No relatable shop found to upload this deal. Create a shop first."
+      'No relatable shop found to upload this deal. Create a shop first.'
     );
   }
 
@@ -52,12 +52,8 @@ const createDealsService = async (params: {
       await asynMultipleImageDelete(payload.images);
     }
 
-    throw new AppError(
-      StatusCodes.FORBIDDEN,
-      "Your shop was rejected"
-    );
+    throw new AppError(StatusCodes.FORBIDDEN, 'Your shop was rejected');
   }
-
 
   // THROW ERROR IF SHOP IS NOT APPROVED YET
   if (isShopExist.shop_approval !== ShopApproval.APPROVED) {
@@ -65,10 +61,7 @@ const createDealsService = async (params: {
       await asynMultipleImageDelete(payload.images);
     }
 
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      "Wait for shop approval"
-    );
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Wait for shop approval');
   }
 
   // IS CATEGORY EXIST
@@ -126,90 +119,87 @@ const getSingleDealsService = async (_dealId: string) => {
   const dealId = new mongoose.Types.ObjectId(_dealId);
 
   const addView = await DealModel.findByIdAndUpdate(
-  { _id: dealId },
-  { $inc: { total_views: 1 } }
-);
+    { _id: dealId },
+    { $inc: { total_views: 1 } }
+  );
 
-if (!addView) {
-  throw new AppError (StatusCodes.NOT_FOUND, "Deal not found");
-}
+  if (!addView) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+  }
 
   const deal = await DealModel.aggregate([
     {
-      $match: { _id: dealId }
+      $match: { _id: dealId },
     },
 
     {
       $lookup: {
-        from: "categories",
-        localField: "category",
-        foreignField: "_id",
-        as: "category"
-      }
+        from: 'categories',
+        localField: 'category',
+        foreignField: '_id',
+        as: 'category',
+      },
     },
 
-     {
-      $unwind: "$category"
+    {
+      $unwind: '$category',
     },
 
     {
       $lookup: {
-        from: "shops",
-        localField: "shop",
-        foreignField: "_id",
-        as: "shop"
-      }
+        from: 'shops',
+        localField: 'shop',
+        foreignField: '_id',
+        as: 'shop',
+      },
     },
 
     {
-      $unwind: "$shop"
+      $unwind: '$shop',
     },
 
     {
       $project: {
-        "category.updatedAt": 0,
-        "category.createdAt": 0,
-        "shop.vendor": 0,
-        "shop.description": 0,
-        "shop.business_phone": 0,
-        "shop.business_email": 0,
-        "shop.business_logo": 0,
-        "shop.updatedAt": 0,
-        "shop.createdAt": 0,
-        "shop.__v": 0,
-      }
+        'category.updatedAt': 0,
+        'category.createdAt': 0,
+        'shop.vendor': 0,
+        'shop.description': 0,
+        'shop.business_phone': 0,
+        'shop.business_email': 0,
+        'shop.business_logo': 0,
+        'shop.updatedAt': 0,
+        'shop.createdAt': 0,
+        'shop.__v': 0,
+      },
     },
 
     {
       $lookup: {
-        from: "outlets",
-        localField: "available_in_outlet",
-        foreignField: "_id",
-        as: "available_outlet"
-      }
+        from: 'outlets',
+        localField: 'available_in_outlet',
+        foreignField: '_id',
+        as: 'available_outlet',
+      },
     },
 
     {
       $project: {
         available_in_outlet: 0,
         activePromotion: 0,
-        "available_outlet.shop": 0,
-        "available_outlet.zip_code": 0,
-        "available_outlet.createdAt": 0,
-        "available_outlet.updatedAt": 0,
-        "available_outlet.__v": 0,
-      }
-    }
+        'available_outlet.shop': 0,
+        'available_outlet.zip_code': 0,
+        'available_outlet.createdAt': 0,
+        'available_outlet.updatedAt': 0,
+        'available_outlet.__v': 0,
+      },
+    },
+  ]);
 
-])
-  
-const final_deal = deal[0];
+  const final_deal = deal[0];
 
-
-if (final_deal.length === 0) {
-  throw new AppError(StatusCodes.NOT_FOUND, "No deals found");
-}
-
+  if (final_deal.length === 0) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'No deals found');
+  }
 
   return final_deal;
 };
@@ -554,14 +544,170 @@ const getNearestDealsService = async (
     },
   ];
 
-  return OutletModel.aggregate(pipeline);
+  // FETCH DEALS
+  const nearestDealsPromise = OutletModel.aggregate(pipeline);
+
+  // TOTAL PROMOTED DEALS COUNT
+  const totalPromotedDocPromise = DealModel.countDocuments({
+    isPromoted: true,
+    promotedUntil: { $gte: new Date() },
+  });
+
+  // RESOLVE ALL PROMISE PARALALLY
+  const [nearestDeals, totalPromotedDoc] = await Promise.all([
+    nearestDealsPromise,
+    totalPromotedDocPromise,
+  ]);
+
+  // CREATE META DATA
+  const meta = {
+    page,
+    limit,
+    total: totalPromotedDoc,
+    totalPages: Math.ceil(totalPromotedDoc / limit),
+  };
+
+  return {
+    meta,
+    deals: nearestDeals,
+  };
 };
 
-export const servicesLayer = {
+// 7. GET ALL DEALS
+const getAllDealsService = async (
+  userLng: number,
+  userLat: number,
+  query: Record<string, string>
+) => {
+  const searchTerm = query.searchTerm || '';
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  // DEALS QUERY
+  const dealsPromise = OutletModel.aggregate([
+    // STAGE 1: SEARCH NEAREST DEALS
+    {
+      $geoNear: {
+        near: {
+          type: 'Point',
+          coordinates: [Number(userLng), Number(userLat)],
+        },
+        distanceField: 'distance',
+        spherical: true,
+        key: 'location',
+        query: { isActive: true },
+      },
+    },
+
+    // STAGE 2: JOIN WITH DEALS
+    {
+      $lookup: {
+        from: 'deals',
+        localField: '_id',
+        foreignField: 'available_in_outlet',
+        as: 'deal',
+      },
+    },
+
+    {
+      $unwind: '$deal',
+    },
+
+    // STAGE 3: SEARCH WITH SEARCH KEYWORD
+    {
+      $match: {
+        $or: [
+          { 'deal.title': { $regex: searchTerm, $options: 'i' } },
+          { 'deal.description': { $regex: searchTerm, $options: 'i' } },
+          { zip_code: { $regex: searchTerm, $options: 'i' } },
+        ],
+      },
+    },
+
+    {
+      $sort: { distance: 1 },
+    },
+
+    // STAGE 4: JOIN WITH SHOP FOR SHOP DETAILS
+    {
+      $lookup: {
+        from: 'shops',
+        localField: 'shop',
+        foreignField: '_id',
+        as: 'shop',
+      },
+    },
+
+    {
+      $unwind: '$shop',
+    },
+
+    // STAGE 5: FETCH ONLY PROMOTED DEALS
+    {
+      $match: {
+        $and: [
+          { 'deal.isPromoted': true },
+          { 'deal.promotedUntil': { $gte: new Date() } },
+        ],
+      },
+    },
+
+    // STAGE 6: FINAL PROJECTION
+    {
+      $project: {
+        'shop.business_logo': 1,
+        'shop.business_name': 1,
+        distance: 1,
+        'deal.title': 1,
+        'deal.reguler_price': 1,
+        'deal.discount': 1,
+        'deal.isPromoted': 1,
+        'deal.promotedUntil': 1,
+        'deal.images': 1,
+      },
+    },
+
+    // PAGINATE
+    {
+      $skip: skip,
+    },
+
+    {
+      $limit: limit,
+    },
+  ]);
+
+  // TOTAL PROMOTED DEALS COUNT
+  const totalPromotedDocPromise = DealModel.countDocuments({
+    isPromoted: true,
+    promotedUntil: { $gte: new Date() },
+  });
+
+  // RESOLVE ALL PROMISE HERE
+  const [deals, totalPromotedDoc] = await Promise.all([
+    dealsPromise,
+    totalPromotedDocPromise,
+  ]);
+
+  // CREATE META
+  const meta = {
+    page,
+    limit,
+    total: totalPromotedDoc,
+    totalPages: Math.ceil(totalPromotedDoc / limit),
+  };
+
+  // RETURN FINAL OUTPUT
+  return { meta, deals };
+};
+
+export const dealsServices = {
   createDealsService,
   deleteDealsService,
   updateDealsService,
   getSingleDealsService,
   getMyDealsService,
   getNearestDealsService,
+  getAllDealsService,
 };

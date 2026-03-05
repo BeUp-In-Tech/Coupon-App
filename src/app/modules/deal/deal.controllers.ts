@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import { CatchAsync } from "../../utils/CatchAsync";
 import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
-import { servicesLayer } from "./deal.services";
+import { dealsServices } from "./deal.services";
 import { JwtPayload } from "jsonwebtoken";
 
 
@@ -18,7 +18,7 @@ const createDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
         : [],
     };
 
-    const result = await servicesLayer.createDealsService({ user, payload });
+    const result = await dealsServices.createDealsService({ user, payload });
 
     SendResponse(res, {
         success: true,
@@ -32,7 +32,7 @@ const createDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
 // VIEW DEAL
 const getSingleDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const dealId = req.params.serviceId as string;
-    const result = await servicesLayer.getSingleDealsService( dealId );
+    const result = await dealsServices.getSingleDealsService( dealId );
 
     SendResponse(res, {
         success: true,
@@ -48,7 +48,7 @@ const deleteDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
     const user = req.user as JwtPayload;
     const serviceId = req.params.serviceId as string;
 
-    const result = await servicesLayer.deleteDealsService( user, serviceId );
+    const result = await dealsServices.deleteDealsService( user, serviceId );
 
     SendResponse(res, {
         success: true,
@@ -70,7 +70,7 @@ const updateSingleDeals = CatchAsync(async (req: Request, res: Response, next: N
         : [],
     };
     
-    const result = await servicesLayer.updateDealsService( user, serviceId, payload);
+    const result = await dealsServices.updateDealsService( user, serviceId, payload);
 
     SendResponse(res, {
         success: true,
@@ -85,7 +85,7 @@ const updateSingleDeals = CatchAsync(async (req: Request, res: Response, next: N
 const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
     const query = req.query as Record<string, string>;
-    const result = await servicesLayer.getMyDealsService( user.userId, query );
+    const result = await dealsServices.getMyDealsService( user.userId, query );
 
     SendResponse(res, {
         success: true,
@@ -96,12 +96,12 @@ const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunc
 });
 
 
-// GET ALL DEALS
+// GET NEAREST DEALS
 const getNearestDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const query = req.query as Record<string, string>;
     const lng = Number(req.params.lng) as number;
     const lat = Number(req.params.lat) as number;
-    const result = await servicesLayer.getNearestDealsService(lng, lat, query);
+    const result = await dealsServices.getNearestDealsService(lng, lat, query);
 
     SendResponse(res, {
         success: true,
@@ -111,6 +111,22 @@ const getNearestDeals = CatchAsync(async (req: Request, res: Response, next: Nex
     })
 });
 
+// GET ALL DEALS
+const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const query = req.query as Record<string, string>;
+    const lng = Number(req.params.lng);
+    const lat = Number(req.params.lat);
+    
+    const result = await dealsServices.getAllDealsService(lng, lat, query);
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "All deals fetched",
+        data: result
+    })
+})
+
 
 
 export const dealsControllers = {
@@ -119,5 +135,6 @@ export const dealsControllers = {
     deleteDeals,
     updateSingleDeals,
     getMyDeals,
-    getNearestDeals
+    getNearestDeals,
+    getAllDeals
 }

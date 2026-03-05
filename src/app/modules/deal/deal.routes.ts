@@ -21,6 +21,9 @@ router.post(
   dealsControllers.createDeals
 );
 
+// GET ALL DEALS
+router.get('/deals/all_deals/:lng/:lat', dealsControllers.getAllDeals);
+
 // GET NEARESST DEALS
 router.get('/deals/:lng/:lat', dealsControllers.getNearestDeals);
 
@@ -39,6 +42,7 @@ router.delete(
   checkAuth(Role.VENDOR),
   dealsControllers.deleteDeals
 );
+
 // UPDATE SERVICE
 router.patch(
   '/:serviceId',

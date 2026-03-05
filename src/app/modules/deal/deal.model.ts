@@ -79,7 +79,7 @@ const dealSchema = new Schema<IDeal>(
 
     // Promotion (you included these)
     isPromoted: { type: Boolean, default: false, index: true },
-    promotedUntil: { type: Date, default: null, index: true },
+    promotedUntil: { type: Date, default: new Date(), index: true },
 
     coupon: { type: String },
 
@@ -93,7 +93,7 @@ const dealSchema = new Schema<IDeal>(
 dealSchema.index({ shop: 1, category: 1 });
 dealSchema.index({ category: 1, promotedUntil: -1 });
 
-// Optional: make coupon codes unique per shop (only when exists)
+// make coupon codes unique per shop (only when exists)
 dealSchema.index(
   { shop: 1, coupon: 1 },
   {
@@ -101,5 +101,11 @@ dealSchema.index(
     partialFilterExpression: { coupon: { $type: 'string' } },
   }
 );
+
+// TEXT SEARCH
+dealSchema.index({
+  title: 'text',
+  description: 'text'
+});
 
 export const DealModel = mongoose.model<IDeal>('deal', dealSchema);
