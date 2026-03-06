@@ -729,6 +729,21 @@ const getAllDealsService = async (
   return { meta, deals };
 };
 
+// 8. GET USERS SAVED DEALS BY IDS
+const getDealsByIdsService = async (ids: string[], query: Record<string, string>) => {
+  const objectIds = ids.map(id => new Types.ObjectId(id));
+
+  const queryBuilder = new QueryBuilder(DealModel.find({ _id: {$in: objectIds }}), query);
+  const deals = await queryBuilder.filter().select().sort().join().build();
+
+  const meta = await queryBuilder.getMeta();
+
+  return {
+    meta,
+    deals
+  };
+}
+
 export const dealsServices = {
   createDealsService,
   deleteDealsService,
@@ -737,4 +752,5 @@ export const dealsServices = {
   getMyDealsService,
   getNearestDealsService,
   getAllDealsService,
+  getDealsByIdsService
 };

@@ -127,6 +127,22 @@ const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
     })
 })
 
+// GET USERS SAVED DEALS
+const getDealsByIds = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const idString = req.query.ids as string;
+    const ids = idString.split(",");
+    const query = req.query as Record<string, string>;
+    
+    const result = await dealsServices.getDealsByIdsService(ids, query);
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Save deals fetched",
+        data: result
+    })
+})
+
 
 
 export const dealsControllers = {
@@ -136,5 +152,6 @@ export const dealsControllers = {
     updateSingleDeals,
     getMyDeals,
     getNearestDeals,
-    getAllDeals
+    getAllDeals,
+    getDealsByIds
 }
