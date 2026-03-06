@@ -439,6 +439,7 @@ const getNearestDealsService = async (
   userLat: number,
   query: Record<string, string>
 ) => {
+
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const skip = (page - 1) * limit;
@@ -559,6 +560,19 @@ const getNearestDealsService = async (
     totalPromotedDocPromise,
   ]);
 
+
+   // EXTRACT IDS
+  const ids = nearestDeals.map((doc) => doc._id.toString());
+  const uniqueIds = [...new Set(ids)];
+
+  // INCREASE IMPRESSION OF LOADED DATA
+  setImmediate(async () => {
+    await DealModel.updateMany(
+      { _id: { $in: uniqueIds } },
+      { $inc: { total_impression: 1 } }
+    );
+  });
+
   // CREATE META DATA
   const meta = {
     page,
@@ -659,6 +673,7 @@ const getAllDealsService = async (
         'shop.business_logo': 1,
         'shop.business_name': 1,
         distance: 1,
+        'deal._id': 1,
         'deal.title': 1,
         'deal.reguler_price': 1,
         'deal.discount': 1,
@@ -689,6 +704,18 @@ const getAllDealsService = async (
     dealsPromise,
     totalPromotedDocPromise,
   ]);
+
+  // EXTRACT IDS
+  const ids = deals.map((doc) => doc.deal._id.toString());
+  const uniqueIds = [...new Set(ids)];
+
+  // INCREASE IMPRESSION OF LOADED DATA
+  setImmediate(async () => {
+    await DealModel.updateMany(
+      { _id: { $in: uniqueIds } },
+      { $inc: { total_impression: 1 } }
+    );
+  });
 
   // CREATE META
   const meta = {
