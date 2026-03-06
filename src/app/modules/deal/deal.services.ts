@@ -731,17 +731,20 @@ const getAllDealsService = async (
 
 // 8. GET USERS SAVED DEALS BY IDS
 const getDealsByIdsService = async (ids: string[], query: Record<string, string>) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
+
   const objectIds = ids.map(id => new Types.ObjectId(id));
 
-  const queryBuilder = new QueryBuilder(DealModel.find({ _id: {$in: objectIds }}), query);
-  const deals = await queryBuilder.filter().select().sort().join().build();
+const deals = await DealModel.find({ _id: {$in: objectIds }}).limit(limit).skip(skip);
+ 
+  
 
-  const meta = await queryBuilder.getMeta();
+ 
 
-  return {
-    meta,
-    deals
-  };
+  return deals;
+  
 }
 
 export const dealsServices = {
