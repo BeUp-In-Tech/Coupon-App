@@ -59,11 +59,6 @@ const createDealsService = async (params: {
     );
   }
 
-  console.log(
-    'result: ',
-    !payload.coupon && !payload.coupon_option.qr && payload.coupon_option.upc
-  );
-  console.log('I am passed');
 
   if (
     !payload.coupon &&
