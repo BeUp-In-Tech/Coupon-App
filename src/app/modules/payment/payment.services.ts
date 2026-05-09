@@ -28,6 +28,7 @@ import { redisClient } from '../../config/redis.config';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import { anyCurrencyToUSD } from '../../utils/currencyConverter';
 import { importX509, jwtVerify } from 'jose';
+import { QueryBuilder } from '../../utils/QueryBuilder';
 
 // 1. Validate Android
 async function validateAndroid(productId: string, purchaseToken: string) {
@@ -642,10 +643,35 @@ const stripeWebhookHandling = async (req: Request) => {
   return { received: true };
 };
 
+
+// ================================== TRANSACTION HISTORY ===============================
+const getTransactionHistory = async (user: JwtPayload, query: Record<string, string>) => {
+  const queryBuilder = new QueryBuilder(PaymentModel.find({ user: user.userId }), query);
+
+  const transactions = await queryBuilder
+    .filter()
+    .search(['transaction_id']) // Assuming these fields are populated in the PaymentModel
+    .select()
+    .join() // You can implement this method to populate related fields like deal and shop
+    .sort()
+    .paginate()
+    .build();
+  
+  const total = await PaymentModel.countDocuments({ user: user.userId });
+  const meta = await queryBuilder.getMeta();
+  meta.total = total;
+
+
+  return { meta, transactions };
+};
+
+
+
 // EXPORT FUNCTION
 export const paymentService = {
   stripePay,
   stripeWebhookHandling,
   googleInAppPurchase,
   appleInAppPurchase,
+  getTransactionHistory
 };

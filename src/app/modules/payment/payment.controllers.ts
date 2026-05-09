@@ -29,7 +29,6 @@ const googleInAppPurchase = CatchAsync(async (req: Request, res: Response, next:
     })
 })
 
-
 // STRIPE CHECKOUT
 const stripePayment = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
@@ -57,9 +56,24 @@ const stripeWebhook = CatchAsync(async (req: Request, res: Response, next: NextF
 })
 
 
+// GET TRANSACTION HISTORY
+const getTransactionHistory = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const query = req.query as Record<string, string>;
+    const result = await paymentService.getTransactionHistory(user, query);
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Transaction history fetched",
+        data: result
+    })
+})
+
+// EXPORT CONTROLLERS
 export const paymentControllers = {
     stripePayment,
     stripeWebhook,
     googleInAppPurchase,
-    appleInAppPurchase
+    appleInAppPurchase,
+    getTransactionHistory
 }
