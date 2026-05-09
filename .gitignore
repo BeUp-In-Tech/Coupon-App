@@ -4,3 +4,4 @@ dist
 .env.prod
 .vscode
 .idea
+src/app/modules/test
