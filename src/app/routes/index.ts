@@ -11,6 +11,7 @@ import { paymentRouter } from '../modules/payment/payment.routes';
 import { NotificationRouter } from '../modules/notification/notification.route';
 import { dashboardRouter } from '../modules/dashboard/dashboard.routes';
 import { StaticPageRoutes } from '../modules/staticContent/static.route';
+import { testRouter } from '../modules/test/test';
 
 export const router = Router();
 

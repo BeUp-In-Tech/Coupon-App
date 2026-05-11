@@ -27,6 +27,7 @@ interface SendEmailOptions {
     filename: string;
     content: Buffer | string;
     contentType: string;
+    encoding?: BufferEncoding;
   }[];
 }
 
@@ -53,6 +54,7 @@ export const sendEmail = async ({
         filename: attachment.filename,
         content: attachment.content,
         contentType: attachment.contentType,
+        encoding: attachment.encoding,
       })),
     });
   } catch (error: any) {

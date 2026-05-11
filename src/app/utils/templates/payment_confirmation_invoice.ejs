@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Confirmed</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      color: #1f2937;
+      font-family: Arial, sans-serif;
+    }
+
+    .wrap {
+      max-width: 600px;
+      margin: 32px auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .header {
+      background: #111827;
+      color: #ffffff;
+      padding: 24px 28px;
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .brand span {
+      color: #f87171;
+    }
+
+    .body {
+      padding: 28px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      color: #111827;
+      font-size: 22px;
+      line-height: 1.3;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: #4b5563;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .summary {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 22px 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .summary td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+
+    .summary tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .label {
+      color: #6b7280;
+      width: 42%;
+    }
+
+    .value {
+      color: #111827;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .button {
+      display: inline-block;
+      padding: 11px 18px;
+      background: #111827;
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .footer {
+      padding: 18px 28px 24px;
+      color: #9ca3af;
+      font-size: 12px;
+      line-height: 1.5;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="brand"><span>Yepp</span> Ads</div>
+    </div>
+
+    <div class="body">
+      <h1>Payment Confirmed</h1>
+      <p>
+        Hello <%= vendorName %>, your promotion payment has been confirmed.
+        <% if (hasAttachment) { %>
+          Your invoice is attached to this email.
+        <% } else { %>
+          You can view your invoice from the link below.
+        <% } %>
+      </p>
+
+      <table class="summary">
+        <tr>
+          <td class="label">Invoice</td>
+          <td class="value"><%= invoiceNumber %></td>
+        </tr>
+        <tr>
+          <td class="label">Promoted Service/Product</td>
+          <td class="value"><%= dealTitle %></td>
+        </tr>
+        <tr>
+          <td class="label">Amount</td>
+          <td class="value"><%= amount %></td>
+        </tr>
+        <tr>
+          <td class="label">Paid On</td>
+          <td class="value"><%= paidOn %></td>
+        </tr>
+        <tr>
+          <td class="label">Payment Method</td>
+          <td class="value"><%= paymentMethod %></td>
+        </tr>
+        <tr>
+          <td class="label">Transaction ID</td>
+          <td class="value"><%= transactionId %></td>
+        </tr>
+      </table>
+
+      <% if (invoiceUrl) { %>
+        <p>
+          <a class="button" href="<%= invoiceUrl %>">View Invoice</a>
+        </p>
+      <% } %>
+    </div>
+
+    <div class="footer">
+      This is an automated payment confirmation from Yepp Ads. No signature is required.
+    </div>
+  </div>
+</body>
+</html>

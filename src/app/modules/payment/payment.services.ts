@@ -29,6 +29,11 @@ import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import { anyCurrencyToUSD } from '../../utils/currencyConverter';
 import { importX509, jwtVerify } from 'jose';
 import { QueryBuilder } from '../../utils/QueryBuilder';
+import {
+  addInvoiceGenerationJob,
+  IInvoiceGenerationJobData,
+} from '../../queue/job/invoice.job';
+import { buildVendorInvoiceGenerationPayload } from '../../utils/invoice/vendorInvoicePayload.utility';
 
 // 1. Validate Android
 async function validateAndroid(productId: string, purchaseToken: string) {
@@ -187,6 +192,7 @@ const appleInAppPurchase = async (receipt: any) => {
 
     const session = await mongoose.startSession();
     let promotion: any;
+    let invoiceGenerationPayload: IInvoiceGenerationJobData | null = null;
     try {
       session.startTransaction();
 
@@ -212,7 +218,7 @@ const appleInAppPurchase = async (receipt: any) => {
         { session }
       );
 
-      await PaymentModel.create(
+      const payment = await PaymentModel.create(
         [
           {
             _id: payment_id,
@@ -235,6 +241,14 @@ const appleInAppPurchase = async (receipt: any) => {
       getDeal.activePromotion = promotion[0]._id;
       await getDeal.save({ session });
 
+      invoiceGenerationPayload = await buildVendorInvoiceGenerationPayload({
+        payment: payment[0],
+        deal: getDeal,
+        paidAt: now,
+        paymentMethod: 'Apple Pay',
+        dbSession: session,
+      });
+
       await session.commitTransaction();
 
       // ADD QUEUE JOB SCHEDULE
@@ -244,17 +258,26 @@ const appleInAppPurchase = async (receipt: any) => {
       console.log('[APPLE_IAP_FAIL]');
 
       // REMOVE REDIS CACHE KEY
+      const invoicePayload = invoiceGenerationPayload;
       setImmediate(async () => {
-        await redisClient.del(`shop:${getDeal.shop.toString()}`);
-        await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total cache invalidate
-        await redisClient.del(`last_one_year_revenue_trend`); // last one year revenue trend cached invalidate (dashboard api)
-        await invalidateAllMachineryCache('machinery:all:*'); // vendor stats cache invalidate (dashboard)
-        await invalidateAllMachineryCache('all_vendors_dashboard:*'); // vendor stats cache invalidate (dashboard)
-        await invalidateAllMachineryCache('latest_transaction:*'); // latest transaction list cache invalidate (dashboard)
-        await invalidateAllMachineryCache('recent_deals:*'); // recent deals list (dashboard)
-        await invalidateAllMachineryCache(
-          `my_deals-userId:${getDeal.user.toString()}:*`
-        ); // get my deals cache invalidate (deal.service.ts)
+        try {
+          await redisClient.del(`shop:${getDeal.shop.toString()}`);
+          await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total cache invalidate
+          await redisClient.del(`last_one_year_revenue_trend`); // last one year revenue trend cached invalidate (dashboard api)
+          await invalidateAllMachineryCache('machinery:all:*'); // vendor stats cache invalidate (dashboard)
+          await invalidateAllMachineryCache('all_vendors_dashboard:*'); // vendor stats cache invalidate (dashboard)
+          await invalidateAllMachineryCache('latest_transaction:*'); // latest transaction list cache invalidate (dashboard)
+          await invalidateAllMachineryCache('recent_deals:*'); // recent deals list (dashboard)
+          await invalidateAllMachineryCache(
+            `my_deals-userId:${getDeal.user.toString()}:*`
+          ); // get my deals cache invalidate (deal.service.ts)
+        } catch {
+          //
+        }
+
+        if (invoicePayload) {
+          await addInvoiceGenerationJob(invoicePayload);
+        }
       });
 
     } catch (error: any) {
@@ -317,6 +340,7 @@ const googleInAppPurchase = async (payload: any) => {
 
     const session = await mongoose.startSession();
     let promotion: any;
+    let invoiceGenerationPayload: IInvoiceGenerationJobData | null = null;
     try {
       session.startTransaction();
 
@@ -339,7 +363,7 @@ const googleInAppPurchase = async (payload: any) => {
         { session }
       );
 
-      await PaymentModel.create(
+      const payment = await PaymentModel.create(
         [
           {
             _id: payment_id,
@@ -362,23 +386,40 @@ const googleInAppPurchase = async (payload: any) => {
       getDeal.activePromotion = promotion[0]._id;
       await getDeal.save({ session });
 
+      invoiceGenerationPayload = await buildVendorInvoiceGenerationPayload({
+        payment: payment[0],
+        deal: getDeal,
+        paidAt: now,
+        paymentMethod: 'Google Pay',
+        dbSession: session,
+      });
+
       await session.commitTransaction();
 
       // ADD QUEUE JOB SCHEDULE
       scheduleDealJobs(getDeal);
 
       // REMOVE REDIS CACHE KEY
+      const invoicePayload = invoiceGenerationPayload;
       setImmediate(async () => {
-        await redisClient.del(`shop:${getDeal.shop.toString()}`);
-        await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total cache invalidate
-        await redisClient.del(`last_one_year_revenue_trend`); // last one year revenue trend cached invalidate (dashboard api)
-        await invalidateAllMachineryCache('machinery:all:*'); // vendor stats cache invalidate (dashboard)
-        await invalidateAllMachineryCache('all_vendors_dashboard:*'); // vendor stats cache invalidate (dashboard)
-        await invalidateAllMachineryCache('recent_deals:*'); // recent deals list (dashboard)
-        await invalidateAllMachineryCache('latest_transaction:*'); // latest transaction list cache invalidate (dashboard)
-        await invalidateAllMachineryCache(
-          `my_deals-userId:${getDeal.user.toString()}:*`
-        ); // get my deals cache invalidate (deal.service.ts)
+        try {
+          await redisClient.del(`shop:${getDeal.shop.toString()}`);
+          await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total cache invalidate
+          await redisClient.del(`last_one_year_revenue_trend`); // last one year revenue trend cached invalidate (dashboard api)
+          await invalidateAllMachineryCache('machinery:all:*'); // vendor stats cache invalidate (dashboard)
+          await invalidateAllMachineryCache('all_vendors_dashboard:*'); // vendor stats cache invalidate (dashboard)
+          await invalidateAllMachineryCache('recent_deals:*'); // recent deals list (dashboard)
+          await invalidateAllMachineryCache('latest_transaction:*'); // latest transaction list cache invalidate (dashboard)
+          await invalidateAllMachineryCache(
+            `my_deals-userId:${getDeal.user.toString()}:*`
+          ); // get my deals cache invalidate (deal.service.ts)
+        } catch {
+          //
+        }
+
+        if (invoicePayload) {
+          await addInvoiceGenerationJob(invoicePayload);
+        }
       });
     } catch (error: any) {
       console.log('Deal promotion error from In App Purchase: ', error.message);
