@@ -420,38 +420,6 @@ const updateDealsService = async (
     );
   }
 
-  // ENSURE THE SERVICE CAN ONLY BE UPDATED WITHIN 30 MINUTES OF CREATION
-  const serviceCreationTime = new Date(deal.createdAt as Date).getTime();
-  const currentTime = Date.now();
-  const timeDifference = currentTime - serviceCreationTime;
-  if (timeDifference > 30 * 60 * 1000 && deal.isPromoted) {
-    // 30 minutes
-    // Delete image from cloudinary
-    setImmediate(async () => {
-      // Delete image from cloudinary
-      if (payload.images) {
-        try {
-          await addImageDeleteJob(payload.images);
-
-          if (payload.coupon_option.qr) {
-            await addImageDeleteJob([payload.coupon_option.qr]);
-          }
-
-          if (payload.coupon_option.upc) {
-            await addImageDeleteJob([payload.coupon_option.upc]);
-          }
-        } catch (error: any) {
-          console.log('Cloudinary image deletion error: ', error.message);
-        }
-      }
-    });
-
-    // THROW ERROR
-    throw new AppError(
-      StatusCodes.FORBIDDEN,
-      'You can only update this deal within 30 minutes of creation'
-    );
-  }
 
   // INITIALIZE THE ARRAY TO HOLD THE UPDATED IMAGES
   let updatedImages: string[] = [...deal.images];
