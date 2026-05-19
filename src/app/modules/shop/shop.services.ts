@@ -17,7 +17,6 @@ import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 
-
 // Custom interface
 interface ShopCreatePayload {
   shop: IShop;
@@ -34,7 +33,9 @@ const createShopService = async (
   user: JwtPayload,
   payload: ShopCreatePayload
 ) => {
-  if (!payload.shop.business_logo) throw new Error('business_logo missing'); // controller bug catch
+  if (!payload.shop.business_logo) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'business_logo missing');
+  }
 
   const isUser = await User.findById(user.userId);
   if (!isUser) {
@@ -66,7 +67,10 @@ const createShopService = async (
     }
 
     // THROW Error
-    throw new Error('Shop already exists for this vendor');
+    throw new AppError(
+      StatusCodes.CONFLICT,
+      'Shop already exists for this vendor'
+    );
   }
 
   const adminUser = await User.findOne({ email: env.ADMIN_MAIL })
@@ -88,7 +92,7 @@ const createShopService = async (
           business_phone: payload.shop.business_phone,
           business_logo: payload.shop.business_logo,
           description: payload.shop.description.trim(),
-          website: payload.shop.website?.trim()
+          website: payload.shop.website?.trim(),
         },
       ],
       { session }
@@ -111,16 +115,14 @@ const createShopService = async (
       await OutletModel.insertMany(outlets, { session, ordered: true });
     }
 
-    
     // REMOVE CACHE (DASHBOARD API CACHE)
     await invalidateAllMachineryCache('all_vendors_dashboard:*'); // recent vendors stats
 
-    
     // SESSION END
     await session.commitTransaction();
     session.endSession();
 
-  await redisClient.del(`user_me:${vendorId}`);
+    await redisClient.del(`user_me:${vendorId}`);
 
     // NOTIFY ADMIN ABOUT NEW SHOP APPROVAL REQUEST
     if (adminUser?._id) {
@@ -159,7 +161,7 @@ const createShopService = async (
         }
       });
     }
-    
+
     return {
       shop: shopDoc,
       outlets_created: outlets.length,
@@ -170,7 +172,10 @@ const createShopService = async (
 
     // Duplicate key handling (unique index errors)
     if (err?.code === 11000) {
-      throw new Error(`Duplicate key: ${JSON.stringify(err.keyValue)}`);
+      throw new AppError(
+        StatusCodes.CONFLICT,
+        `Duplicate key: ${JSON.stringify(err.keyValue)}`
+      );
     }
 
     throw err;
@@ -193,7 +198,6 @@ const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   }
 
   const shopQuery: Record<string, any> = {};
-  
 
   if (my_shop) {
     shopQuery.vendor = new Types.ObjectId(my_shop);
@@ -202,37 +206,35 @@ const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   }
 
   // Aggregate shop
- 
+
   const isShopExist = await Shop.aggregate([
-  {
-    $match: shopQuery,
-  },
-  {
-    $lookup: {
-      from: 'outlets',
-      localField: '_id',
-      foreignField: 'shop',
-      as: 'outlets',
+    {
+      $match: shopQuery,
     },
-  },
-  {
-    $lookup: {
-      from: 'deals',
-      let: { shop: '$_id' },
-      pipeline: [
-        { $match: { $expr: { $eq: ['$shop', '$$shop'] } } },
-        { $match: { isPromoted: true, promotedUntil: { $gte: new Date() } } }
-      ],
-      as: 'deals',
+    {
+      $lookup: {
+        from: 'outlets',
+        localField: '_id',
+        foreignField: 'shop',
+        as: 'outlets',
+      },
     },
+    {
+      $lookup: {
+        from: 'deals',
+        let: { shop: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$shop', '$$shop'] } } },
+          { $match: { isPromoted: true, promotedUntil: { $gte: new Date() } } },
+        ],
+        as: 'deals',
+      },
+    },
+  ]);
+
+  if (isShopExist.length <= 0) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found!');
   }
-]);
-
-
-if (isShopExist.length <=0) {
-  throw new AppError(StatusCodes.NOT_FOUND, "Shop not found!");
-}
-
 
   // STORE DATA IN REDIS
   redisClient.set(shopCacheKey, JSON.stringify(isShopExist[0]), {
@@ -271,7 +273,7 @@ const updateShopService = async (
   const shop = await Shop.findById(shopId).select('business_logo');
   if (!shop) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
-  }  
+  }
 
   // 4. build controlled update object
   const updateData: Record<string, any> = {};
@@ -303,13 +305,11 @@ const updateShopService = async (
     updateData.shop_approval = payload.shop_approval;
   }
 
-
   // 5. If have image, delete previous one
   if (payload.business_logo) {
     updateData.business_logo = payload.business_logo;
   }
 
-  
   // 6. prevent empty update
   if (
     Object.keys(updateData).length === 0 &&
@@ -346,9 +346,6 @@ const updateShopService = async (
       await addImageDeleteJob([shop.business_logo]);
     }
   });
-
-
-
 
   //==================================================== BULLMQ JOB PROCESSING================================
   // IF SHOP APPROVAL 'APPROVED'
@@ -410,7 +407,6 @@ const updateShopService = async (
       removeOnComplete: true,
     });
 
-
     // AFTER APPROVE SHOP CACHE INVALIDATE
     await redisClient.del(`shop:${shopOwner._id}`);
   }
@@ -429,7 +425,7 @@ const updateShopService = async (
       entityId: shopId,
       webUrl: `${env.FRONTEND_URL}`,
       deepLink: `${env.DEEP_LINK}`,
-    }
+    };
 
     // SEND EMAIL TO QUEUE
     await notificationQueue.add('sendNotification', notificationPayload, {
@@ -441,8 +437,6 @@ const updateShopService = async (
       removeOnComplete: true,
       removeOnFail: 1000,
     });
-
-
 
     // ==================SEND EMAIL===============
     const shopOwner = await User.findOne({ _id: updatedShop.vendor });
@@ -477,7 +471,6 @@ const updateShopService = async (
       removeOnComplete: true,
     });
 
-
     // AFTER APPROVE SHOP CACHE INVALIDATE
     await redisClient.del(`shop:${shopOwner._id}`);
   }
@@ -486,7 +479,7 @@ const updateShopService = async (
   await redisClient.del(`shop:${userId}`);
   await redisClient.del(`shop:${shopId}`);
   await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total
-  await invalidateAllMachineryCache("recent_vendors:"); // dashboard recent vendor stat
+  await invalidateAllMachineryCache('recent_vendors:'); // dashboard recent vendor stat
   await invalidateAllMachineryCache('all_vendors_dashboard:*'); // dashboard vendors stat
 
   return updatedShop;
@@ -565,10 +558,7 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
     throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
   }
 
-  const deals = await DealModel.find(
-    { shop: vendorShop._id },
-    { _id: 1 }
-  );
+  const deals = await DealModel.find({ shop: vendorShop._id }, { _id: 1 });
 
   const dealIds = deals.map((d) => d._id);
 
@@ -587,33 +577,33 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
     },
     {
       $project: {
-        year: { $year: "$createdAt" },
-        month: { $month: "$createdAt" },
+        year: { $year: '$createdAt' },
+        month: { $month: '$createdAt' },
         type: 1,
       },
     },
     {
       $group: {
         _id: {
-          year: "$year",
-          month: "$month",
+          year: '$year',
+          month: '$month',
         },
         views: {
           $sum: {
-            $cond: [{ $eq: ["$type", "view"] }, 1, 0],
+            $cond: [{ $eq: ['$type', 'view'] }, 1, 0],
           },
         },
         impressions: {
           $sum: {
-            $cond: [{ $eq: ["$type", "impression"] }, 1, 0],
+            $cond: [{ $eq: ['$type', 'impression'] }, 1, 0],
           },
         },
       },
     },
     {
       $sort: {
-        "_id.year": 1,
-        "_id.month": 1,
+        '_id.year': 1,
+        '_id.month': 1,
       },
     },
   ]);
@@ -627,9 +617,7 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
     result[y] = [];
 
     for (let m = 1; m <= 12; m++) {
-      const data = stats.find(
-        (s) => s._id.year === y && s._id.month === m
-      );
+      const data = stats.find((s) => s._id.year === y && s._id.month === m);
 
       result[y].push({
         month: m,
@@ -642,12 +630,10 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
   return result;
 };
 
-
 export const shopServices = {
   createShopService,
   getShopDetailsService,
   updateShopService,
   getDealAnalyticsService,
-  getPrevious3YearsMonthlyAnalytics
+  getPrevious3YearsMonthlyAnalytics,
 };
-
