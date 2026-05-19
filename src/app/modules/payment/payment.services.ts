@@ -18,7 +18,10 @@ import env from '../../config/env';
 import Stripe from 'stripe';
 import { Request } from 'express';
 import { paymentSuccessHandler } from '../../utils/paymentHelper/paymentSuccess.helper';
-import { paymentFailedHandler } from '../../utils/paymentHelper/paymentFailed.helper';
+import {
+  paymentFailedHandler,
+  paymentIntentFailedHandler,
+} from '../../utils/paymentHelper/paymentFailed.helper';
 import { DealModel } from '../deal/deal.model';
 import { dealHandleQueue } from '../../queue/index.queue';
 import { JobName } from '../../queue/worker/deal.worker';
@@ -34,6 +37,13 @@ import {
   IInvoiceGenerationJobData,
 } from '../../queue/job/invoice.job';
 import { buildVendorInvoiceGenerationPayload } from '../../utils/invoice/vendorInvoicePayload.utility';
+
+const getStripeObjectId = (
+  value: string | { id?: string } | null | undefined
+) => {
+  if (!value) return undefined;
+  return typeof value === 'string' ? value : value.id;
+};
 
 // 1. Validate Android
 async function validateAndroid(productId: string, purchaseToken: string) {
@@ -279,7 +289,6 @@ const appleInAppPurchase = async (receipt: any) => {
           await addInvoiceGenerationJob(invoicePayload);
         }
       });
-
     } catch (error: any) {
       console.log('Deal promotion error from In App Purchase: ', error.message);
       await session.abortTransaction();
@@ -557,6 +566,14 @@ const stripePay = async (
   /* ---------- STRIPE SESSION ---------- */
   const totalAmountCents = Math.round(final_price * 100);
 
+  const stripeMetadata = {
+    payment: payment[0]._id.toString(),
+    promotion: promotion[0]._id.toString(),
+    deal: dealId.toString(),
+    voucher_id: voucher_payload.voucher_id?.toString() ?? '',
+    voucher_code: voucher_payload.voucher ?? '',
+  };
+
   const stripePayload = {
     payment_method_types: ['card'] as const,
     line_items: [
@@ -574,12 +591,9 @@ const stripePay = async (
     ],
     mode: 'payment' as const,
     expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    metadata: {
-      payment: payment[0]._id.toString(),
-      promotion: promotion[0]._id.toString(),
-      deal: dealId.toString(),
-      voucher_id: voucher_payload.voucher_id?.toString() ?? '',
-      voucher_code: voucher_payload.voucher ?? '',
+    metadata: stripeMetadata,
+    payment_intent_data: {
+      metadata: stripeMetadata,
     },
     success_url: `${env.FRONTEND_URL}/payment_success?tr_id=${payment[0].transaction_id}&deal_id=${dealId.toString()}`,
     cancel_url: `${env.FRONTEND_URL}/payment_cancel?tr_id=${payment[0].transaction_id}&deal_id=${dealId.toString()}`,
@@ -596,10 +610,15 @@ const stripePay = async (
       idempotencyKey
     );
 
+    const paymentIntentId = getStripeObjectId(stripeSession.payment_intent);
+
     // UPDATE STRIPE SESSION ID FOR GET FROM WEBHOOK
     const updatePayment = PaymentModel.updateOne(
       { _id: payment[0]._id },
-      { stripe_session_id: stripeSession.id }
+      {
+        stripe_session_id: stripeSession.id,
+        ...(paymentIntentId ? { payment_intent_id: paymentIntentId } : {}),
+      }
     );
 
     const updatePromotion = Promotion.updateOne(
@@ -673,10 +692,15 @@ const stripeWebhookHandling = async (req: Request) => {
     }
 
     /* PAYMENT FAILED / EXPIRED */
-    case 'checkout.session.expired':
-    case 'payment_intent.payment_failed': {
+    case 'checkout.session.expired': {
       const session = event.data.object as Stripe.Checkout.Session;
       await paymentFailedHandler(session);
+      break;
+    }
+
+    case 'payment_intent.payment_failed': {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      await paymentIntentFailedHandler(paymentIntent);
       break;
     }
   }
@@ -684,10 +708,15 @@ const stripeWebhookHandling = async (req: Request) => {
   return { received: true };
 };
 
-
 // ================================== TRANSACTION HISTORY ===============================
-const getTransactionHistory = async (user: JwtPayload, query: Record<string, string>) => {
-  const queryBuilder = new QueryBuilder(PaymentModel.find({ user: user.userId }), query);
+const getTransactionHistory = async (
+  user: JwtPayload,
+  query: Record<string, string>
+) => {
+  const queryBuilder = new QueryBuilder(
+    PaymentModel.find({ user: user.userId }),
+    query
+  );
 
   const transactions = await queryBuilder
     .filter()
@@ -697,16 +726,11 @@ const getTransactionHistory = async (user: JwtPayload, query: Record<string, str
     .sort()
     .paginate()
     .build();
-  
-  const total = await PaymentModel.countDocuments({ user: user.userId });
-  const meta = await queryBuilder.getMeta();
-  meta.total = total;
 
+  const meta = await queryBuilder.getMeta();
 
   return { meta, transactions };
 };
-
-
 
 // EXPORT FUNCTION
 export const paymentService = {
@@ -714,5 +738,5 @@ export const paymentService = {
   stripeWebhookHandling,
   googleInAppPurchase,
   appleInAppPurchase,
-  getTransactionHistory
+  getTransactionHistory,
 };
