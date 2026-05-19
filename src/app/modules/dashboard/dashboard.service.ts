@@ -443,6 +443,7 @@ const dealsStats = async (query: Record<string, string>) => {
           {
             $project: {
               title: 1,
+              shop_id: '$shop._id',
               business_name: '$shop.business_name',
               category_name: '$category.category_name',
               views: 1,
