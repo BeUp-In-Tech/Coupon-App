@@ -22,6 +22,13 @@ import { Category } from '../../modules/categories/categories.model';
 import { OutletModel } from '../../modules/outlet/outlet.model';
 import env from '../../config/env';
 
+const getStripeObjectId = (
+  value: string | { id?: string } | null | undefined
+) => {
+  if (!value) return undefined;
+  return typeof value === 'string' ? value : value.id;
+};
+
 export const paymentSuccessHandler = async (
   session: Stripe.Checkout.Session
 ) => {
@@ -50,7 +57,10 @@ export const paymentSuccessHandler = async (
 
     /* ---- UPDATE PAYMENT ---- */
     payment.payment_status = PaymentStatus.PAID;
-    payment.payment_intent_id = session.payment_intent?.toString();
+    const paymentIntentId = getStripeObjectId(session.payment_intent);
+    if (paymentIntentId) {
+      payment.payment_intent_id = paymentIntentId;
+    }
 
     await payment.save({ session: dbSession });
 
@@ -86,14 +96,13 @@ export const paymentSuccessHandler = async (
     if (payment.voucher_applied) {
       await Voucher.updateOne(
         {
-          code: payment.voucher_applied,
+          voucher_code: payment.voucher_applied,
           voucher_limit: { $gt: 0 },
         },
         { $inc: { voucher_limit: -1 } },
         { session: dbSession }
       );
     }
-
 
     // INVOICE GENERATION PREPARATION
     const [shop, vendor, category, outlet] = await Promise.all([
@@ -138,18 +147,14 @@ export const paymentSuccessHandler = async (
       ? moneyFormatter.format(0)
       : `${currency} 0.00`;
     const businessPhone =
-      [
-        shop?.business_phone?.country_code,
-        shop?.business_phone?.phone_number,
-      ]
+      [shop?.business_phone?.country_code, shop?.business_phone?.phone_number]
         .filter(Boolean)
         .join(' ') || 'N/A';
     const businessAddress =
       [outlet?.address, outlet?.zip_code].filter(Boolean).join(', ') || 'N/A';
-    const paymentMethod =
-      session.payment_method_types?.length
-        ? `Stripe (${session.payment_method_types.join(', ')})`
-        : 'Stripe';
+    const paymentMethod = session.payment_method_types?.length
+      ? `Stripe (${session.payment_method_types.join(', ')})`
+      : 'Stripe';
     const invoiceData: InvoiceData = {
       invoiceNumber: `#INV-${payment.transaction_id}`,
       status: 'PAID',
