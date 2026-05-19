@@ -5,7 +5,6 @@ import { notificationWorker } from './worker/notification.worker';
 import { emailSendWorker } from './worker/email_send.worker';
 import { dealHandleWorker } from './worker/deal.worker';
 import { imageDeleteWorker } from './worker/cloudinaryImageDeletion';
-import { bulkMailSender } from './worker/multiple_emails.worker';
 import { invoiceGenerationWorker } from './worker/invoice.worker';
 
 
@@ -24,9 +23,6 @@ const connectQueueDB = async () => {
 
     // EMAIL SEND WORKER
     emailSendWorker();
-
-    // BULL MAIL SENDER
-    bulkMailSender();
     
     // DEAL HANDLE WORKER
     dealHandleWorker();

@@ -6,14 +6,20 @@ import AppError from '../errorHelpers/AppError';
 import path from 'path';
 import ejs from 'ejs';
 
+const emailPort = Number(env.EMAIL_PORT);
+const emailSecure = emailPort === 465;
+
 const transporter = nodemailer.createTransport({
-  secure: false,
+  secure: emailSecure,
   auth: {
     user: env.EMAIL_USER,
     pass: env.EMAIL_PASSWORD,
   },
-  port: Number(env.EMAIL_PORT),
+  port: emailPort,
   host: env.EMAIL_HOST,
+  connectionTimeout: 30_000,
+  greetingTimeout: 30_000,
+  socketTimeout: 60_000,
 });
 
 interface SendEmailOptions {
@@ -37,7 +43,7 @@ export const sendEmail = async ({
   bcc,
   subject,
   templateName,
-  templateData,
+  templateData = {},
   attachments,
 }: SendEmailOptions) => {
   try {

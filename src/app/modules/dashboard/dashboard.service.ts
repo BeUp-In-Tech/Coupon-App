@@ -743,7 +743,7 @@ const sendNotificationAndEmail = async (
 
   // 2. Send Email if enabled
   if (channel.email) {
-    sendBulkEmails(emails, { title, message });
+    await sendBulkEmails(emails, { title, message });
   }
 
   return {
