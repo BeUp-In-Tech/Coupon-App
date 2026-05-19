@@ -2,7 +2,6 @@
 import { Query } from 'mongoose';
 import { excludeField } from '../modules/deal/deal.constant';
 
-
 export class QueryBuilder<T> {
   public queryModel: Query<T[], T>;
   public query: Record<string, string>;
@@ -26,7 +25,7 @@ export class QueryBuilder<T> {
   // Searching
   search(searchableField: string[]): this {
     const searchTerm = this.query.searchTerm || '';
-    
+
     const searchQuery = {
       $or: searchableField.map((field) => ({
         [field]: { $regex: searchTerm, $options: 'i' },
@@ -46,7 +45,6 @@ export class QueryBuilder<T> {
 
   // Field filtering
   select(): this {
-    
     const fields = this.query.fields?.split(',').join(' ') || ''; // ex: "title description price"
 
     this.queryModel = this.queryModel.select(fields);
@@ -65,27 +63,26 @@ export class QueryBuilder<T> {
 
   join(): this {
     const joinQuery = this.query?.join;
-    
+
     if (!joinQuery) {
-        return this;
+      return this;
     }
 
-   const tests = joinQuery.split(",");
+    const tests = joinQuery.split(',');
 
-   tests.forEach((test) => {
-     const [path, fields] = test.split('-');
-     const selectFields = fields ? fields.split('|').join(' ') : '';
-     this.queryModel = this.queryModel.populate({
-       path: path.trim(),
-       select: selectFields,
-     });
-   });
+    tests.forEach((test) => {
+      const [path, fields] = test.split('-');
+      const selectFields = fields ? fields.split('|').join(' ') : '';
+      this.queryModel = this.queryModel.populate({
+        path: path.trim(),
+        select: selectFields,
+      });
+    });
 
+    // query example: shop-business_name|business_logo,category-category_name,category_logo
 
-   // query example: shop-business_name|business_logo,category-category_name,category_logo
-
-   // return
-   return this;
+    // return
+    return this;
   }
 
   // Final build instance
@@ -97,7 +94,8 @@ export class QueryBuilder<T> {
   async getMeta() {
     const page = Number(this.query.page) || 1;
     const limit = Number(this.query.limit) || 10;
-    const totalDocuments = await this.queryModel.model.countDocuments();
+    const filter = this.queryModel.getFilter();
+    const totalDocuments = await this.queryModel.model.countDocuments(filter);
     const totalPage = Math.ceil(totalDocuments / limit);
 
     return {
