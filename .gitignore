@@ -5,3 +5,4 @@ dist
 .vscode
 .idea
 src/app/modules/test
+src/app/utils/templates/test_email.ejs
