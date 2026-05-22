@@ -90,7 +90,7 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
   });
 
   // INVALID OR CLEAR OLD DATA WHEN USER UPDATE HIS DATA
-  redisClient.del(`user_me:${update?._id}`);
+  await redisClient.del(`user_me:${update?._id}`);
 
   if (payload.user_name) {
     await invalidateAllMachineryCache('all_vendors_dashboard:*');
@@ -127,10 +127,8 @@ const getMeService = async (userId: string) => {
     isShopCreated: isShopExist ? true : false
   }
 
-  redisClient.del(`user_me:${userId}`);
-
   // Store User into redis
-  redisClient.set(`user_me:${userId}`, JSON.stringify(user), {
+  await redisClient.set(`user_me:${userId}`, JSON.stringify(user), {
     EX: 10 * 60 // 10 min
   });
 

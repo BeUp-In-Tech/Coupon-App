@@ -167,7 +167,7 @@ const createDealsService = async (params: {
   const doc = await DealModel.create(finalPayload);
 
   // REMOVE CACHE (DASHBOARD API CACHE)
-  redisClient.del('deals_by_category_stats');
+  await redisClient.del('deals_by_category_stats');
   await invalidateAllMachineryCache('recent_deals:*');
   await invalidateAllMachineryCache('deals_stats:*');
   await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);

@@ -25,7 +25,6 @@ const createStaticPage = async (payload: {
   );
 
   // CACHE INVALIDATE
-  await redisClient.del(`staticPage:all`);
   await invalidateAllMachineryCache('staticPage:*');
 
   return result;
@@ -50,10 +49,12 @@ const getStaticPage = async (slug: string) => {
   // DATABASE QUERY
   const result = await StaticPageModel.findOne({ slug });
 
-  // STORE DATA IN CACHE
-  await redisClient.set(cacheKey, JSON.stringify(result), {
-    EX: 60 * 60 * 24 * 7, // 7 days
-  });
+  // Only cache if the page actually exists — avoid caching null for 7 days
+  if (result) {
+    await redisClient.set(cacheKey, JSON.stringify(result), {
+      EX: 60 * 60 * 24 * 7, // 7 days
+    });
+  }
 
   return result;
 };
@@ -105,7 +106,6 @@ const updateStaticPage = async (
 
   // INVALDATE CACHE
   await invalidateAllMachineryCache('staticPage:*');
-  await redisClient.del(`staticPage:all`);
 
   return result;
 };

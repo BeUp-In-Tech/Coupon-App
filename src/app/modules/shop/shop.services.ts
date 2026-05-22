@@ -237,7 +237,7 @@ const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   }
 
   // STORE DATA IN REDIS
-  redisClient.set(shopCacheKey, JSON.stringify(isShopExist[0]), {
+  await redisClient.set(shopCacheKey, JSON.stringify(isShopExist[0]), {
     EX: 10 * 60,
   }); // Store for 10 min
 
@@ -479,7 +479,7 @@ const updateShopService = async (
   await redisClient.del(`shop:${userId}`);
   await redisClient.del(`shop:${shopId}`);
   await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total
-  await invalidateAllMachineryCache('recent_vendors:'); // dashboard recent vendor stat
+  await invalidateAllMachineryCache('recent_vendors:*'); // dashboard recent vendor stat
   await invalidateAllMachineryCache('all_vendors_dashboard:*'); // dashboard vendors stat
 
   return updatedShop;

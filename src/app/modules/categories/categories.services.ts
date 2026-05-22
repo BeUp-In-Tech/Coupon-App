@@ -41,7 +41,7 @@ const createCategoryService = async (
   const category = await Category.create(payload);
 
   // Clear old redis data
-  redisClient.del(cacheKey);
+  await redisClient.del(cacheKey);
 
   // Return created final data
   return category;
@@ -58,7 +58,7 @@ const getCategoriesService = async (isDeleted: boolean) => {
   const categories = await Category.find({ isDeleted });
 
   // Store data in redis
-  redisClient.set(cacheKey, JSON.stringify(categories), {
+  await redisClient.set(cacheKey, JSON.stringify(categories), {
     EX: 10 * 60, // 10 min
   });
 
@@ -91,7 +91,7 @@ const updateCategoryService = async (
   }
 
   // Clear old redis data
-  redisClient.del(cacheKey);
+  await redisClient.del(cacheKey);
 
   // Return updated data
   return update;
@@ -116,7 +116,7 @@ const deleteCategoryService = async (userId: string, categoryId: string) => {
   );
 
   // Clear old redis data
-  redisClient.del(cacheKey);
+  await redisClient.del(cacheKey);
 
   // Return delete response
   return deleteCategory;
