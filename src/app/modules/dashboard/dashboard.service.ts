@@ -100,7 +100,6 @@ const allVendorsStats = async (query: Record<string, string>) => {
   const field = sort.startsWith('-') ? sort.substring(1) : sort;
   const order = sort.startsWith('-') ? -1 : 1;
   sortObj[field] = order;
-  
 
   // MAKE REDIS KEY
   const cacheKey = `all_vendors_dashboard:${approvalFilter}_${searchTerm}_${page}_${limit}_${sort}`;
@@ -360,7 +359,9 @@ const dealsStats = async (query: Record<string, string>) => {
             $group: {
               _id: null,
               views: { $sum: { $cond: [{ $eq: ['$type', 'view'] }, 1, 0] } },
-              impressions: { $sum: { $cond: [{ $eq: ['$type', 'impression'] }, 1, 0] } },
+              impressions: {
+                $sum: { $cond: [{ $eq: ['$type', 'impression'] }, 1, 0] },
+              },
             },
           },
         ],
@@ -397,14 +398,29 @@ const dealsStats = async (query: Record<string, string>) => {
       $addFields: {
         status: {
           $cond: [
-            { $and: [{ $gt: ['$promotedUntil', new Date()] }, { $eq: ['$isPromoted', true] }] },
+            {
+              $and: [
+                { $gt: ['$promotedUntil', new Date()] },
+                { $eq: ['$isPromoted', true] },
+              ],
+            },
             'Active',
             {
               $cond: [
-                { $and: [{ $eq: ['$isPromoted', false] }, { $lt: ['$promotedUntil', new Date()] }, { $ne: ['$activePromotion', null] }] },
+                {
+                  $and: [
+                    { $eq: ['$isPromoted', false] },
+                    { $lt: ['$promotedUntil', new Date()] },
+                    { $ne: ['$activePromotion', null] },
+                  ],
+                },
                 'Expired',
                 {
-                  $cond: [{ $eq: ['$activePromotion', null] }, 'New', 'Unknown'],
+                  $cond: [
+                    { $eq: ['$activePromotion', null] },
+                    'New',
+                    'Unknown',
+                  ],
                 },
               ],
             },
@@ -450,7 +466,7 @@ const dealsStats = async (query: Record<string, string>) => {
               impressions: 1,
               status: 1,
               expiry: '$promotedUntil',
-              createdAt: 1
+              createdAt: 1,
             },
           },
         ],
@@ -719,7 +735,7 @@ const sendNotificationAndEmail = async (
         body: message,
         type: NotificationType.SYSTEM,
         webUrl: `${env.FRONTEND_URL}/notification`,
-        deepLink: `${env.DEEP_LINK}/notification`,
+        deepLink: `${env.DEEP_LINK}notification`,
         data: {},
       };
 
@@ -734,11 +750,31 @@ const sendNotificationAndEmail = async (
         data: {
           type: NotificationType.SYSTEM,
           webUrl: `${env.FRONTEND_URL}/notification`,
-          deepLink: `${env.DEEP_LINK}/notification`,
+          deepLink: `${env.DEEP_LINK}notification`,
         },
       };
 
-      await admin.messaging().sendEachForMulticast(messagePayload);
+
+      const response = await admin
+        .messaging()
+        .sendEachForMulticast(messagePayload);
+
+      // Remove invalidTokens from MongoDB
+      const invalidTokens: string[] = [];
+
+      response.responses.forEach((resp, index) => {
+        if (!resp.success) {
+          const code = resp.error?.code;
+
+          if (
+            code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/mismatched-credential'
+          ) {
+            invalidTokens.push(messagePayload.tokens[index]);
+          }
+        }
+      });
+
     }
   }
 

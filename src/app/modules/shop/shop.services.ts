@@ -137,7 +137,7 @@ const createShopService = async (
               type: NotificationType.SHOP,
               entityId: shopDoc._id.toString(),
               webUrl: `${env.FRONTEND_URL}/dashboard/admin-vendor`,
-              deepLink: `${env.DEEP_LINK}/dashboard/admin-vendor`,
+              deepLink: `${env.DEEP_LINK}dashboard/admin-vendor`,
               data: {
                 shopId: shopDoc._id.toString(),
                 shopName: payload.shop.business_name.trim(),
@@ -361,7 +361,7 @@ const updateShopService = async (
       type: NotificationType.SHOP,
       entityId: shopId,
       webUrl: `${env.FRONTEND_URL}/create-deal`,
-      deepLink: `${env.DEEP_LINK}/create-deal`,
+      deepLink: `${env.DEEP_LINK}create-deal`,
     };
 
     // SEND EMAIL TO QUEUE
@@ -391,7 +391,7 @@ const updateShopService = async (
         shop_name: updatedShop.business_name,
         entityId: updatedShop._id.toString(),
         approval_date: now,
-        support_mail: env.ADMIN_MAIL,
+        support_mail: env.EMAIL_FROM,
         redirect_url: `${env.FRONTEND_URL}/create-deal`,
       },
     };
@@ -455,7 +455,7 @@ const updateShopService = async (
         shop_name: updatedShop.business_name,
         entityId: updatedShop._id.toString(),
         reviewed_date: now,
-        support_mail: env.ADMIN_MAIL,
+        support_mail: env.EMAIL_FROM,
         redirect_url: `${env.FRONTEND_URL}/create-shop`,
       },
     };

@@ -64,7 +64,7 @@ const dashboardAnalyticsTotal = CatchAsync(async (req: Request, res: Response, n
     SendResponse(res,{
         success: true,
         statusCode: StatusCodes.OK,
-        message: "Dashboard total anaylytics counts fetched successfully",
+        message: "Dashboard total analytics counts fetched successfully",
         data: result
     });
 });
@@ -102,7 +102,7 @@ const sendNotificationAndEmail = CatchAsync(async (req: Request, res: Response, 
     SendResponse(res,{
         success: true,
         statusCode: StatusCodes.OK,
-        message: "Notification and email sentuccessfully",
+        message: "Notification and email sent successfully",
         data: result
     });
 });

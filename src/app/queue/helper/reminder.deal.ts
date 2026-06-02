@@ -23,7 +23,7 @@ export const oneDayReminder = async (dealId: string) => {
       body: `"${deal.title}" will be expire tomorrow. Hurry up!`,
       type: NotificationType.REMINDER,
       webUrl: `${env.FRONTEND_URL}/deal-details/${deal._id}`,
-      deepLink: `${env.DEEP_LINK}/deal-details/${deal._id}`,
+      deepLink: `${env.DEEP_LINK}deal-details/${deal._id}`,
       entityId: deal._id.toString(),
       data: {
         dealId: deal._id.toString(),

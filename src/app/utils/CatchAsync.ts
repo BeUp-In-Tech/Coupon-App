@@ -15,8 +15,6 @@ export const CatchAsync =
     try {
       await fn(req, res, next);
     } catch (error: any) {
-      // eslint-disable-next-line no-console
-      console.log(error.message);
       next(error);
     }
   };
