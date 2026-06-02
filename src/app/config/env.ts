@@ -37,6 +37,7 @@ interface EnvInterfaces {
   EMAIL_FROM: string;
   EMAIL_FROM_NAME: string;
   EMAIL_PASSWORD: string;
+  UNSUBSCRIBE_MAIL: string;
 
   GOOGLE_OAUTH_ID: string;
   GOOGLE_OAUTH_SECRET: string;
@@ -70,7 +71,7 @@ interface EnvInterfaces {
   STRIPE_WEBHOOK_SECRET: string;
 }
 
-const loadEnvVaribles = (): EnvInterfaces => {
+const loadEnvVariables = (): EnvInterfaces => {
   const requireEnvVariables: string[] = [
     'PORT',
     'MONGO_URI',
@@ -107,6 +108,7 @@ const loadEnvVaribles = (): EnvInterfaces => {
     'EMAIL_FROM',
     'EMAIL_FROM_NAME',
     'EMAIL_PASSWORD',
+    'UNSUBSCRIBE_MAIL',
 
     'GOOGLE_OAUTH_SECRET',
     'GOOGLE_OAUTH_ID',
@@ -185,6 +187,7 @@ const loadEnvVaribles = (): EnvInterfaces => {
     EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME as string,
     EMAIL_PORT: process.env.EMAIL_PORT as string,
     EMAIL_HOST: process.env.EMAIL_HOST as string,
+    UNSUBSCRIBE_MAIL: process.env.UNSUBSCRIBE_MAIL as string,
 
     GOOGLE_OAUTH_ID: process.env.GOOGLE_OAUTH_ID as string,
     GOOGLE_OAUTH_SECRET: process.env.GOOGLE_OAUTH_SECRET as string,
@@ -218,4 +221,4 @@ const loadEnvVaribles = (): EnvInterfaces => {
   };
 };
 
-export default loadEnvVaribles();
+export default loadEnvVariables();
