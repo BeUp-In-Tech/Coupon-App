@@ -17,6 +17,11 @@ import helmet from 'helmet';
 
 
 const app = express();
+const allowedOrigins = env.FRONTEND_URL.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.disable('x-powered-by');
 
 app.use(
   helmet({
@@ -36,7 +41,13 @@ app.set('trust proxy', 1);
 // CORS
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   })
@@ -46,8 +57,8 @@ app.use(
 app.use(cookieParser());
 
 // Normal body parsers
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 app.use(safeSanitizeMiddleware);
 
@@ -79,11 +90,14 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 const limiter = rateLimit({
-  windowMs: env.REQUEST_RATE_LIMIT_TIME * 1000 * 10,
+  windowMs: env.REQUEST_RATE_LIMIT_TIME * 60 * 1000,
   max: env.REQUEST_RATE_LIMIT,
+  standardHeaders: true,
+  legacyHeaders: false,
+  statusCode: 429,
   message: {
     success: false,
-    statusCode: 400,
+    statusCode: 429,
     message: 'Too many requests, please try again later.',
   },
 });
