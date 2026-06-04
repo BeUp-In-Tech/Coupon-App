@@ -992,7 +992,7 @@ const getNearestDealsService = async (
 
   // STEP 3: SAVE RESULT TO REDIS (10 min)
   await redisClient.set(cacheKey, JSON.stringify(data), {
-    EX: 600,
+    EX: 180, // 3 min
   });
 
   return data;
@@ -1063,6 +1063,7 @@ const getAllDealsService = async (
           { 'deal.tags': { $regex: searchTerm, $options: 'i' } },
           { 'deal.highlight': { $regex: searchTerm, $options: 'i' } },
           { zip_code: { $regex: searchTerm, $options: 'i' } },
+          { address: { $regex: searchTerm, $options: 'i' } },
         ],
       },
     },
@@ -1165,9 +1166,9 @@ const getDealsByIdsService = async (
 
   // SEND CACHE RESPONSE
   const cacheKey = `saved:${ids.join(',')}-pages:${page}-limit:${limit}`;
-  const getSavedealsCache = await redisClient.get(cacheKey);
-  if (getSavedealsCache) {
-    return JSON.parse(getSavedealsCache);
+  const getSaveDealsCache = await redisClient.get(cacheKey);
+  if (getSaveDealsCache) {
+    return JSON.parse(getSaveDealsCache);
   }
 
   const objectIds = ids.map((id) => new Types.ObjectId(id));

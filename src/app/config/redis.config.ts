@@ -14,9 +14,25 @@ export const redisClient = createClient({
 
 redisClient.on('error', (error: any) => console.log('Redis client error', error));
 
+let redisConnectionPromise: Promise<void> | null = null;
+
 export const connectRedis = async () => {
-  if (!redisClient.isOpen) {
-    await redisClient.connect();
-    console.log('Redis connected');
+  if (redisClient.isReady) {
+    return;
+  }
+
+  if (!redisConnectionPromise && !redisClient.isOpen) {
+    redisConnectionPromise = redisClient
+      .connect()
+      .then(() => {
+        console.log('Redis connected');
+      })
+      .finally(() => {
+        redisConnectionPromise = null;
+      });
+  }
+
+  if (redisConnectionPromise) {
+    await redisConnectionPromise;
   }
 };

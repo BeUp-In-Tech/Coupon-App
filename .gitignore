@@ -4,5 +4,4 @@ dist
 .env.prod
 .vscode
 .idea
-src/app/modules/test
-src/app/utils/templates/test_email.ejs
+firebase.json

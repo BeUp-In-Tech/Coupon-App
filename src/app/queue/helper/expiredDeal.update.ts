@@ -4,8 +4,23 @@ import { Types } from 'mongoose';
 import { DealModel } from '../../modules/deal/deal.model';
 import { Promotion } from '../../modules/promotion/promotion.model';
 import { PromotionStatus } from '../../modules/promotion/promotion.interface';
-import { redisClient } from '../../config/redis.config';
+import { connectRedis, redisClient } from '../../config/redis.config';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+
+const clearDealExpireCache = async (dealUpdate: any) => {
+  try {
+    await connectRedis();
+
+    await redisClient.del(`shop:${dealUpdate.user.toString()}`);
+    await redisClient.del(`shop:${dealUpdate.shop.toString()}`);
+    await invalidateAllMachineryCache('machinery:*');
+    await invalidateAllMachineryCache(
+      `my_deals-userId:${dealUpdate.user.toString()}:*`
+    ); // get my deals cache invalidate (deal.service.ts)
+  } catch (error: any) {
+    console.log('Deal expire cache clear problem: ', error.message);
+  }
+};
 
 export const dealExpireHandle = async (dealId: string) => {
   try {
@@ -45,16 +60,8 @@ export const dealExpireHandle = async (dealId: string) => {
       promotionUpdate.modifiedCount || 0
     );
 
-
-    // CLEAR CHACHE
-   setImmediate(async () => {
-    await redisClient.del(`shop:${dealUpdate.user.toString()}`);
-    await redisClient.del(`shop:${dealUpdate.shop.toString()}`);
-    await invalidateAllMachineryCache("machinery:*");
-    await invalidateAllMachineryCache(`my_deals-userId:${dealUpdate.user.toString()}:*`);// get my deals cache invalidate (deal.service.ts)
-   })
-
-
+    // CLEAR CACHE
+    await clearDealExpireCache(dealUpdate);
   } catch (error: any) {
     console.log(`Deal expire handle problem: `, error.message);
   }
