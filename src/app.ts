@@ -13,9 +13,16 @@ import './app/config/passport.config';
 import { paymentControllers } from './app/modules/payment/payment.controllers';
 import { RedisStore } from 'connect-redis';
 import { redisClient } from './app/config/redis.config';
+import helmet from 'helmet';
 
 
 const app = express();
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // Stripe webhook must stay before express.json()
 app.post(

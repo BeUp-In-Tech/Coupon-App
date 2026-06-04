@@ -479,6 +479,9 @@ const updateShopService = async (
   await redisClient.del(`shop:${userId}`);
   await redisClient.del(`shop:${shopId}`);
   await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total
+  await invalidateAllMachineryCache('machinery:*'); // nearest deals cache
+  await invalidateAllMachineryCache('recent_deals:*'); // dashboard recent deals cache
+  await invalidateAllMachineryCache('saved:*'); // saved deals cache
   await invalidateAllMachineryCache('recent_vendors:*'); // dashboard recent vendor stat
   await invalidateAllMachineryCache('all_vendors_dashboard:*'); // dashboard vendors stat
 

@@ -14,8 +14,7 @@ const strictMultipleImageDelete = async (images: string[]) => {
   }
 };
 
-// NOTIFICATION SEND WORKER
-
+// IMAGE DELETE WORKER HANDLER
 export const imageDeleteWorker = () => {
   const worker = new Worker(
     'imageDeleteQueue',
