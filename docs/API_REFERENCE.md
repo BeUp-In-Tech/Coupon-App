@@ -1,4 +1,4 @@
-# Yepp Marv API Reference
+# Yepp Ads API Reference
 
 Base prefix: `/api/v1` unless noted.
 

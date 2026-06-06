@@ -1,23 +1,25 @@
-# Yepp Marv Backend
+# Yepp Ads Backend
 
-Backend API for the Yepp Marv coupon, deals, vendor, promotion, payment, and notification platform.
+Backend API for the Yepp Ads, deals, vendor, promotion, payment, and notification platform.
 
 The service provides JWT-based authentication, vendor shop management, deal publishing, plan-based promotion payments, dashboard analytics, static CMS content, push notifications, and third-party payment verification.
 
 ## Contents
 
-- [Overview](#overview)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Environment Configuration](#environment-configuration)
-- [Available Scripts](#available-scripts)
-- [API Basics](#api-basics)
-- [Payments and Webhooks](#payments-and-webhooks)
-- [Background Workers](#background-workers)
-- [Operational Notes](#operational-notes)
-- [Security Notes](#security-notes)
-- [Documentation Roadmap](#documentation-roadmap)
+- [Yepp Ads Backend](#yepp-ads-backend)
+  - [Contents](#contents)
+  - [Overview](#overview)
+  - [Tech Stack](#tech-stack)
+  - [Prerequisites](#prerequisites)
+  - [Getting Started](#getting-started)
+  - [Environment Configuration](#environment-configuration)
+  - [Available Scripts](#available-scripts)
+  - [API Basics](#api-basics)
+  - [Payments and Webhooks](#payments-and-webhooks)
+  - [Background Workers](#background-workers)
+  - [Operational Notes](#operational-notes)
+  - [Security Notes](#security-notes)
+  - [Documentation Roadmap](#documentation-roadmap)
 
 ## Overview
 
