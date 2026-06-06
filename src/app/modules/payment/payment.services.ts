@@ -45,6 +45,19 @@ const getStripeObjectId = (
   return typeof value === 'string' ? value : value.id;
 };
 
+const ensureDealCanBePromoted = (deal: {
+  isBanned?: boolean;
+}) => {
+  if (
+    deal.isBanned === true
+  ) {
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      'This deal is banned by admin and cannot be promoted'
+    );
+  }
+};
+
 // 1. Validate Android
 async function validateAndroid(productId: string, purchaseToken: string) {
   try {
@@ -175,6 +188,7 @@ const appleInAppPurchase = async (receipt: any) => {
     if (!getDeal) {
       throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
     }
+    ensureDealCanBePromoted(getDeal);
 
     // CHECK ALREADY PROMOTED
     const alreadyPromoted = await Promotion.findOne({
@@ -322,6 +336,7 @@ const googleInAppPurchase = async (payload: any) => {
     if (!getDeal) {
       throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
     }
+    ensureDealCanBePromoted(getDeal);
 
     // CHECK ALREADY PROMOTED
     const alreadyPromoted = await Promotion.findOne({
@@ -467,6 +482,7 @@ const stripePay = async (
   if (!deal) throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
   if (!plan) throw new AppError(StatusCodes.NOT_FOUND, 'Plan not found');
   if (!shop) throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+  ensureDealCanBePromoted(deal);
 
   if (!deal.shop.equals(shop._id)) {
     throw new AppError(StatusCodes.FORBIDDEN, 'Unauthorized');

@@ -4,6 +4,7 @@ import { CatchAsync } from "../../utils/CatchAsync";
 import { dashboardServices } from "./dashboard.service";
 import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
+import { JwtPayload } from "jsonwebtoken";
 
 // 1. CATEGORY BY PROMOTED DEAL COUNT
 const dealsByCategoryStats = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
@@ -107,6 +108,34 @@ const sendNotificationAndEmail = CatchAsync(async (req: Request, res: Response, 
     });
 });
 
+// 7. BAN DEAL BY ADMIN
+const banDealByAdmin = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const dealId = req.params.dealId as string;
+    const result = await dashboardServices.banDealByAdmin(user, dealId, req.body);
+
+    SendResponse(res,{
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Deal banned successfully",
+        data: result
+    });
+});
+
+// 8. UNBAN DEAL BY ADMIN
+const unbanDealByAdmin = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const dealId = req.params.dealId as string;
+    const result = await dashboardServices.unbanDealByAdmin(user, dealId);
+
+    SendResponse(res,{
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Deal unbanned successfully",
+        data: result
+    });
+});
+
 
 
 // EXPORT ALL THE CONTROLLERS
@@ -118,6 +147,8 @@ export const dashboardControllers = {
     getRevenueTrend,
     vendorsStats,
     getLatestTransaction,
-    sendNotificationAndEmail
+    sendNotificationAndEmail,
+    banDealByAdmin,
+    unbanDealByAdmin
 }
 

@@ -225,7 +225,13 @@ const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
         let: { shop: '$_id' },
         pipeline: [
           { $match: { $expr: { $eq: ['$shop', '$$shop'] } } },
-          { $match: { isPromoted: true, promotedUntil: { $gte: new Date() } } },
+          {
+            $match: {
+              isPromoted: true,
+              promotedUntil: { $gte: new Date() },
+              isBanned: { $ne: true }
+            },
+          },
         ],
         as: 'deals',
       },

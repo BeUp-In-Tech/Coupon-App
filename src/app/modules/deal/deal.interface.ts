@@ -24,5 +24,11 @@ export interface IDeal {
         upc?: string;
     }
     available_in_outlet?: [Types.ObjectId];
+    isBanned?: boolean;
+    ban_reason?: string;
+    bannedAt?: Date;
+    bannedBy?: Types.ObjectId;
+    unbannedAt?: Date;
+    unbannedBy?: Types.ObjectId;
     createdAt?: Date;
 }   

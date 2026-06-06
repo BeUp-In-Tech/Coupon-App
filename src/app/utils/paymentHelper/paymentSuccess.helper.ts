@@ -55,6 +55,28 @@ export const paymentSuccessHandler = async (
 
     if (!promotion) return;
 
+    const deal = await DealModel.findOne({ _id: promotion.deal }).session(
+      dbSession
+    );
+    if (!deal) {
+      throw new AppError(StatusCodes.NOT_FOUND, `deal not found`);
+    }
+
+    if (
+      deal.isBanned === true ||
+      deal.get('deal_status') === 'BANNED'
+    ) {
+      payment.payment_status = PaymentStatus.CANCELED;
+      promotion.status = PromotionStatus.CANCELED;
+
+      await Promise.all([
+        payment.save({ session: dbSession }),
+        promotion.save({ session: dbSession }),
+      ]);
+
+      return;
+    }
+
     /* ---- UPDATE PAYMENT ---- */
     payment.payment_status = PaymentStatus.PAID;
     const paymentIntentId = getStripeObjectId(session.payment_intent);
@@ -77,11 +99,6 @@ export const paymentSuccessHandler = async (
     await promotion.save({ session: dbSession });
 
     /* ---- ADDED PROMOTION DURATION DIRECTLY IN DEALS OR SERVICE */
-    const deal = await DealModel.findOne({ _id: promotion.deal });
-    if (!deal) {
-      throw new AppError(StatusCodes.NOT_FOUND, `deal not found`);
-    }
-
     deal.promotedUntil = endDate;
     deal.isPromoted = true;
     deal.activePromotion = promotion._id;

@@ -28,8 +28,8 @@ const dealSchema = new Schema<IDeal>(
       type: String,
       required: true,
       trim: true,
-      minlength: 2,
-      maxlength: 120,
+      minLength: 2,
+      maxLength: 120,
     },
 
     reguler_price: { type: Number, required: true, min: 0 },
@@ -58,7 +58,7 @@ const dealSchema = new Schema<IDeal>(
       required: true,
       trim: true,
       minlength: 10,
-      maxlength: 5000,
+      maxLength: 5000,
     },
 
     images: {
@@ -95,7 +95,17 @@ const dealSchema = new Schema<IDeal>(
     coupon_option: {
       qr: { type: String },
       upc: { type: String },
-    }
+    },
+    isBanned: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    ban_reason: { type: String, trim: true, maxLength: 500 },
+    bannedAt: { type: Date },
+    bannedBy: { type: Schema.Types.ObjectId, ref: 'user' },
+    unbannedAt: { type: Date },
+    unbannedBy: { type: Schema.Types.ObjectId, ref: 'user' },
   },
   { timestamps: true }
 );

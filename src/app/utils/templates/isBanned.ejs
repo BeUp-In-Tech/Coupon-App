@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Deal Banned</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f7f9;font-family:Arial,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f7f9;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+            <tr>
+              <td style="padding:28px 32px 16px;">
+                <h1 style="margin:0;font-size:24px;line-height:32px;color:#111827;">Your deal has been banned</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 16px;font-size:15px;line-height:24px;">
+                <p style="margin:0 0 14px;">Hi <%= vendor_name %>,</p>
+                <p style="margin:0 0 14px;">
+                  Your deal "<strong><%= deal_title %></strong>" has been banned by Yepp after review.
+                </p>
+                <p style="margin:0 0 8px;"><strong>Reason:</strong></p>
+                <p style="margin:0 0 18px;padding:12px 14px;background:#f3f4f6;border-radius:6px;">
+                  <%= reason %>
+                </p>
+                <p style="margin:0 0 14px;">Reviewed at: <%= reviewed_date %></p>
+                <p style="margin:0 0 22px;">
+                  This deal will not appear to users and cannot be promoted again unless an admin restores it.
+                </p>
+                <a href="<%= redirect_url %>" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:6px;font-weight:700;">
+                  View my deals
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 32px 28px;font-size:13px;line-height:20px;color:#6b7280;">
+                Need help? Contact support at <a href="mailto:<%= support_mail %>" style="color:#111827;"><%= support_mail %></a>.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

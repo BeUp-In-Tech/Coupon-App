@@ -1,11 +1,14 @@
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import AppError from '../../errorHelpers/AppError';
 import env from '../../config/env';
 import admin from '../../config/firebase.config';
 import { redisClient } from '../../config/redis.config';
+import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { sendBulkEmails } from '../../queue/helper/multipleEmailSendJob';
 import { QueryBuilder } from '../../utils/QueryBuilder';
 import { DealModel } from '../deal/deal.model';
+import { IDeal } from '../deal/deal.interface';
 import { NotificationType } from '../notification/notification.interface';
 import { NotificationModel } from '../notification/notification.model';
 import { PaymentStatus } from '../payment/payment.interface';
@@ -14,6 +17,26 @@ import { ShopApproval } from '../shop/shop.interface';
 import { Shop } from '../shop/shop.model';
 import User from '../user/user.model';
 import { IDashBoardNotificationPayload } from './dashboard.interface';
+import { JwtPayload } from 'jsonwebtoken';
+import { Types } from 'mongoose';
+import { StatusCodes } from 'http-status-codes';
+import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+
+const invalidateDealVisibilityCache = async (deal: IDeal) => {
+  const shopId = deal.shop.toString();
+  const vendorId = deal.user.toString();
+
+  await Promise.all([
+    redisClient.del(`shop:${shopId}`),
+    redisClient.del(`shop:${vendorId}`),
+    redisClient.del('dashboard_analytics_total'),
+    invalidateAllMachineryCache('machinery:*'),
+    invalidateAllMachineryCache('recent_deals:*'),
+    invalidateAllMachineryCache('deals_stats:*'),
+    invalidateAllMachineryCache(`my_deals-userId:${vendorId}:*`),
+    invalidateAllMachineryCache('saved:*'),
+  ]);
+};
 
 // 1. CATEGORY BY PROMOTED DEAL COUNT
 const dealsByCategoryStats = async () => {
@@ -399,27 +422,26 @@ const dealsStats = async (query: Record<string, string>) => {
         status: {
           $cond: [
             {
-              $and: [
-                { $gt: ['$promotedUntil', new Date()] },
-                { $eq: ['$isPromoted', true] },
+              $or: [
+                { $eq: ['$isBanned', true] },
+                { $eq: ['$deal_status', 'BANNED'] },
               ],
             },
-            'Active',
+            'Banned',
             {
               $cond: [
                 {
                   $and: [
-                    { $eq: ['$isPromoted', false] },
-                    { $lt: ['$promotedUntil', new Date()] },
-                    { $ne: ['$activePromotion', null] },
+                    { $gt: ['$promotedUntil', new Date()] },
+                    { $eq: ['$isPromoted', true] },
                   ],
                 },
-                'Expired',
+                'Active',
                 {
                   $cond: [
                     { $eq: ['$activePromotion', null] },
                     'New',
-                    'Unknown',
+                    'Expired',
                   ],
                 },
               ],
@@ -441,7 +463,18 @@ const dealsStats = async (query: Record<string, string>) => {
               totalDeals: { $sum: 1 },
               activeDeals: {
                 $sum: {
-                  $cond: [{ $gt: ['$promotedUntil', new Date()] }, 1, 0],
+                  $cond: [
+                    {
+                      $and: [
+                        { $gt: ['$promotedUntil', new Date()] },
+                        { $eq: ['$isPromoted', true] },
+                        { $ne: ['$isBanned', true] },
+                        { $ne: ['$deal_status', 'BANNED'] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
                 },
               },
               totalViews: { $sum: '$views' },
@@ -465,6 +498,8 @@ const dealsStats = async (query: Record<string, string>) => {
               views: 1,
               impressions: 1,
               status: 1,
+              isBanned: 1,
+              ban_reason: 1,
               expiry: '$promotedUntil',
               createdAt: 1,
             },
@@ -527,6 +562,7 @@ const dashboardAnalyticsTotal = async () => {
     // ACTIVE DEALS
     DealModel.countDocuments({
       promotedUntil: { $gt: now },
+      isBanned: { $ne: true }
     }),
 
     // LIFETIME REVENUE
@@ -789,6 +825,141 @@ const sendNotificationAndEmail = async (
   };
 };
 
+// 9. BAN DEAL BY ADMIN
+const banDealByAdmin = async (
+  adminUser: JwtPayload,
+  dealId: string,
+  payload: { reason: string }
+) => {
+  const reason = payload.reason.trim();
+  const deal = await DealModel.findById(dealId);
+
+  
+
+  if (!deal) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+  }
+
+  if (
+    deal.isBanned === true
+  ) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Deal already banned');
+  }
+
+  deal.isBanned = true;
+  deal.ban_reason = reason;
+  deal.set('deal_status', undefined, { strict: false });
+  deal.bannedAt = new Date();
+  deal.bannedBy = new Types.ObjectId(adminUser.userId);
+  deal.unbannedAt = undefined;
+  deal.unbannedBy = undefined;
+
+  await deal.save();
+  await invalidateDealVisibilityCache(deal);
+
+  const vendor = await User.findById(deal.user).select('user_name email').lean();
+
+  if (vendor) {
+    const reviewedDate = new Date().toLocaleString();
+    const redirectUrl = `${env.FRONTEND_URL}/my-deals`;
+
+    try {
+      await notificationQueue.add(
+        'sendNotification',
+        {
+          user: deal.user,
+          title: 'Your deal has been banned',
+          body: `"${deal.title}" has been banned. Reason: ${reason}`,
+          type: NotificationType.SYSTEM,
+          entityId: deal._id.toString(),
+          webUrl: redirectUrl,
+          deepLink: `${env.DEEP_LINK}my-deals`,
+          data: {
+            dealId: deal._id.toString(),
+            reason,
+            isBanned: 'true',
+          },
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 3000,
+          },
+          jobId: `deal-ban-notification-${deal._id.toString()}`,
+          removeOnComplete: true,
+          removeOnFail: 1000,
+        }
+      );
+    } catch (error) {
+      console.log('Deal ban notification queue error:', error);
+    }
+
+    try {
+      await mailQueue.add(
+        'sendEmail',
+        {
+          to: vendor.email,
+          subject: 'Your deal has been banned by Yepp',
+          templateName: 'isBanned',
+          templateData: {
+            vendor_name: vendor.user_name,
+            deal_title: deal.title,
+            reason,
+            reviewed_date: reviewedDate,
+            support_mail: env.EMAIL_FROM,
+            redirect_url: redirectUrl,
+          },
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+          jobId: `deal-ban-email-${deal._id.toString()}`,
+          removeOnComplete: true,
+          removeOnFail: 1000,
+        }
+      );
+    } catch (error) {
+      console.log('Deal ban email queue error:', error);
+    }
+  }
+
+  return deal;
+};
+
+// 10. UNBAN DEAL BY ADMIN
+const unbanDealByAdmin = async (adminUser: JwtPayload, dealId: string) => {
+  console.log("BAN DEAL BY ADMIN CALLED");
+  const deal = await DealModel.findById(dealId);
+
+  if (!deal) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+  }
+
+  if (
+    deal.isBanned !== true &&
+    deal.get('deal_status') !== 'BANNED'
+  ) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Deal is not banned');
+  }
+
+  deal.isBanned = false;
+  deal.ban_reason = undefined;
+  deal.set('deal_status', undefined, { strict: false });
+  deal.bannedAt = undefined;
+  deal.bannedBy = undefined;
+  deal.unbannedAt = new Date();
+  deal.unbannedBy = new Types.ObjectId(adminUser.userId);
+
+  await deal.save();
+  await invalidateDealVisibilityCache(deal);
+
+  return deal;
+};
+
 // EXPORT ALL THE SERVICE LAYER
 export const dashboardServices = {
   dealsByCategoryStats,
@@ -799,4 +970,6 @@ export const dashboardServices = {
   allVendorsStats,
   getLatestTransaction,
   sendNotificationAndEmail,
+  banDealByAdmin,
+  unbanDealByAdmin,
 };

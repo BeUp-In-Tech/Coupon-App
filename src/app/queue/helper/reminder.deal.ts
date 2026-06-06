@@ -10,7 +10,10 @@ export const oneDayReminder = async (dealId: string) => {
   try {
     const _dealObjId = new Types.ObjectId(dealId);
 
-    const deal = await DealModel.findById(_dealObjId);
+    const deal = await DealModel.findOne({
+      _id: _dealObjId,
+      isBanned: { $ne: true }
+    });
 
     if (!deal) {
       console.log('Deal not found');
@@ -40,7 +43,11 @@ export const oneHourReminder = async (dealId: string) => {
   try {
     const _dealObjId = new Types.ObjectId(dealId);
 
-    const deal = await DealModel.findById(_dealObjId);
+    const deal = await DealModel.findOne({
+      _id: _dealObjId,
+      isBanned: { $ne: true },
+      deal_status: { $ne: 'BANNED' },
+    });
 
     if (!deal) {
       console.log('Deal not found');

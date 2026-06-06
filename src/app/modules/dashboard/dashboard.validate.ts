@@ -13,3 +13,11 @@ export const adminNotificationAndEmailZodSchema = z.object({
         active_vendors: z.boolean("Active vendors field must be boolean").optional(),
     })
 })
+
+export const adminBanDealZodSchema = z.object({
+    reason: z
+        .string("Ban reason is required")
+        .trim()
+        .min(1, "Ban reason is required")
+        .max(500, "Ban reason must be maximum 500 characters"),
+});

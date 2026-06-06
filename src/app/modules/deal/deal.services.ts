@@ -20,6 +20,11 @@ import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import crypto from 'crypto';
 import { sortObject } from '../../utils/sortObject';
 
+const visibleDealFilter = {
+  isBanned: { $ne: true },
+  deal_status: { $ne: 'BANNED' },
+};
+
 // 1. CREATE DEAL
 const createDealsService = async (params: {
   user: JwtPayload;
@@ -184,7 +189,10 @@ const getSingleDealsService = async (
   const dealId = new mongoose.Types.ObjectId(_dealId);
 
   // IF DEAL NOT FOUND
-  const deal = await DealModel.findById(dealId);
+  const deal = await DealModel.findOne({
+    _id: dealId,
+    ...visibleDealFilter,
+  });
 
   if (!deal) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
@@ -225,6 +233,8 @@ const getSingleDealsService = async (
     {
       $match: {
         'deal._id': dealId,
+        'deal.isBanned': { $ne: true },
+        'deal.deal_status': { $ne: 'BANNED' },
       },
     },
 
@@ -585,6 +595,23 @@ const getMyDealsService = async (
 ) => {
   const page = query.page ? Number(query.page) : 1;
   const limit = query.limit ? Number(query.limit) : 10;
+  const queryWithModerationFields = {
+    ...query,
+    ...(query.fields
+      ? {
+          fields: [
+            ...new Set([
+              ...query.fields
+                .split(',')
+                .map((field) => field.trim())
+                .filter(Boolean),
+              'isBanned',
+              'ban_reason',
+            ]),
+          ].join(','),
+        }
+      : {}),
+  };
 
   // DYNAMIC FILTERING
   const filter: Record<string, any> = { user: userId };
@@ -606,7 +633,7 @@ const getMyDealsService = async (
   }
 
   // QUERY WITH DEFAULTS
-  const queryWithDefaults = { page, limit, ...query };
+  const queryWithDefaults = { page, limit, ...queryWithModerationFields };
 
   // SORT OBJECT
   const sortedParams = sortObject(queryWithDefaults);
@@ -627,7 +654,10 @@ const getMyDealsService = async (
   }
 
   // QUERY BUILDER
-  const queryBuilder = new QueryBuilder(DealModel.find(filter), query);
+  const queryBuilder = new QueryBuilder(
+    DealModel.find(filter),
+    queryWithModerationFields
+  );
   const deals = await queryBuilder
     .filter()
     .select()
@@ -725,6 +755,7 @@ const getDealsByCategoryService = async (
     {
       $match: {
         'deal.category': categoryObjectId,
+        'deal.isBanned': { $ne: true },
       },
     },
     // Only promoted deals
@@ -788,6 +819,7 @@ const getDealsByCategoryService = async (
     category: categoryObjectId,
     isPromoted: true,
     promotedUntil: { $gte: new Date() },
+    ...visibleDealFilter,
   });
 
   // Increment impressions asynchronously
@@ -878,6 +910,7 @@ const getNearestDealsService = async (
       $match: {
         'deals.isPromoted': true,
         'deals.promotedUntil': { $gt: new Date() },
+        'deals.isBanned': { $ne: true },
       },
     },
 
@@ -954,6 +987,7 @@ const getNearestDealsService = async (
   const totalPromotedDocPromise = DealModel.countDocuments({
     isPromoted: true,
     promotedUntil: { $gte: new Date() },
+    ...visibleDealFilter,
   });
 
   // RESOLVE ALL PROMISE PARALLEL
@@ -1078,6 +1112,7 @@ const getAllDealsService = async (
         $and: [
           { 'deal.isPromoted': true },
           { 'deal.promotedUntil': { $gte: new Date() } },
+          { 'deal.isBanned': { $ne: true } },
         ],
       },
     },
@@ -1123,6 +1158,7 @@ const getAllDealsService = async (
   const totalPromotedDocPromise = DealModel.countDocuments({
     isPromoted: true,
     promotedUntil: { $gte: new Date() },
+    ...visibleDealFilter,
   });
 
   // RESOLVE ALL PROMISE HERE
@@ -1173,7 +1209,10 @@ const getDealsByIdsService = async (
 
   const objectIds = ids.map((id) => new Types.ObjectId(id));
 
-  const deals = await DealModel.find({ _id: { $in: objectIds } })
+  const deals = await DealModel.find({
+    _id: { $in: objectIds },
+    ...visibleDealFilter,
+  })
     .populate({
       path: 'shop',
       select: 'business_name business_logo',
