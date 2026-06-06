@@ -575,7 +575,6 @@ const stripePay = async (
   };
 
   const stripePayload = {
-    payment_method_types: ['card'] as const,
     line_items: [
       {
         price_data: {
@@ -687,12 +686,26 @@ const stripeWebhookHandling = async (req: Request) => {
     /* PAYMENT SUCCESS */
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.payment_status === 'paid') {
+        await paymentSuccessHandler(session);
+      }
+      break;
+    }
+
+    case 'checkout.session.async_payment_succeeded': {
+      const session = event.data.object as Stripe.Checkout.Session;
       await paymentSuccessHandler(session);
       break;
     }
 
     /* PAYMENT FAILED / EXPIRED */
     case 'checkout.session.expired': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await paymentFailedHandler(session);
+      break;
+    }
+
+    case 'checkout.session.async_payment_failed': {
       const session = event.data.object as Stripe.Checkout.Session;
       await paymentFailedHandler(session);
       break;
