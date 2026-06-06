@@ -834,7 +834,6 @@ const banDealByAdmin = async (
   const reason = payload.reason.trim();
   const deal = await DealModel.findById(dealId);
 
-  
 
   if (!deal) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
@@ -932,7 +931,6 @@ const banDealByAdmin = async (
 
 // 10. UNBAN DEAL BY ADMIN
 const unbanDealByAdmin = async (adminUser: JwtPayload, dealId: string) => {
-  console.log("BAN DEAL BY ADMIN CALLED");
   const deal = await DealModel.findById(dealId);
 
   if (!deal) {
