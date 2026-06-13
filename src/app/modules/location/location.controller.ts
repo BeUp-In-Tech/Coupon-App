@@ -4,30 +4,30 @@ import { CatchAsync } from '../../utils/CatchAsync';
 import { SendResponse } from '../../utils/SendResponse';
 import { StatusCodes } from 'http-status-codes';
 import { JwtPayload } from 'jsonwebtoken';
-import { outletServices } from './outlet.service';
+import { outletServices } from './location.service';
 
-const createOutlet = CatchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+const createLocation = CatchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const { userId } = req.user as JwtPayload;
 
-    const result = await outletServices.createOutletService(userId, req.body);
+    const result = await outletServices.createLocationService(userId, req.body);
 
     SendResponse(res, {
       success: true,
       statusCode: StatusCodes.CREATED,
-      message: 'Outlet created',
+      message: 'Locations successfully created',
       data: result,
     });
   }
 );
 
-const updateOutlet = CatchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+const updateLocation = CatchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
     const { userId } = req.user as JwtPayload;
-    const { outletId } = req.query as Record<string, string>;
+    const { l_id } = req.query as Record<string, string>;
 
-    const result = await outletServices.updateOutletService(
-      outletId,
+    const result = await outletServices.updateLocationService(
+      l_id,
       userId,
       req.body
     );
@@ -35,13 +35,13 @@ const updateOutlet = CatchAsync(
     SendResponse(res, {
       success: true,
       statusCode: StatusCodes.OK,
-      message: 'Outlet updated',
+      message: 'Location successfully updated',
       data: result,
     });
   }
 );
 
-export const outletControllers = {
-  createOutlet,
-  updateOutlet,
+export const locationControllers = {
+  createLocation,
+  updateLocation
 };

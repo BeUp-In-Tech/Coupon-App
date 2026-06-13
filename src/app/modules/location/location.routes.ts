@@ -3,10 +3,11 @@ import { validateRequest } from '../../middlewares/validateRequest';
 import {
   outletCreateZodSchema,
   outletUpdateZodSchema,
-} from './outlet.validate';
+} from './location.validate';
 import { checkAuth } from '../../middlewares/auth.middleware';
 import { Role } from '../user/user.interface';
-import { outletControllers } from './outlet.controller';
+import { locationControllers } from './location.controller';
+
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.post(
   '/',
   checkAuth(Role.VENDOR),
   validateRequest(outletCreateZodSchema),
-  outletControllers.createOutlet
+  locationControllers.createLocation
 );
 
 // UPDATE OUTLET
@@ -23,7 +24,7 @@ router.patch(
   '/',
   checkAuth(...Object.keys(Role)),
   validateRequest(outletUpdateZodSchema),
-  outletControllers.updateOutlet
+  locationControllers.updateLocation
 );
 
-export const outletRouter = router;
+export const locationRouter = router;

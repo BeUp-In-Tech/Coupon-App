@@ -2,7 +2,7 @@
 import { ClientSession } from 'mongoose';
 import env from '../../config/env';
 import { Category } from '../../modules/categories/categories.model';
-import { OutletModel } from '../../modules/outlet/outlet.model';
+import { Location as OutletModel } from '../../modules/location/location.model';
 import { Shop } from '../../modules/shop/shop.model';
 import User from '../../modules/user/user.model';
 import type { IInvoiceGenerationJobData } from '../../queue/job/invoice.job';

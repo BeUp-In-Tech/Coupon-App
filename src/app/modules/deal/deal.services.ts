@@ -10,7 +10,7 @@ import { IDeal } from './deal.interface';
 import { DealModel } from './deal.model';
 import { Category } from '../categories/categories.model';
 import { QueryBuilder } from '../../utils/QueryBuilder';
-import { OutletModel } from '../outlet/outlet.model';
+import { Location as OutletModel } from '../location/location.model';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
 import { ShopApproval } from '../shop/shop.interface';
 import { redisClient } from '../../config/redis.config';

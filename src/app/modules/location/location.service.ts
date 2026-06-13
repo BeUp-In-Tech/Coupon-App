@@ -1,8 +1,8 @@
 import { StatusCodes } from 'http-status-codes';
 import AppError from '../../errorHelpers/AppError';
 import { Shop } from '../shop/shop.model';
-import { IOutlet } from './outlet.interface';
-import { OutletModel } from './outlet.model';
+import { IOutlet } from './location.interface';
+import { Location as OutletModel} from './location.model';
 import { redisClient } from '../../config/redis.config';
 
 interface IOutletPayload extends IOutlet {
@@ -10,12 +10,14 @@ interface IOutletPayload extends IOutlet {
 }
 
 interface IOutletCreatePayload {
-  outlet: (Pick<IOutlet, 'outlet_name' | 'address' | 'zip_code'> & {
+  outlet: (Pick<IOutlet, 'location_name' | 'address' | 'zip_code'> & {
     coordinates: [number, number];
   })[];
 }
 
-const createOutletService = async (
+
+// CREATE LOCATION
+const createLocationService = async (
   userId: string,
   payload: IOutletCreatePayload
 ) => {
@@ -27,7 +29,7 @@ const createOutletService = async (
 
   const outlets = payload.outlet.map((outlet) => ({
     shop: shop._id,
-    outlet_name: outlet.outlet_name,
+    outlet_name: outlet.location_name,
     address: outlet.address.trim(),
     zip_code: outlet.zip_code.trim(),
     location: {
@@ -49,8 +51,9 @@ const createOutletService = async (
   };
 };
 
-const updateOutletService = async (
-  outletId: string,
+// UPDATE LOCATION
+const updateLocationService = async (
+  locationId: string,
   userId: string,
   payload: Partial<IOutletPayload>
 ) => {
@@ -75,7 +78,7 @@ const updateOutletService = async (
   }
 
   const updateOutlet = await OutletModel.findOneAndUpdate(
-    { _id: outletId, shop: shop._id },
+    { _id: locationId, shop: shop._id },
     payload,
     { runValidators: true, new: true }
   );
@@ -92,6 +95,6 @@ const updateOutletService = async (
 };
 
 export const outletServices = {
-  createOutletService,
-  updateOutletService,
+  createLocationService,
+  updateLocationService,
 };

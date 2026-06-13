@@ -11,7 +11,7 @@ import { removeTokenFromOtherUsers } from '../../utils/removeToken';
 import { Shop } from '../shop/shop.model';
 import { createUserTokens } from '../../utils/user.tokens';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
-import { OutletModel } from '../outlet/outlet.model';
+import { Location as OutletModel } from '../location/location.model';
 import { DealModel } from '../deal/deal.model';
 import { Promotion } from '../promotion/promotion.model';
 import { PaymentModel } from '../payment/payment.model';

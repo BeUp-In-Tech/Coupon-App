@@ -3,7 +3,7 @@ import { authRouter } from '../modules/auth/auth.routes';
 import { vendorRoutes } from '../modules/user/user.routes';
 import { shopRouter } from '../modules/shop/shop.routes';
 import { categoryRouter } from '../modules/categories/categories.routes';
-import { outletRouter } from '../modules/outlet/outlet.routes';
+import { locationRouter } from '../modules/location/location.routes';
 import { serviceRouter } from '../modules/deal/deal.routes';
 import { planRouter } from '../modules/plan/plan.routes';
 import { voucherRouter } from '../modules/voucher/voucher.routes';
@@ -32,8 +32,8 @@ const moduleRoutes = [
     route: categoryRouter
    }, 
    {
-    path: '/outlet',
-    route: outletRouter
+    path: '/locations',
+    route: locationRouter
    }, 
    {
     path: '/service',

@@ -1,13 +1,13 @@
 import mongoose, { Schema } from "mongoose";
-import { IOutlet } from "./outlet.interface";
+import { IOutlet } from "./location.interface";
 
-const OutletSchema = new Schema<IOutlet>(
+const locationSchema = new Schema<IOutlet>(
   {
     shop: { type: Schema.Types.ObjectId, ref: "shop", required: true },
 
     address: { type: String, required: true, trim: true },
+    location_name: { type: String, required: true, trim: true},
     zip_code: { type: String, required: true, trim: true},
-    outlet_name: { type: String, required: true, trim: true},
     location: {
       type: { type: String, enum: ["Point"], required: true },
       coordinates: {
@@ -26,9 +26,9 @@ const OutletSchema = new Schema<IOutlet>(
 );
 
 //  Indexing
-OutletSchema.index({ location: "2dsphere" });
+locationSchema.index({ location: "2dsphere" });
 
 // Helpful for shop outlets listing
-OutletSchema.index({ shop: 1, isActive: 1 });
+locationSchema.index({ shop: 1, isActive: 1 });
 
-export const OutletModel = mongoose.model<IOutlet>("Outlet", OutletSchema);
+export const Location = mongoose.model<IOutlet>("Outlet", locationSchema);

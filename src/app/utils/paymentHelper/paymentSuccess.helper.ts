@@ -19,7 +19,7 @@ import { InvoiceData } from '../invoice/invoicePdf.utility';
 import { Shop } from '../../modules/shop/shop.model';
 import User from '../../modules/user/user.model';
 import { Category } from '../../modules/categories/categories.model';
-import { OutletModel } from '../../modules/outlet/outlet.model';
+import { Location as OutletModel } from '../../modules/location/location.model';
 import env from '../../config/env';
 
 const getStripeObjectId = (

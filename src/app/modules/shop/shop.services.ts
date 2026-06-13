@@ -6,7 +6,7 @@ import { IShop, ShopApproval } from './shop.interface';
 import { Shop } from './shop.model';
 import { Role } from '../user/user.interface';
 import mongoose, { Types } from 'mongoose';
-import { OutletModel } from '../outlet/outlet.model';
+import { Location as OutletModel } from '../location/location.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
 import { redisClient } from '../../config/redis.config';
