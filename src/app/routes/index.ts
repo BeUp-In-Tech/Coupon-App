@@ -11,6 +11,7 @@ import { paymentRouter } from '../modules/payment/payment.routes';
 import { NotificationRouter } from '../modules/notification/notification.route';
 import { dashboardRouter } from '../modules/dashboard/dashboard.routes';
 import { StaticPageRoutes } from '../modules/staticContent/static.route';
+import { migrationRouter } from '../modules/migrations/location.migration';
 
 export const router = Router();
 
@@ -62,6 +63,10 @@ const moduleRoutes = [
    {
     path: '/static',
     route: StaticPageRoutes
+   }, 
+   {
+    path: '/migrations',
+    route: migrationRouter
    }, 
 ];
 

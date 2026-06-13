@@ -22,7 +22,7 @@ const locationSchema = new Schema<IOutlet>(
 
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false}
 );
 
 //  Indexing
