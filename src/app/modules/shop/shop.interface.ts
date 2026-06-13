@@ -21,3 +21,15 @@ export interface IShop {
     shop_approval: ShopApproval;
     website?: string;
 }
+
+
+// Custom interface
+export interface ShopCreatePayload {
+  shop: IShop;
+  location: {
+    location_name: string;
+    address: string;
+    zip_code: string;
+    coordinates: [number, number];
+  }[];
+}

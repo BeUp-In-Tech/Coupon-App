@@ -137,7 +137,12 @@ const getMeService = async (userId: string) => {
 
 
 // 4. SEND VERIFICATION OTP
-const sendVerificationOtpService = async (email: string) => {
+const sendVerificationOtpService = async (email: string, auth: JwtPayload) => {
+  
+  if (email !== auth.email) {
+    throw new AppError(StatusCodes.FORBIDDEN, "Email not matched");
+  }
+
   const user = (await User.findOne({ email }).select(
     'user_name email isVerified'
   )) as Partial<IUser>;

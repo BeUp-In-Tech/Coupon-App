@@ -2,7 +2,7 @@
 import { StatusCodes } from 'http-status-codes';
 import AppError from '../../errorHelpers/AppError';
 import User from '../user/user.model';
-import { IShop, ShopApproval } from './shop.interface';
+import { IShop, ShopApproval, ShopCreatePayload } from './shop.interface';
 import { Shop } from './shop.model';
 import { Role } from '../user/user.interface';
 import mongoose, { Types } from 'mongoose';
@@ -17,16 +17,6 @@ import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 
-// Custom interface
-interface ShopCreatePayload {
-  shop: IShop;
-  outlet: {
-    outlet_name: string;
-    address: string;
-    zip_code: string;
-    coordinates: [number, number];
-  }[];
-}
 
 // CREATE SHOP
 const createShopService = async (
@@ -99,10 +89,10 @@ const createShopService = async (
     );
 
     // 2) Create outlets linked to shop
-    const outlets = (payload.outlet || []).map((o) => ({
+    const location = (payload.location || []).map((o) => ({
       shop: shopDoc._id,
       vendor: vendorId,
-      outlet_name: o.outlet_name,
+      location_name: o.location_name,
       address: o.address.trim(),
       zip_code: o.zip_code.trim(),
       location: {
@@ -111,8 +101,8 @@ const createShopService = async (
       },
     }));
 
-    if (outlets.length) {
-      await OutletModel.insertMany(outlets, { session, ordered: true });
+    if (location.length) {
+      await OutletModel.insertMany(location, { session, ordered: true });
     }
 
     // REMOVE CACHE (DASHBOARD API CACHE)
@@ -164,7 +154,7 @@ const createShopService = async (
 
     return {
       shop: shopDoc,
-      outlets_created: outlets.length,
+      location_created: location.length,
     };
   } catch (err: any) {
     await session.abortTransaction();

@@ -20,9 +20,9 @@ export const shopValidationSchema = z.object({
     website: z.string().url('Invalid website URL').optional(),
   }),
 
-  outlet: z.array(
+  location: z.array(
     z.object({
-      outlet_name: z
+      location_name: z
         .string({
           message: 'Location name must be string',
         })
