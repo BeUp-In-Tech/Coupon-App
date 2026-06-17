@@ -15,7 +15,7 @@ const createLocation = CatchAsync(
     SendResponse(res, {
       success: true,
       statusCode: StatusCodes.CREATED,
-      message: 'Locations successfully created',
+      message: 'Locations created',
       data: result,
     });
   }

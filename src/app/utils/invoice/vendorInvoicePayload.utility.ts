@@ -2,7 +2,7 @@
 import { ClientSession } from 'mongoose';
 import env from '../../config/env';
 import { Category } from '../../modules/categories/categories.model';
-import { Location as OutletModel } from '../../modules/location/location.model';
+import { Location } from '../../modules/location/location.model';
 import { Shop } from '../../modules/shop/shop.model';
 import User from '../../modules/user/user.model';
 import type { IInvoiceGenerationJobData } from '../../queue/job/invoice.job';
@@ -41,7 +41,7 @@ export const buildVendorInvoiceGenerationPayload = async ({
   paymentMethod,
   dbSession,
 }: IVendorInvoicePayloadParams): Promise<IInvoiceGenerationJobData> => {
-  const [shop, vendor, category, outlet] = await Promise.all([
+  const [shop, vendor, category, location] = await Promise.all([
     Shop.findById(deal.shop).session(dbSession || null).lean(),
     User.findById(payment.user)
       .session(dbSession || null)
@@ -51,7 +51,7 @@ export const buildVendorInvoiceGenerationPayload = async ({
       .session(dbSession || null)
       .select('category_name')
       .lean(),
-    OutletModel.findOne({ shop: deal.shop })
+    Location.findOne({ shop: deal.shop })
       .session(dbSession || null)
       .select('address zip_code')
       .lean(),
@@ -66,8 +66,11 @@ export const buildVendorInvoiceGenerationPayload = async ({
     [shop?.business_phone?.country_code, shop?.business_phone?.phone_number]
       .filter(Boolean)
       .join(' ') || 'N/A';
-  const businessAddress =
-    [outlet?.address, outlet?.zip_code].filter(Boolean).join(', ') || 'N/A';
+
+  const address = `${location?.address}, ${location?.address?.zip_code}, ${location?.address?.city}, ${location?.address?.country}`;
+
+    const businessAddress =
+      [address, location?.address?.zip_code].filter(Boolean).join(', ') || 'N/A';
 
   const invoice: InvoiceData = {
     invoiceNumber: `#INV-${payment.transaction_id}`,

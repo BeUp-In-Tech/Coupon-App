@@ -19,8 +19,10 @@ import { InvoiceData } from '../invoice/invoicePdf.utility';
 import { Shop } from '../../modules/shop/shop.model';
 import User from '../../modules/user/user.model';
 import { Category } from '../../modules/categories/categories.model';
-import { Location as OutletModel } from '../../modules/location/location.model';
+import { Location } from '../../modules/location/location.model';
 import env from '../../config/env';
+
+
 
 const getStripeObjectId = (
   value: string | { id?: string } | null | undefined
@@ -122,7 +124,7 @@ export const paymentSuccessHandler = async (
     }
 
     // INVOICE GENERATION PREPARATION
-    const [shop, vendor, category, outlet] = await Promise.all([
+    const [shop, vendor, category, location] = await Promise.all([
       Shop.findById(deal.shop).session(dbSession).lean(),
       User.findById(payment.user)
         .session(dbSession)
@@ -132,7 +134,7 @@ export const paymentSuccessHandler = async (
         .session(dbSession)
         .select('category_name')
         .lean(),
-      OutletModel.findOne({ shop: deal.shop })
+      Location.findOne({ shop: deal.shop })
         .session(dbSession)
         .select('address zip_code')
         .lean(),
@@ -167,11 +169,16 @@ export const paymentSuccessHandler = async (
       [shop?.business_phone?.country_code, shop?.business_phone?.phone_number]
         .filter(Boolean)
         .join(' ') || 'N/A';
+
+      const address = `${location?.address}, ${location?.address?.zip_code}, ${location?.address?.city}, ${location?.address?.country}`;
+
     const businessAddress =
-      [outlet?.address, outlet?.zip_code].filter(Boolean).join(', ') || 'N/A';
+      [address, location?.address?.zip_code].filter(Boolean).join(', ') || 'N/A';
+
     const paymentMethod = session.payment_method_types?.length
       ? `Stripe (${session.payment_method_types.join(', ')})`
       : 'Stripe';
+      
     const invoiceData: InvoiceData = {
       invoiceNumber: `#INV-${payment.transaction_id}`,
       status: 'PAID',
@@ -208,7 +215,7 @@ export const paymentSuccessHandler = async (
         status: 'Confirmed',
       },
       note: {
-        text: 'Thank you for promoting your service on Yepp Ads. For performance reports and analytics, visit your vendor dashboard at',
+        text: 'Thank you for promoting your ads on Yepp Ads. For performance reports and analytics, visit your vendor dashboard at',
         dashboardUrl: `${env.FRONTEND_URL}/shop-overview`,
       },
     };

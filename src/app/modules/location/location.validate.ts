@@ -1,47 +1,83 @@
 import z from 'zod';
 
-export const outletCreateZodSchema = z.object({
-  outlet: z
-    .array(
-      z.object({
-        outlet_name: z.string({
-          message: 'Location name must be string',
-        }),
+// Create schema for a single location
+export const locationCreateZodSchema = z.object({
+  location_name: z
+    .string({
+      message: 'Location name must be string',
+    })
+    .min(1, 'Location name is required'),
 
-        address: z.string({
-          message: 'Address must be string',
+  address: z.object({
+    street: z.string({
+      message: 'Street must be string',
+    }),
+
+    zip_code: z.string({
+      message: 'Zip code must be string',
+    }),
+
+    city: z.string({
+      message: 'City must be string',
+    }),
+
+    state: z.string({
+      message: 'State must be string',
+    }),
+
+    country: z.string({
+      message: 'Country must be string',
+    }),
+  }),
+
+  coordinates: z.tuple([
+    z.number().min(-180).max(180), // longitude
+    z.number().min(-90).max(90), // latitude
+  ]),
+
+  isActive: z
+    .boolean({
+      message: 'isActive must be boolean',
+    })
+    .optional()
+    .default(true),
+});
+
+// Update schema for location - allows partial address updates
+export const locationUpdateZodSchema = z.object({
+  location_name: z
+    .string({
+      message: 'Location name must be string',
+    })
+    .min(1)
+    .optional(),
+
+  address: z
+    .object(
+      {
+        street: z.string({
+          message: 'Street must be string',
         }),
 
         zip_code: z.string({
           message: 'Zip code must be string',
         }),
 
-        coordinates: z.tuple([
-          z.number().min(-180).max(180), // longitude
-          z.number().min(-90).max(90), // latitude
-        ]),
-      })
+        city: z.string({
+          message: 'City must be string',
+        }),
+
+        state: z.string({
+          message: 'State must be string',
+        }),
+
+        country: z.string({
+          message: 'Country must be string',
+        }),
+      },
+      { message: 'Address must be an object' }
     )
-    .min(1, 'At least one outlet is required'),
-});
-
-export const outletUpdateZodSchema = z.object({
-  outlet_name: z
-    .string({
-      message: 'Outlet name must be string',
-    })
-    .optional(),
-
-  address: z
-    .string({
-      message: 'Address must be string',
-    })
-    .optional(),
-
-  zip_code: z
-    .string({
-      message: 'Zip code must be string',
-    })
+    .partial() // Allow partial address updates
     .optional(),
 
   coordinates: z
@@ -49,5 +85,11 @@ export const outletUpdateZodSchema = z.object({
       z.number().min(-180).max(180), // longitude
       z.number().min(-90).max(90), // latitude
     ])
+    .optional(),
+
+  isActive: z
+    .boolean({
+      message: 'isActive must be boolean',
+    })
     .optional(),
 });

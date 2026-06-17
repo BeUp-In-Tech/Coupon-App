@@ -1,25 +1,21 @@
 import { StatusCodes } from 'http-status-codes';
 import AppError from '../../errorHelpers/AppError';
 import { Shop } from '../shop/shop.model';
-import { IOutlet } from './location.interface';
-import { Location as OutletModel} from './location.model';
+import { ILocation } from './location.interface';
+import { Location, Location as OutletModel} from './location.model';
 import { redisClient } from '../../config/redis.config';
 
-interface IOutletPayload extends IOutlet {
+
+interface ILocationPayload extends ILocation {
   coordinates?: [number, number];
 }
 
-interface IOutletCreatePayload {
-  outlet: (Pick<IOutlet, 'location_name' | 'address' | 'zip_code'> & {
-    coordinates: [number, number];
-  })[];
-}
 
 
 // CREATE LOCATION
 const createLocationService = async (
   userId: string,
-  payload: IOutletCreatePayload
+  payload: Partial<ILocationPayload>
 ) => {
   const shop = await Shop.findOne({ vendor: userId }).lean();
 
@@ -27,35 +23,37 @@ const createLocationService = async (
     throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
   }
 
-  const outlets = payload.outlet.map((outlet) => ({
-    shop: shop._id,
-    outlet_name: outlet.location_name,
-    address: outlet.address.trim(),
-    zip_code: outlet.zip_code.trim(),
+  const location = {
+    shop: shop._id.toString(),
+    location_name: payload.location_name ? payload.location_name.trim() : undefined,
+    address: {
+      street: payload?.address?.street.trim(),
+      zip_code: payload?.address?.zip_code.trim(),
+      city: payload?.address?.city.trim(),
+      state: payload?.address?.state.trim(),
+      country: payload?.address?.country.trim(),
+    },
+    isActive: payload.isActive,
     location: {
       type: 'Point',
-      coordinates: [...outlet.coordinates],
-    },
-  }));
+      coordinates: [...(payload.coordinates ?? [0, 0])]
+    }
+  }
 
-  const createdOutlets = await OutletModel.insertMany(outlets, {
-    ordered: true,
-  });
+
+  const createdLocation = await Location.create(location);
 
   await redisClient.del(`shop:${shop._id.toString()}`);
   await redisClient.del(`shop:${userId}`);
 
-  return {
-    outlets_created: createdOutlets.length,
-    outlets: createdOutlets,
-  };
+  return createdLocation;
 };
 
 // UPDATE LOCATION
 const updateLocationService = async (
   locationId: string,
   userId: string,
-  payload: Partial<IOutletPayload>
+  payload: Partial<ILocationPayload>
 ) => {
   const shop = await Shop.findOne({ vendor: userId }).lean();
 
@@ -70,8 +68,29 @@ const updateLocationService = async (
     );
   }
 
+  // Build update object using dot notation to preserve nested fields
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: Record<string, any> = {};
+
+  if (payload.location_name !== undefined) {
+    updateData.location_name = payload.location_name;
+  }
+
+  if (payload.isActive !== undefined) {
+    updateData.isActive = payload.isActive;
+  }
+
+  // Handle nested address fields with dot notation
+  if (payload.address) {
+    Object.entries(payload.address).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updateData[`address.${key}`] = value;
+      }
+    });
+  }
+
   if (payload.coordinates) {
-    payload.location = {
+    updateData.location = {
       type: 'Point',
       coordinates: payload.coordinates,
     };
@@ -79,7 +98,7 @@ const updateLocationService = async (
 
   const updateOutlet = await OutletModel.findOneAndUpdate(
     { _id: locationId, shop: shop._id },
-    payload,
+    { $set: updateData }, // Using $set operator for clarity
     { runValidators: true, new: true }
   );
 

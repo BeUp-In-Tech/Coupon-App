@@ -1,9 +1,6 @@
 import { Router } from 'express';
 import { validateRequest } from '../../middlewares/validateRequest';
-import {
-  outletCreateZodSchema,
-  outletUpdateZodSchema,
-} from './location.validate';
+import { locationCreateZodSchema, locationUpdateZodSchema } from './location.validate';
 import { checkAuth } from '../../middlewares/auth.middleware';
 import { Role } from '../user/user.interface';
 import { locationControllers } from './location.controller';
@@ -11,19 +8,19 @@ import { locationControllers } from './location.controller';
 
 const router = Router();
 
-// CREATE OUTLET
+// CREATE Location
 router.post(
   '/',
   checkAuth(Role.VENDOR),
-  validateRequest(outletCreateZodSchema),
+  validateRequest(locationCreateZodSchema),
   locationControllers.createLocation
 );
 
-// UPDATE OUTLET
+// UPDATE Location
 router.patch(
   '/',
   checkAuth(...Object.keys(Role)),
-  validateRequest(outletUpdateZodSchema),
+  validateRequest(locationUpdateZodSchema),
   locationControllers.updateLocation
 );
 
