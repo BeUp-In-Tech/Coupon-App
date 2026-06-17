@@ -5,20 +5,17 @@ import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
 import { shopServices } from "./shop.services";
 import { JwtPayload } from "jsonwebtoken";
-import { ShopCreatePayload } from "./shop.interface";
+import { IShop } from "./shop.interface";
 
 
 const createShop = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
      const payload = {
-      shop: {
-        ...req.body.shop,
+        ...req.body,
         business_logo: req.file?.path as string
-      },
-     location: req.body.outlet
     };
     
-    const result = await shopServices.createShopService( user, payload as ShopCreatePayload);
+    const result = await shopServices.createShopService( user, payload as IShop);
     SendResponse(res, {
         success: true,
         statusCode: StatusCodes.CREATED,

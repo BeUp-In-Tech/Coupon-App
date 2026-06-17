@@ -2,11 +2,10 @@
 import { StatusCodes } from 'http-status-codes';
 import AppError from '../../errorHelpers/AppError';
 import User from '../user/user.model';
-import { IShop, ShopApproval, ShopCreatePayload } from './shop.interface';
+import { IShop, ShopApproval } from './shop.interface';
 import { Shop } from './shop.model';
 import { Role } from '../user/user.interface';
 import mongoose, { Types } from 'mongoose';
-import { Location as OutletModel } from '../location/location.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
 import { redisClient } from '../../config/redis.config';
@@ -21,39 +20,37 @@ import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 // CREATE SHOP
 const createShopService = async (
   user: JwtPayload,
-  payload: ShopCreatePayload
+  payload: IShop
 ) => {
-  if (!payload.shop.business_logo) {
+  if (!payload?.business_logo) {
     throw new AppError(StatusCodes.BAD_REQUEST, 'business_logo missing');
   }
 
   const isUser = await User.findById(user.userId);
   if (!isUser) {
-    if (payload.shop.business_logo) {
-      await addImageDeleteJob([payload.shop.business_logo]); // Delete image first
+    if (payload?.business_logo) {
+      await addImageDeleteJob([payload?.business_logo]); // Delete image first
     }
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
   // CHECK USER VERIFIED
   if (!isUser.isVerified) {
-    if (payload.shop.business_logo) {
-      await addImageDeleteJob([payload.shop.business_logo]); // Delete image first
+    if (payload?.business_logo) { // Delete image first
+      await addImageDeleteJob([payload?.business_logo]); 
     }
-
-    // Throw Error
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Verify your profile');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Verify your profile'); // Throw Error
   }
 
   const vendorId = new Types.ObjectId(user.userId);
 
-  // Security rule: 1 vendor => 1 shop (remove if you allow multiple)
+  // Security rule: 1 vendor => 1 shop (remove allow multiple)
   const alreadyHasShop = await Shop.findOne({ vendor: vendorId })
     .select('_id')
     .lean();
   if (alreadyHasShop) {
-    if (payload.shop.business_logo) {
-      await addImageDeleteJob([payload.shop.business_logo]); // Delete image first
+    if (payload?.business_logo) {
+      await addImageDeleteJob([payload?.business_logo]); // Delete image first
     }
 
     // THROW Error
@@ -67,51 +64,20 @@ const createShopService = async (
     .select('_id')
     .lean();
 
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
     // 1) Create shop
-    const [shopDoc] = await Shop.create(
-      [
-        {
+    const shopDoc = await Shop.create({
           vendor: vendorId,
-          business_name: payload.shop.business_name.trim(),
+          business_name: payload?.business_name.trim(),
           business_email: isUser.email.trim().toLowerCase(),
-          business_phone: payload.shop.business_phone,
-          business_logo: payload.shop.business_logo,
-          description: payload.shop.description.trim(),
-          website: payload.shop.website?.trim(),
-        },
-      ],
-      { session }
-    );
+          business_phone: payload?.business_phone,
+          business_logo: payload?.business_logo,
+          description: payload?.description.trim(),
+          website: payload?.website?.trim(),
+        });
 
-    // 2) Create outlets linked to shop
-    const location = (payload.location || []).map((o) => ({
-      shop: shopDoc._id,
-      vendor: vendorId,
-      location_name: o.location_name,
-      address: o.address.trim(),
-      zip_code: o.zip_code.trim(),
-      location: {
-        type: 'Point',
-        coordinates: [...o.coordinates],
-      },
-    }));
-
-    if (location.length) {
-      await OutletModel.insertMany(location, { session, ordered: true });
-    }
 
     // REMOVE CACHE (DASHBOARD API CACHE)
     await invalidateAllMachineryCache('all_vendors_dashboard:*'); // recent vendors stats
-
-    // SESSION END
-    await session.commitTransaction();
-    session.endSession();
-
     await redisClient.del(`user_me:${vendorId}`);
 
     // NOTIFY ADMIN ABOUT NEW SHOP APPROVAL REQUEST
@@ -123,14 +89,14 @@ const createShopService = async (
             {
               user: adminUser._id,
               title: 'New shop approval request',
-              body: `${payload.shop.business_name.trim()} submitted a new shop for approval.`,
+              body: `${payload?.business_name.trim()} submitted a new shop for approval.`,
               type: NotificationType.SHOP,
               entityId: shopDoc._id.toString(),
               webUrl: `${env.FRONTEND_URL}/dashboard/admin-vendor`,
               deepLink: `${env.DEEP_LINK}dashboard/admin-vendor`,
               data: {
                 shopId: shopDoc._id.toString(),
-                shopName: payload.shop.business_name.trim(),
+                shopName: payload?.business_name.trim(),
                 vendorId: vendorId.toString(),
               },
             },
@@ -153,23 +119,9 @@ const createShopService = async (
     }
 
     return {
-      shop: shopDoc,
-      location_created: location.length,
+      shop: shopDoc
     };
-  } catch (err: any) {
-    await session.abortTransaction();
-    session.endSession();
-
-    // Duplicate key handling (unique index errors)
-    if (err?.code === 11000) {
-      throw new AppError(
-        StatusCodes.CONFLICT,
-        `Duplicate key: ${JSON.stringify(err.keyValue)}`
-      );
-    }
-
-    throw err;
-  }
+  
 };
 
 // GET SHOP DETAILS
