@@ -7,7 +7,7 @@ export interface IDeal {
     user: Types.ObjectId;
     activePromotion?: Types.ObjectId;
     title: string;
-    reguler_price: number;
+    regular_price: number;
     discount: number;
     highlight: string[];
     deletedHighlights?: [];
@@ -23,7 +23,7 @@ export interface IDeal {
         qr?: string;
         upc?: string;
     }
-    available_in_outlet?: [Types.ObjectId];
+    available_in_location?: [Types.ObjectId];
     isBanned?: boolean;
     ban_reason?: string;
     bannedAt?: Date;

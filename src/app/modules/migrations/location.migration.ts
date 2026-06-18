@@ -2,6 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { Location } from '../location/location.model';
 import { SendResponse } from '../../utils/SendResponse';
 import mongoose from 'mongoose';
+import { DealModel } from '../deal/deal.model';
 
 export const router = Router();
 
@@ -122,5 +123,44 @@ router.get(
   }
 );
 
+
+router.get(
+  '/ads',
+  async (req: Request, res: Response, next: NextFunction) => {
+     try {
+      // 1) Migrate "outlet_name" -> "location_name" (if present)
+      const renameLocationAvailableField = await DealModel.collection.updateMany(
+        { available_in_outlet: { $exists: true } },
+        [
+          { $set: { available_in_location: '$available_in_outlet' } },
+          { $unset: 'available_in_outlet' },
+        ]
+      );
+
+      // 2) Renamed reguler_price to regular_price
+      const renameRegularPriceField = await DealModel.collection.updateMany(
+        { reguler_price: { $exists: true } },
+        [
+          { $set: { regular_price: '$reguler_price' } },
+          { $unset: 'reguler_price' },
+        ]
+      );
+
+      SendResponse(res, { 
+        success: true,
+        statusCode: 200,
+        message: 'Ads migration completed',
+        data: {
+          rename_outlet_location: renameLocationAvailableField.modifiedCount ?? renameLocationAvailableField.matchedCount,
+          renamed_regular_price: renameRegularPriceField.modifiedCount ?? renameRegularPriceField.matchedCount,
+        }
+      })
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+ 
 
 export const migrationRouter = router;

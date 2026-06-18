@@ -10,7 +10,7 @@ import { IDeal } from './deal.interface';
 import { DealModel } from './deal.model';
 import { Category } from '../categories/categories.model';
 import { QueryBuilder } from '../../utils/QueryBuilder';
-import { Location as OutletModel } from '../location/location.model';
+import { Location } from '../location/location.model';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
 import { ShopApproval } from '../shop/shop.interface';
 import { redisClient } from '../../config/redis.config';
@@ -147,7 +147,7 @@ const createDealsService = async (params: {
 
   const images = (payload.images || []).map((u) => u.trim()).filter(Boolean);
 
-  const available_in_outlet = payload.available_in_outlet?.map(
+  const available_in_outlet = payload.available_in_location?.map(
     (outletId) => new Types.ObjectId(outletId)
   );
 
@@ -158,7 +158,7 @@ const createDealsService = async (params: {
     category: isCategoryExist._id,
 
     title: payload.title,
-    reguler_price: payload.reguler_price,
+    regular_price: payload.regular_price,
     discount: payload.discount,
 
     highlight,
@@ -195,7 +195,7 @@ const getSingleDealsService = async (
   });
 
   if (!deal) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found');
   }
 
   // ADD VIEW
@@ -204,7 +204,7 @@ const getSingleDealsService = async (
     type: 'view',
   });
 
-  const deals = await OutletModel.aggregate([
+  const deals = await Location.aggregate([
     // FIND OUTLETS NEAR USER
     {
       $geoNear: {
@@ -222,7 +222,7 @@ const getSingleDealsService = async (
       $lookup: {
         from: 'deals',
         localField: '_id',
-        foreignField: 'available_in_outlet',
+        foreignField: 'available_in_location',
         as: 'deal',
       },
     },
@@ -241,7 +241,7 @@ const getSingleDealsService = async (
     // ATTACH DISTANCE INTO OUTLET
     {
       $addFields: {
-        'deal.available_outlet': {
+        'deal.available_location': {
           _id: '$_id',
           name: '$name',
           address: '$address',
@@ -256,13 +256,13 @@ const getSingleDealsService = async (
       $group: {
         _id: '$deal._id',
         deal: { $first: '$deal' },
-        outlets: { $push: '$deal.available_outlet' },
+        outlets: { $push: '$deal.available_location' },
       },
     },
 
     {
       $addFields: {
-        'deal.available_outlet': '$outlets',
+        'deal.available_location': '$outlets',
       },
     },
 
@@ -314,10 +314,14 @@ const getSingleDealsService = async (
     },
   ]);
 
+  console.log(deals);
+
   const final_deal = deals[0];
 
+  
+
   if (!final_deal) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found');
   }
 
   return final_deal;
@@ -490,8 +494,8 @@ const updateDealsService = async (
 
   if (payload.title) updateData.title = payload.title.trim();
   if (payload.description) updateData.description = payload.description.trim();
-  if (payload.reguler_price !== undefined)
-    updateData.reguler_price = payload.reguler_price;
+  if (payload.regular_price !== undefined)
+    updateData.regular_price = payload.regular_price;
   if (payload.discount !== undefined) updateData.discount = payload.discount;
 
   // ONLY UPDATE IMAGES IF CHANGES WERE MADE
@@ -729,7 +733,7 @@ const getDealsByCategoryService = async (
   }
 
   // Aggregation pipeline
-  const deals = await OutletModel.aggregate([
+  const deals = await Location.aggregate([
     //  GeoNear stage
     {
       $geoNear: {
@@ -801,7 +805,7 @@ const getDealsByCategoryService = async (
         'shop.business_logo': 1,
         'deal._id': 1,
         'deal.title': 1,
-        'deal.reguler_price': 1,
+        'deal.regular_price': 1,
         'deal.discount': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
@@ -898,7 +902,7 @@ const getNearestDealsService = async (
       $lookup: {
         from: 'deals',
         localField: '_id',
-        foreignField: 'available_in_outlet',
+        foreignField: 'available_in_location',
         as: 'deals',
       },
     },
@@ -918,7 +922,7 @@ const getNearestDealsService = async (
     {
       $addFields: {
         'deals.distance': '$distance',
-        'deals.nearest_outlet': '$_id',
+        'deals.nearest_location': '$_id',
       },
     },
 
@@ -968,11 +972,11 @@ const getNearestDealsService = async (
     {
       $project: {
         title: 1,
-        reguler_price: 1,
+        regular_price: 1,
         discount: 1,
         images: { $slice: ['$images', 1] },
         distance: 1,
-        nearest_outlet: 1,
+        nearest_location: 1,
         shop: 1,
         isPromoted: 1,
         promotedUntil: 1,
@@ -981,7 +985,7 @@ const getNearestDealsService = async (
   ];
 
   // FETCH DEALS
-  const nearestDealsPromise = OutletModel.aggregate(pipeline);
+  const nearestDealsPromise = Location.aggregate(pipeline);
 
   // TOTAL PROMOTED DEALS COUNT
   const totalPromotedDocPromise = DealModel.countDocuments({
@@ -1044,7 +1048,7 @@ const getAllDealsService = async (
   const skip = (page - 1) * limit;
 
   // DEALS QUERY
-  const dealsPromise = OutletModel.aggregate([
+  const dealsPromise = Location.aggregate([
     // STAGE 1: SEARCH NEAREST DEALS
     {
       $geoNear: {
@@ -1136,7 +1140,7 @@ const getAllDealsService = async (
         distance: 1,
         'deal._id': 1,
         'deal.title': 1,
-        'deal.reguler_price': 1,
+        'deal.regular_price': 1,
         'deal.discount': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
