@@ -29,17 +29,16 @@ const createShopService = async (
   const isUser = await User.findById(user.userId);
   if (!isUser) {
     if (payload?.business_logo) {
-      await addImageDeleteJob([payload?.business_logo]); // Delete image first
+      await addImageDeleteJob([payload?.business_logo]);
     }
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  // CHECK USER VERIFIED
   if (!isUser.isVerified) {
-    if (payload?.business_logo) { // Delete image first
+    if (payload?.business_logo) {  
       await addImageDeleteJob([payload?.business_logo]); 
     }
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Verify your profile'); // Throw Error
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Verify your profile');
   }
 
   const vendorId = new Types.ObjectId(user.userId);
@@ -50,10 +49,9 @@ const createShopService = async (
     .lean();
   if (alreadyHasShop) {
     if (payload?.business_logo) {
-      await addImageDeleteJob([payload?.business_logo]); // Delete image first
+      await addImageDeleteJob([payload?.business_logo]);
     }
 
-    // THROW Error
     throw new AppError(
       StatusCodes.CONFLICT,
       'Shop already exists for this vendor'
@@ -77,7 +75,7 @@ const createShopService = async (
 
 
     // REMOVE CACHE (DASHBOARD API CACHE)
-    await invalidateAllMachineryCache('all_vendors_dashboard:*'); // recent vendors stats
+    await invalidateAllMachineryCache('all_vendors_dashboard:*'); // invalidate recent vendors stats api cache
     await redisClient.del(`user_me:${vendorId}`);
 
     // NOTIFY ADMIN ABOUT NEW SHOP APPROVAL REQUEST
@@ -118,20 +116,15 @@ const createShopService = async (
       });
     }
 
-    return {
-      shop: shopDoc
-    };
-  
+    return shopDoc;
 };
 
 // GET SHOP DETAILS
 const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   const shopDynamicId = my_shop ? my_shop : shopId;
 
-  // CREATED DYNAMIC SHOP CACHE KEY
+  // Cache layer
   const shopCacheKey = `shop:${shopDynamicId}`;
-
-  // GET DATA FROM REDIS AND RETURN
   if (shopCacheKey) {
     const shopData = await redisClient.get(shopCacheKey);
     if (shopData) {
@@ -148,17 +141,16 @@ const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   }
 
   // Aggregate shop
-
   const isShopExist = await Shop.aggregate([
     {
       $match: shopQuery,
     },
     {
       $lookup: {
-        from: 'outlets',
+        from: 'locations',
         localField: '_id',
         foreignField: 'shop',
-        as: 'outlets',
+        as: 'locations',
       },
     },
     {
@@ -198,13 +190,11 @@ const updateShopService = async (
   shopId: string,
   payload: Partial<IShop>
 ) => {
-  // 1. ensure user exists
   const user = await User.findById(userId).select('_id email role');
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  // 2. Build filter
   const filter: Record<string, any> = { _id: shopId };
   if (user.role === Role.VENDOR) {
     filter.vendor = user._id; // only vendor ownership enforced
@@ -245,7 +235,7 @@ const updateShopService = async (
     if (user.role !== Role.ADMIN) {
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        'Only admin can change approval status'
+        'Your are unauthorize to change status'
       );
     }
 
@@ -287,24 +277,25 @@ const updateShopService = async (
 
   // =================BACKGROUND JOB HANDLING==============
 
-  // DELETE EXISTING IMAGE ASYNCHRONOUSLY TO PREVENT LOAD FOR MAIN API RESPONSE
-  setImmediate(async () => {
-    // Delete old business logo
-    if (payload.business_logo && shop.business_logo) {
+  
+  
+  //==================================================== BULLMQ JOB PROCESSING================================
+  
+  // Delete old business logo
+  if (payload.business_logo && shop.business_logo) {
       await addImageDeleteJob([shop.business_logo]);
     }
-  });
 
-  //==================================================== BULLMQ JOB PROCESSING================================
-  // IF SHOP APPROVAL 'APPROVED'
+
+  // SEND NOTIFICATION AND & EMAIL IF SHOP HAS 'APPROVED'
   if (
     payload.shop_approval &&
     payload.shop_approval === ShopApproval.APPROVED
   ) {
-    // =============SEND NOTIFICATION=============
+    // =============NOTIFICATION=============
     const notificationPayload = {
       user: updatedShop.vendor,
-      title: 'Congratulations! Your shop approved by Yepp',
+      title: 'Congratulations! Your shop approved by Yepp Ads',
       body: 'Your shop is live now. You can promote your service and deals',
       type: NotificationType.SHOP,
       entityId: shopId,
@@ -323,7 +314,7 @@ const updateShopService = async (
       removeOnFail: 1000,
     });
 
-    //================= SEND EMAIL ==========================
+    //================= EMAIL ==========================
     const shopOwner = await User.findOne({ _id: updatedShop.vendor });
     if (!shopOwner) {
       return 0;
@@ -332,7 +323,7 @@ const updateShopService = async (
     const now = new Date().toLocaleString();
     const emailPayload = {
       to: shopOwner.email,
-      subject: 'Congratulations! Your shop approved by Yepp',
+      subject: 'Congratulations! Your shop approved by Yepp Ads',
       templateName: 'shop_approval',
       templateData: {
         shop_owner_name: shopOwner.user_name,
@@ -359,12 +350,12 @@ const updateShopService = async (
     await redisClient.del(`shop:${shopOwner._id}`);
   }
 
-  // IF SHOP APPROVAL 'REJECTED'
+   // SEND NOTIFICATION AND & EMAIL IF SHOP HAS 'REJECTED'
   if (
     payload.shop_approval &&
     payload.shop_approval === ShopApproval.REJECTED
   ) {
-    // =============SEND NOTIFICATION AND EMAIL============
+    // =============NOTIFICATION============
     const notificationPayload = {
       user: updatedShop.vendor,
       title: 'Your shop rejected by Yepp',
@@ -396,7 +387,7 @@ const updateShopService = async (
 
     const emailPayload = {
       to: shopOwner.email,
-      subject: 'Your shop creation rejected by Yepp',
+      subject: 'Your shop rejected by Yepp Ads',
       templateName: 'shop_rejection',
       templateData: {
         shop_owner_name: shopOwner.user_name,
