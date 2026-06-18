@@ -8,7 +8,6 @@ import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { sendBulkEmails } from '../../queue/helper/multipleEmailSendJob';
 import { QueryBuilder } from '../../utils/QueryBuilder';
 import { DealModel } from '../deal/deal.model';
-import { IDeal } from '../deal/deal.interface';
 import { NotificationType } from '../notification/notification.interface';
 import { NotificationModel } from '../notification/notification.model';
 import { PaymentStatus } from '../payment/payment.interface';
@@ -20,23 +19,8 @@ import { IDashBoardNotificationPayload } from './dashboard.interface';
 import { JwtPayload } from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { StatusCodes } from 'http-status-codes';
-import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+import { invalidateDealVisibilityCache } from './dashboard.helper';
 
-const invalidateDealVisibilityCache = async (deal: IDeal) => {
-  const shopId = deal.shop.toString();
-  const vendorId = deal.user.toString();
-
-  await Promise.all([
-    redisClient.del(`shop:${shopId}`),
-    redisClient.del(`shop:${vendorId}`),
-    redisClient.del('dashboard_analytics_total'),
-    invalidateAllMachineryCache('machinery:*'),
-    invalidateAllMachineryCache('recent_deals:*'),
-    invalidateAllMachineryCache('deals_stats:*'),
-    invalidateAllMachineryCache(`my_deals-userId:${vendorId}:*`),
-    invalidateAllMachineryCache('saved:*'),
-  ]);
-};
 
 // 1. CATEGORY BY PROMOTED DEAL COUNT
 const dealsByCategoryStats = async () => {
@@ -133,20 +117,39 @@ const allVendorsStats = async (query: Record<string, string>) => {
     return JSON.parse(getCachedData);
   }
 
-  let pipeline: any[] = [];
+  const pipeline: any[] = [];
+
+  if (approvalFilter) {
+    pipeline.push({
+      $match: {
+        shop_approval: approvalFilter,
+      },
+    });
+  }
 
   pipeline.push(
     {
       $lookup: {
         from: 'deals',
-        localField: '_id',
-        foreignField: 'shop',
-        as: 'deals',
+        let: { shopId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$shop', '$$shopId'] },
+            },
+          },
+          {
+            $count: 'totalDeals',
+          },
+        ],
+        as: 'dealStats',
       },
     },
     {
       $addFields: {
-        totalDeals: { $size: { $ifNull: ['$deals', []] } },
+        totalDeals: {
+          $ifNull: [{ $arrayElemAt: ['$dealStats.totalDeals', 0] }, 0],
+        },
       },
     },
     {
@@ -194,16 +197,105 @@ const allVendorsStats = async (query: Record<string, string>) => {
       },
     },
     {
-      $unwind: {
-        path: '$revenue',
-        preserveNullAndEmptyArrays: true,
+      $addFields: {
+        totalRevenue: {
+          $ifNull: [{ $arrayElemAt: ['$revenue.totalRevenue', 0] }, 0],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'locations',
+        let: { shopId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$shop', '$$shopId'] },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              cityValues: { $push: '$address.city' },
+              stateValues: { $push: '$address.state' },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              cityValues: {
+                $filter: {
+                  input: '$cityValues',
+                  as: 'city',
+                  cond: {
+                    $and: [
+                      { $ne: ['$$city', null] },
+                      { $ne: ['$$city', ''] },
+                    ],
+                  },
+                },
+              },
+              stateValues: {
+                $filter: {
+                  input: '$stateValues',
+                  as: 'state',
+                  cond: {
+                    $and: [
+                      { $ne: ['$$state', null] },
+                      { $ne: ['$$state', ''] },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              city: {
+                $switch: {
+                  branches: [
+                    {
+                      case: { $eq: [{ $size: '$cityValues' }, 1] },
+                      then: { $arrayElemAt: ['$cityValues', 0] },
+                    },
+                    {
+                      case: { $gt: [{ $size: '$cityValues' }, 1] },
+                      then: 'Multiple',
+                    },
+                  ],
+                  default: null,
+                },
+              },
+              state: {
+                $switch: {
+                  branches: [
+                    {
+                      case: { $eq: [{ $size: '$stateValues' }, 1] },
+                      then: { $arrayElemAt: ['$stateValues', 0] },
+                    },
+                    {
+                      case: { $gt: [{ $size: '$stateValues' }, 1] },
+                      then: 'Multiple',
+                    },
+                  ],
+                  default: null,
+                },
+              },
+            },
+          },
+        ],
+        as: 'locationStats',
       },
     },
     {
       $addFields: {
-        totalRevenue: { $ifNull: ['$revenue.totalRevenue', 0] },
+        city: { $ifNull: [{ $arrayElemAt: ['$locationStats.city', 0] }, null] },
+        state: {
+          $ifNull: [{ $arrayElemAt: ['$locationStats.state', 0] }, null],
+        },
       },
     },
+
     {
       $project: {
         _id: 1,
@@ -212,19 +304,13 @@ const allVendorsStats = async (query: Record<string, string>) => {
         vendor: 1,
         business_email: 1,
         shop_approval: 1,
+        city: 1,
+        state: 1,
         totalDeals: 1,
         createdAt: 1,
       },
     }
   );
-
-  if (approvalFilter) {
-    pipeline.push({
-      $match: {
-        shop_approval: approvalFilter,
-      },
-    });
-  }
 
   // SEARCH (optional)
   if (searchTerm) {
@@ -251,7 +337,6 @@ const allVendorsStats = async (query: Record<string, string>) => {
   );
 
   const vendorsStatsPromise = await Shop.aggregate(pipeline);
-  pipeline = [];
 
   const totalVendorsPromise = Shop.countDocuments();
   const totalActiveVendorsPromise = Shop.countDocuments({
