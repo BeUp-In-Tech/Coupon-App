@@ -32,6 +32,59 @@ const vendorsStats = CatchAsync(async (req: Request, res: Response, next: NextFu
 });
 
 
+// 3. EXPORT VENDORS LIST IN XLSX
+const exportVendorsList = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const result = await dashboardServices.exportVendorsList(user);
+
+    SendResponse(res,{
+        success: true,
+        statusCode: StatusCodes.ACCEPTED,
+        message: "Vendor XLSX export queued successfully",
+        data: result
+    });
+});
+
+const getVendorExportStatus = CatchAsync(async (req: Request, res: Response) => {
+    const user = req.user as JwtPayload;
+    const result = await dashboardServices.getVendorExportStatus(
+        user,
+        req.params.jobId as string
+    );
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Vendor export status fetched successfully",
+        data: result
+    });
+});
+
+// Stream the completed workbook as a binary attachment instead of a JSON response.
+const downloadVendorExport = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user as JwtPayload;
+    const result = await dashboardServices.downloadVendorExport(
+        user,
+        req.params.jobId as string
+    );
+
+    res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Transfer-Encoding': 'binary',
+        'Cache-Control': `private, max-age=${result.cacheMaxAge}`,
+        'X-Content-Type-Options': 'nosniff'
+    });
+    res.download(result.filePath, result.fileName, (error) => {
+        if (!error) return;
+        if (res.headersSent) {
+            res.destroy(error);
+            return;
+        }
+        next(error);
+    });
+});
+
+
 // 3. RECENT DEALS STATS
 const recentDealsStats = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const result = await dashboardServices.recentDealsStats(req.query as Record<string, string>);
@@ -149,6 +202,9 @@ export const dashboardControllers = {
     getLatestTransaction,
     sendNotificationAndEmail,
     banDealByAdmin,
-    unbanDealByAdmin
+    unbanDealByAdmin,
+    exportVendorsList,
+    getVendorExportStatus,
+    downloadVendorExport
 }
 

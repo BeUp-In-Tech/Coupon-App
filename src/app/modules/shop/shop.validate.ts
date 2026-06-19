@@ -13,35 +13,10 @@ const businessPhoneSchema = z.object({
 });
 
 export const shopValidationSchema = z.object({
-  shop: z.object({
     business_name: z.string().min(5, 'Business name length must be minimum 5 characters').max(120, "'Business name length must be maximum 120 characters'"),
     business_phone: businessPhoneSchema,
     description: z.string().min(10, 'Description too short').max(1000, "Maximum 100 characters"),
     website: z.string().url('Invalid website URL').optional(),
-  }),
-
-  outlet: z.array(
-    z.object({
-      outlet_name: z
-        .string({
-          message: 'Location name must be string',
-        })
-        .optional(),
-
-      address: z.string({
-        message: 'Address must be string',
-      }),
-
-      zip_code: z.string({
-        message: 'Zip code must be string',
-      }),
-
-      coordinates: z.tuple([
-        z.number().min(-180).max(180), // longitude
-        z.number().min(-90).max(90), // latitude
-      ]),
-    })
-  ),
 });
 
 export const updateShopValidationSchema = z.object({

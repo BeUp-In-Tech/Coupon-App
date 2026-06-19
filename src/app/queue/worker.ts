@@ -6,6 +6,7 @@ import { emailSendWorker } from './worker/email_send.worker';
 import { dealHandleWorker } from './worker/deal.worker';
 import { imageDeleteWorker } from './worker/cloudinaryImageDeletion';
 import { invoiceGenerationWorker } from './worker/invoice.worker';
+import { vendorExportWorker } from './worker/vendorExport.worker';
 
 
 // RUN ALL WORKER JOB HERE WITH DATABASE CONNECTION
@@ -32,6 +33,9 @@ const connectQueueDB = async () => {
 
     // INVOICE GENERATION WORKER
     invoiceGenerationWorker();
+
+    // VENDOR XLSX EXPORT WORKER
+    vendorExportWorker();
 
   } catch (error) {
     console.log('Error connecting to Redis:', error);

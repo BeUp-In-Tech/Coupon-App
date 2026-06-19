@@ -13,6 +13,13 @@ export enum PaymentStatus {
     CANCELED = 'CANCELED'
 }
 
+export interface PaymentFailureFilter {
+  _id?: string;
+  stripe_session_id?: string;
+  payment_intent_id?: string;
+};
+
+
 export interface IPayment {
     _id?: Types.ObjectId;
     user: Types.ObjectId;

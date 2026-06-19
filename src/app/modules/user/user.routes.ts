@@ -10,19 +10,19 @@ const router = express.Router();
 // USER REGISTER
 router.post('/register', validateRequest(userZodSchema), userControllers.registerUser);
 // UPDATE USER
-router.patch('/', validateRequest(userUpdateZodSchema), checkAuth(...Object.keys(Role)), userControllers.updateUser);
+router.patch('/', checkAuth(...Object.keys(Role)), validateRequest(userUpdateZodSchema), userControllers.updateUser);
 // GET ME
 router.get('/get_me', checkAuth(...Object.keys(Role)), userControllers.getMe);
 // SEND VERIFICATION OTP
-router.post('/verification_otp', userControllers.sendVerificationOTP);
+router.post('/verification_otp', checkAuth(...Object.keys(Role)), userControllers.sendVerificationOTP);
 // VERIFY PROFILE
-router.post('/verify_profile',  userControllers.verifyProfile);
+router.post('/verify_profile', checkAuth(...Object.keys(Role)),  userControllers.verifyProfile);
 // DELETE USER ACCOUNT
 router.delete('/delete_account', checkAuth(...Object.keys(Role)), userControllers.deleteUserAccount);
 
 // PUSH FCM
-router.post('/register_fcm', validateRequest(registerSchema), checkAuth(...Object.keys(Role)), userControllers.registerPushToken);
-router.patch('/unregister_fcm', validateRequest(unregisterSchema), checkAuth(...Object.keys(Role)), userControllers.unregisterPushToken);
+router.post('/register_fcm', checkAuth(...Object.keys(Role)), validateRequest(registerSchema), userControllers.registerPushToken);
+router.patch('/unregister_fcm', checkAuth(...Object.keys(Role)), validateRequest(unregisterSchema), userControllers.unregisterPushToken);
 router.get('/get_device', checkAuth(...Object.keys(Role)), userControllers.getMyDeviceList);
 
 

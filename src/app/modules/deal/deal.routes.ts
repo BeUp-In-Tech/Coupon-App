@@ -24,7 +24,7 @@ router.post(
     { name: 'qr', maxCount: 1 },
     { name: 'upc', maxCount: 1 },
   ]),
-  validateImageDimensions,
+  // validateImageDimensions,
   uploadToCloudinary,
   preParseMiddleware,
   validateRequest(CreateDealZodSchema),

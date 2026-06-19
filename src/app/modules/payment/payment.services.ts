@@ -16,138 +16,23 @@ import { generateTransactionId } from '../../utils/generateTransactionId';
 import { PaymentProvider, PaymentStatus } from './payment.interface';
 import env from '../../config/env';
 import Stripe from 'stripe';
-import { Request } from 'express';
-import { paymentSuccessHandler } from '../../utils/paymentHelper/paymentSuccess.helper';
-import {
-  paymentFailedHandler,
-  paymentIntentFailedHandler,
-} from '../../utils/paymentHelper/paymentFailed.helper';
+import { Request } from 'express'; 
 import { DealModel } from '../deal/deal.model';
 import { dealHandleQueue } from '../../queue/index.queue';
 import { JobName } from '../../queue/worker/deal.worker';
-import { google } from 'googleapis';
 import { scheduleDealJobs } from '../../queue/job/deal.job';
 import { redisClient } from '../../config/redis.config';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import { anyCurrencyToUSD } from '../../utils/currencyConverter';
-import { importX509, jwtVerify } from 'jose';
 import { QueryBuilder } from '../../utils/QueryBuilder';
 import {
   addInvoiceGenerationJob,
   IInvoiceGenerationJobData,
 } from '../../queue/job/invoice.job';
 import { buildVendorInvoiceGenerationPayload } from '../../utils/invoice/vendorInvoicePayload.utility';
+import { ensureDealCanBePromoted, getStripeObjectId, paymentFailedHandler, paymentIntentFailedHandler, paymentSuccessHandler, validateAndroid, validateIOS } from './payment.helper';
 
-const getStripeObjectId = (
-  value: string | { id?: string } | null | undefined
-) => {
-  if (!value) return undefined;
-  return typeof value === 'string' ? value : value.id;
-};
 
-const ensureDealCanBePromoted = (deal: {
-  isBanned?: boolean;
-}) => {
-  if (
-    deal.isBanned === true
-  ) {
-    throw new AppError(
-      StatusCodes.FORBIDDEN,
-      'This deal is banned by admin and cannot be promoted'
-    );
-  }
-};
-
-// 1. Validate Android
-async function validateAndroid(productId: string, purchaseToken: string) {
-  try {
-    if (!process.env.GOOGLE_SERVICE_ACCOUNT) {
-      throw new Error(`Env required: ${process.env.GOOGLE_SERVICE_ACCOUNT}`);
-    }
-    const credentials = JSON.parse(
-      process.env.GOOGLE_SERVICE_ACCOUNT as string
-    );
-    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
-
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/androidpublisher'],
-    });
-
-    const publisher = google.androidpublisher({
-      version: 'v3',
-      auth,
-    });
-
-    const res = await publisher.purchases.products.get({
-      packageName: 'agency.beuptech.yepp',
-      productId,
-      token: purchaseToken,
-    });
-
-    const data = res.data as any;
-
-    return (
-      data.purchaseState === 0 && // purchased
-      data.acknowledgementState === 1 // acknowledged
-    );
-  } catch (error: any) {
-    console.log('Android In app purchase error: ', error);
-    return false;
-  }
-}
-
-// 2. Validate iOS
-const validateIOS = async (signedTransactionInfo: string) => {
-  try {
-    // 1. SPLIT JWS INTO PARTS
-    const [headerB64] = signedTransactionInfo.split('.');
-
-    // 2. DECODE HEADER (BASE64 -> JSON)
-    const header = JSON.parse(
-      Buffer.from(headerB64, 'base64').toString('utf-8')
-    );
-
-    if (!header.x5c || !header.x5c.length) {
-      throw new Error('Missing Apple certificate chain (x5c)');
-    }
-
-    // 3. GET APPLE LEAF CERTIFICATE (FIRST CERT IN CHAIN)
-    const leafCert = header.x5c[0];
-
-    /**
-     * CONVERT CERTIFICATE TO PEM FORMAT
-     * APPLE GIVES BASE63 DER -> WE CONVERT TO PEM
-     */
-    const pem = `-----BEGIN CERTIFICATE-----\n${leafCert}\n-----END CERTIFICATE-----`;
-
-    // 4. IMPORT PUBLIC KEY FROM CERTIFICATE
-    const publicKey = await importX509(pem, 'ES256');
-
-    // 5. VERIFY JWS SIGNATURE
-    const { payload } = await jwtVerify(signedTransactionInfo, publicKey, {
-      algorithms: ['ES256'],
-    });
-
-    // 6. (IMPORTANT) VALIDATE APP-SPECIFIC FIELDS
-    if (payload.bundleId !== env.APPLE_IOS_CLIENT_ID) {
-      throw new Error('Invalid bundleId');
-    }
-
-    // 🎉 7. Return verified transaction
-    return {
-      valid: true,
-      data: payload,
-    };
-  } catch (error: any) {
-    console.error('Apple JWS verification failed:', error.message);
-
-    return {
-      valid: false,
-      error: error.message,
-    };
-  }
-};
 
 const appleInAppPurchase = async (receipt: any) => {
   const { valid, data } = await validateIOS(receipt.serverVerificationData);
@@ -346,12 +231,12 @@ const googleInAppPurchase = async (payload: any) => {
 
     if (alreadyPromoted) {
       console.log(
-        `This service already promoted: dealId: ${payload?.dealId}, active_promotion_id: ${alreadyPromoted._id.toString()} `
+        `This ad already promoted: dealId: ${payload?.dealId}, active_promotion_id: ${alreadyPromoted._id.toString()} `
       );
 
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        'This service already promoted'
+        'This ad/deal already promoted'
       );
     }
 

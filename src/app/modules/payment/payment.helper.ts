@@ -1,34 +1,145 @@
-import mongoose from 'mongoose';
-import { PaymentModel } from '../../modules/payment/payment.model';
-import { PaymentStatus } from '../../modules/payment/payment.interface';
-import { Promotion } from '../../modules/promotion/promotion.model';
-import { PromotionStatus } from '../../modules/promotion/promotion.interface';
-import { Voucher } from '../../modules/voucher/voucher.model';
-import Stripe from 'stripe';
-import AppError from '../../errorHelpers/AppError';
-import { StatusCodes } from 'http-status-codes';
-import { DealModel } from '../../modules/deal/deal.model';
-import { redisClient } from '../../config/redis.config';
-import { scheduleDealJobs } from '../../queue/job/deal.job';
-import { invalidateAllMachineryCache } from '../deleteCachedData';
-import {
-  addInvoiceGenerationJob,
-  IInvoiceGenerationJobData,
-} from '../../queue/job/invoice.job';
-import { InvoiceData } from '../invoice/invoicePdf.utility';
-import { Shop } from '../../modules/shop/shop.model';
-import User from '../../modules/user/user.model';
-import { Category } from '../../modules/categories/categories.model';
-import { OutletModel } from '../../modules/outlet/outlet.model';
-import env from '../../config/env';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable no-console */
+import { google } from "googleapis";
+import { StatusCodes } from "http-status-codes";
+import { importX509, jwtVerify } from "jose";
+import env from "../../config/env";
+import AppError from "../../errorHelpers/AppError";
+import { Promotion } from "../promotion/promotion.model";
+import { PromotionStatus } from "../promotion/promotion.interface";
+import Stripe from "stripe";
+import { PaymentModel } from "./payment.model";
+import { PaymentFailureFilter, PaymentStatus } from "./payment.interface";
+import { addInvoiceGenerationJob, IInvoiceGenerationJobData } from "../../queue/job/invoice.job";
+import mongoose from "mongoose";
+import { DealModel } from "../deal/deal.model";
+import { scheduleDealJobs } from "../../queue/job/deal.job";
+import { Voucher } from "../voucher/voucher.model";
+import { Shop } from "../shop/shop.model";
+import User from "../user/user.model";
+import { Category } from "../categories/categories.model";
+import { Location } from "../location/location.model";
+import { InvoiceData } from "../../utils/invoice/invoicePdf.utility";
+import { invalidateAllMachineryCache } from "../../utils/deleteCachedData";
+import { redisClient } from "../../config/redis.config";
 
-const getStripeObjectId = (
+export const getStripeObjectId = (
   value: string | { id?: string } | null | undefined
 ) => {
   if (!value) return undefined;
   return typeof value === 'string' ? value : value.id;
 };
 
+export const ensureDealCanBePromoted = (deal: {
+  isBanned?: boolean;
+}) => {
+  if (
+    deal.isBanned === true
+  ) {
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      'This deal is banned by admin and cannot be promoted'
+    );
+  }
+};
+
+
+
+
+
+/// -------------------------PAYMENT RELATED UTILITY---------------------------
+// VALIDATE ANDROID
+export const validateAndroid = async (productId: string, purchaseToken: string) => {
+  try {
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT) {
+      throw new Error(`Env required: ${process.env.GOOGLE_SERVICE_ACCOUNT}`);
+    }
+    const credentials = JSON.parse(
+      process.env.GOOGLE_SERVICE_ACCOUNT as string
+    );
+    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+    });
+
+    const publisher = google.androidpublisher({
+      version: 'v3',
+      auth,
+    });
+
+    const res = await publisher.purchases.products.get({
+      packageName: 'agency.beuptech.yepp',
+      productId,
+      token: purchaseToken,
+    });
+
+    const data = res.data as any;
+
+    return (
+      data.purchaseState === 0 && // purchased
+      data.acknowledgementState === 1 // acknowledged
+    );
+  } catch (error: any) {
+    console.log('Android In app purchase error: ', error);
+    return false;
+  }
+}
+
+// VALIDATE IOS
+export const validateIOS = async (signedTransactionInfo: string) => {
+  try {
+    // 1. SPLIT JWS INTO PARTS
+    const [headerB64] = signedTransactionInfo.split('.');
+
+    // 2. DECODE HEADER (BASE64 -> JSON)
+    const header = JSON.parse(
+      Buffer.from(headerB64, 'base64').toString('utf-8')
+    );
+
+    if (!header.x5c || !header.x5c.length) {
+      throw new Error('Missing Apple certificate chain (x5c)');
+    }
+
+    // 3. GET APPLE LEAF CERTIFICATE (FIRST CERT IN CHAIN)
+    const leafCert = header.x5c[0];
+
+    /**
+     * CONVERT CERTIFICATE TO PEM FORMAT
+     * APPLE GIVES BASE63 DER -> WE CONVERT TO PEM
+     */
+    const pem = `-----BEGIN CERTIFICATE-----\n${leafCert}\n-----END CERTIFICATE-----`;
+
+    // 4. IMPORT PUBLIC KEY FROM CERTIFICATE
+    const publicKey = await importX509(pem, 'ES256');
+
+    // 5. VERIFY JWS SIGNATURE
+    const { payload } = await jwtVerify(signedTransactionInfo, publicKey, {
+      algorithms: ['ES256'],
+    });
+
+    // 6. (IMPORTANT) VALIDATE APP-SPECIFIC FIELDS
+    if (payload.bundleId !== env.APPLE_IOS_CLIENT_ID) {
+      throw new Error('Invalid bundleId');
+    }
+
+    // 🎉 7. Return verified transaction
+    return {
+      valid: true,
+      data: payload,
+    };
+  } catch (error: any) {
+    console.error('Apple JWS verification failed:', error.message);
+
+    return {
+      valid: false,
+      error: error.message,
+    };
+  }
+};
+
+// PAYMENT SUCCESS HANDLER
 export const paymentSuccessHandler = async (
   session: Stripe.Checkout.Session
 ) => {
@@ -121,8 +232,8 @@ export const paymentSuccessHandler = async (
       );
     }
 
-    // INVOICE GENERATION PREPARATION
-    const [shop, vendor, category, outlet] = await Promise.all([
+    // ------------------------------ INVOICE GENERATION PREPARATION ------------------------------
+    const [shop, vendor, category, location] = await Promise.all([
       Shop.findById(deal.shop).session(dbSession).lean(),
       User.findById(payment.user)
         .session(dbSession)
@@ -132,7 +243,7 @@ export const paymentSuccessHandler = async (
         .session(dbSession)
         .select('category_name')
         .lean(),
-      OutletModel.findOne({ shop: deal.shop })
+      Location.findOne({ shop: deal.shop })
         .session(dbSession)
         .select('address zip_code')
         .lean(),
@@ -167,11 +278,16 @@ export const paymentSuccessHandler = async (
       [shop?.business_phone?.country_code, shop?.business_phone?.phone_number]
         .filter(Boolean)
         .join(' ') || 'N/A';
+
+      const address = `${location?.address}, ${location?.address?.zip_code}, ${location?.address?.city}, ${location?.address?.country}`;
+
     const businessAddress =
-      [outlet?.address, outlet?.zip_code].filter(Boolean).join(', ') || 'N/A';
+      [address, location?.address?.zip_code].filter(Boolean).join(', ') || 'N/A';
+
     const paymentMethod = session.payment_method_types?.length
       ? `Stripe (${session.payment_method_types.join(', ')})`
       : 'Stripe';
+      
     const invoiceData: InvoiceData = {
       invoiceNumber: `#INV-${payment.transaction_id}`,
       status: 'PAID',
@@ -208,7 +324,7 @@ export const paymentSuccessHandler = async (
         status: 'Confirmed',
       },
       note: {
-        text: 'Thank you for promoting your service on Yepp Ads. For performance reports and analytics, visit your vendor dashboard at',
+        text: 'Thank you for promoting your ads on Yepp Ads. For performance reports and analytics, visit your vendor dashboard at',
         dashboardUrl: `${env.FRONTEND_URL}/shop-overview`,
       },
     };
@@ -255,4 +371,49 @@ export const paymentSuccessHandler = async (
       await addInvoiceGenerationJob(invoicePayload);
     });
   }
+};
+
+
+// STRIPE FAIL PAYMENT AND PROMOTION HANDLER
+export const failPaymentAndPromotion = async (
+  paymentFilter: PaymentFailureFilter,
+  paymentUpdate: Partial<{ payment_intent_id: string }> = {}
+) => {
+  const payment = await PaymentModel.findOneAndUpdate(
+    paymentFilter,
+    { payment_status: PaymentStatus.FAILED, ...paymentUpdate },
+    { new: true }
+  ).select('promotion');
+
+  if (!payment?.promotion) return payment;
+
+  await Promotion.updateOne(
+    { _id: payment.promotion },
+    { status: PromotionStatus.CANCELED }
+  );
+
+  return payment;
+};
+
+// STRIPE PAYMENT FAIL HANDLER
+export const paymentFailedHandler = async (
+  session: Stripe.Checkout.Session
+) => {
+  await failPaymentAndPromotion({ stripe_session_id: session.id });
+};
+
+// STRIPE PAYMENT INTENT FAIL HANDLER
+export const paymentIntentFailedHandler = async (
+  paymentIntent: Stripe.PaymentIntent
+) => {
+  const payment = await failPaymentAndPromotion({
+    payment_intent_id: paymentIntent.id,
+  });
+
+  if (payment || !paymentIntent.metadata?.payment) return;
+
+  await failPaymentAndPromotion(
+    { _id: paymentIntent.metadata.payment },
+    { payment_intent_id: paymentIntent.id }
+  );
 };

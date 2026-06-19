@@ -32,7 +32,7 @@ const dealSchema = new Schema<IDeal>(
       maxLength: 120,
     },
 
-    reguler_price: { type: Number, required: true, min: 0 },
+    regular_price: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0, max: 100 }, // percent
 
     highlight: {
@@ -83,8 +83,8 @@ const dealSchema = new Schema<IDeal>(
       ],
     },
 
-    available_in_outlet: [
-      { type: Schema.Types.ObjectId, ref: 'Outlet', index: true },
+    available_in_location: [
+      { type: Schema.Types.ObjectId, ref: 'location', index: true },
     ],
 
     // Promotion (you included these)

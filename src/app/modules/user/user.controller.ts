@@ -43,7 +43,8 @@ const getMe = CatchAsync(async (req: Request, res: Response, next: NextFunction)
 
 const sendVerificationOTP = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const { email } = req.body;
-    const result = await userServices.sendVerificationOtpService(email);
+    const user = req.user as JwtPayload;
+    const result = await userServices.sendVerificationOtpService(email, user);
     SendResponse(res, {
         success: true,
         statusCode: StatusCodes.OK,

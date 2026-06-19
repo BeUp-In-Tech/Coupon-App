@@ -8,7 +8,6 @@ import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { sendBulkEmails } from '../../queue/helper/multipleEmailSendJob';
 import { QueryBuilder } from '../../utils/QueryBuilder';
 import { DealModel } from '../deal/deal.model';
-import { IDeal } from '../deal/deal.interface';
 import { NotificationType } from '../notification/notification.interface';
 import { NotificationModel } from '../notification/notification.model';
 import { PaymentStatus } from '../payment/payment.interface';
@@ -20,25 +19,19 @@ import { IDashBoardNotificationPayload } from './dashboard.interface';
 import { JwtPayload } from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { StatusCodes } from 'http-status-codes';
-import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+import {
+  assertVendorExportIsAvailable,
+  getOwnedVendorExportJob,
+  invalidateDealVisibilityCache,
+} from './dashboard.helper';
+import {
+  addVendorExportJob,
+  IVendorExportJobResult,
+} from '../../queue/job/vendorExport.job';
+import { VENDOR_EXPORT_TTL_MS } from '../../utils/export/vendorExportWorkbook.utility';
 
-const invalidateDealVisibilityCache = async (deal: IDeal) => {
-  const shopId = deal.shop.toString();
-  const vendorId = deal.user.toString();
 
-  await Promise.all([
-    redisClient.del(`shop:${shopId}`),
-    redisClient.del(`shop:${vendorId}`),
-    redisClient.del('dashboard_analytics_total'),
-    invalidateAllMachineryCache('machinery:*'),
-    invalidateAllMachineryCache('recent_deals:*'),
-    invalidateAllMachineryCache('deals_stats:*'),
-    invalidateAllMachineryCache(`my_deals-userId:${vendorId}:*`),
-    invalidateAllMachineryCache('saved:*'),
-  ]);
-};
-
-// 1. CATEGORY BY PROMOTED DEAL COUNT
+// 1. CATEGORY BY DEAL COUNT
 const dealsByCategoryStats = async () => {
   const cacheKey = 'deals_by_category_stats';
   const getCachedData = await redisClient.get(cacheKey);
@@ -133,20 +126,39 @@ const allVendorsStats = async (query: Record<string, string>) => {
     return JSON.parse(getCachedData);
   }
 
-  let pipeline: any[] = [];
+  const pipeline: any[] = [];
+
+  if (approvalFilter) {
+    pipeline.push({
+      $match: {
+        shop_approval: approvalFilter,
+      },
+    });
+  }
 
   pipeline.push(
     {
       $lookup: {
         from: 'deals',
-        localField: '_id',
-        foreignField: 'shop',
-        as: 'deals',
+        let: { shopId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$shop', '$$shopId'] },
+            },
+          },
+          {
+            $count: 'totalDeals',
+          },
+        ],
+        as: 'dealStats',
       },
     },
     {
       $addFields: {
-        totalDeals: { $size: { $ifNull: ['$deals', []] } },
+        totalDeals: {
+          $ifNull: [{ $arrayElemAt: ['$dealStats.totalDeals', 0] }, 0],
+        },
       },
     },
     {
@@ -194,16 +206,105 @@ const allVendorsStats = async (query: Record<string, string>) => {
       },
     },
     {
-      $unwind: {
-        path: '$revenue',
-        preserveNullAndEmptyArrays: true,
+      $addFields: {
+        totalRevenue: {
+          $ifNull: [{ $arrayElemAt: ['$revenue.totalRevenue', 0] }, 0],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: 'locations',
+        let: { shopId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$shop', '$$shopId'] },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              cityValues: { $push: '$address.city' },
+              stateValues: { $push: '$address.state' },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              cityValues: {
+                $filter: {
+                  input: '$cityValues',
+                  as: 'city',
+                  cond: {
+                    $and: [
+                      { $ne: ['$$city', null] },
+                      { $ne: ['$$city', ''] },
+                    ],
+                  },
+                },
+              },
+              stateValues: {
+                $filter: {
+                  input: '$stateValues',
+                  as: 'state',
+                  cond: {
+                    $and: [
+                      { $ne: ['$$state', null] },
+                      { $ne: ['$$state', ''] },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              city: {
+                $switch: {
+                  branches: [
+                    {
+                      case: { $eq: [{ $size: '$cityValues' }, 1] },
+                      then: { $arrayElemAt: ['$cityValues', 0] },
+                    },
+                    {
+                      case: { $gt: [{ $size: '$cityValues' }, 1] },
+                      then: 'Multiple',
+                    },
+                  ],
+                  default: null,
+                },
+              },
+              state: {
+                $switch: {
+                  branches: [
+                    {
+                      case: { $eq: [{ $size: '$stateValues' }, 1] },
+                      then: { $arrayElemAt: ['$stateValues', 0] },
+                    },
+                    {
+                      case: { $gt: [{ $size: '$stateValues' }, 1] },
+                      then: 'Multiple',
+                    },
+                  ],
+                  default: null,
+                },
+              },
+            },
+          },
+        ],
+        as: 'locationStats',
       },
     },
     {
       $addFields: {
-        totalRevenue: { $ifNull: ['$revenue.totalRevenue', 0] },
+        city: { $ifNull: [{ $arrayElemAt: ['$locationStats.city', 0] }, null] },
+        state: {
+          $ifNull: [{ $arrayElemAt: ['$locationStats.state', 0] }, null],
+        },
       },
     },
+
     {
       $project: {
         _id: 1,
@@ -212,19 +313,13 @@ const allVendorsStats = async (query: Record<string, string>) => {
         vendor: 1,
         business_email: 1,
         shop_approval: 1,
+        city: 1,
+        state: 1,
         totalDeals: 1,
         createdAt: 1,
       },
     }
   );
-
-  if (approvalFilter) {
-    pipeline.push({
-      $match: {
-        shop_approval: approvalFilter,
-      },
-    });
-  }
 
   // SEARCH (optional)
   if (searchTerm) {
@@ -251,7 +346,6 @@ const allVendorsStats = async (query: Record<string, string>) => {
   );
 
   const vendorsStatsPromise = await Shop.aggregate(pipeline);
-  pipeline = [];
 
   const totalVendorsPromise = Shop.countDocuments();
   const totalActiveVendorsPromise = Shop.countDocuments({
@@ -283,7 +377,82 @@ const allVendorsStats = async (query: Record<string, string>) => {
   return final_data;
 };
 
-// 3. RECENT DEALS STATS
+// 3. QUEUE VENDORS LIST XLSX EXPORT
+const exportVendorsList = async (adminUser: JwtPayload) => {
+  const job = await addVendorExportJob(adminUser.userId as string);
+
+  return {
+    jobId: job.id,
+    status: 'waiting',
+    progress: 0,
+  };
+};
+
+// 4. GET VENDORS LIST XLSX EXPORT STATUS
+const getVendorExportStatus = async (
+  adminUser: JwtPayload,
+  jobId: string
+) => {
+  const job = await getOwnedVendorExportJob(adminUser, jobId);
+  const jobState = await job.getState();
+  // Present delayed/retrying BullMQ states as a stable public "waiting" state.
+  const status =
+    jobState === 'completed' || jobState === 'failed' || jobState === 'active'
+      ? jobState
+      : 'waiting';
+
+  const progress =
+    typeof job.progress === 'number' ? Math.round(job.progress) : 0;
+  // BullMQ stores the worker's completed file metadata in returnvalue.
+  const result = job.returnvalue as IVendorExportJobResult | undefined;
+
+  if (status === 'completed') {
+    await assertVendorExportIsAvailable(result);
+  }
+
+  return {
+    jobId: job.id,
+    status,
+    progress: status === 'completed' ? 100 : progress,
+    ...(status === 'completed' && result
+      ? {
+          rowCount: result.rowCount,
+          expiresAt: result.expiresAt,
+          downloadUrl: `/api/v1/dashboard/export_vendors/${job.id}/download`,
+        }
+      : {}),
+    ...(status === 'failed'
+      ? { error: job.failedReason || 'Vendor export failed' }
+      : {}),
+  };
+};
+
+// 5. DOWNLOAD VENDORS LIST XLSX EXPORT
+const downloadVendorExport = async (
+  adminUser: JwtPayload,
+  jobId: string
+) => {
+  const job = await getOwnedVendorExportJob(adminUser, jobId);
+
+  // Never expose a partial workbook while the worker is still processing it.
+  if ((await job.getState()) !== 'completed') {
+    throw new AppError(
+      StatusCodes.CONFLICT,
+      'Vendor export is not ready for download'
+    );
+  }
+
+  const result = job.returnvalue as IVendorExportJobResult | undefined;
+  const availableResult = await assertVendorExportIsAvailable(result);
+
+  return {
+    filePath: availableResult.filePath,
+    fileName: availableResult.fileName,
+    cacheMaxAge: Math.floor(VENDOR_EXPORT_TTL_MS / 1000),
+  };
+};
+
+// 6. RECENT DEALS STATS
 const recentDealsStats = async (query: Record<string, string>) => {
   const fields = query.fields ? query.fields : '';
   const page = query.page ? query.page : 1;
@@ -325,7 +494,7 @@ const recentDealsStats = async (query: Record<string, string>) => {
   return data;
 };
 
-// 4. DEALS STATS
+// 7. DEALS STATS
 const dealsStats = async (query: Record<string, string>) => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
@@ -537,7 +706,7 @@ const dealsStats = async (query: Record<string, string>) => {
   return final_data;
 };
 
-// 5. DASHBOARD ANALYTICS TOTAL
+// 8. DASHBOARD ANALYTICS TOTAL
 const dashboardAnalyticsTotal = async () => {
   const cacheKey = `dashboard_analytics_total`;
   const getCachedData = await redisClient.get(cacheKey);
@@ -616,7 +785,7 @@ const dashboardAnalyticsTotal = async () => {
   return final_data;
 };
 
-// 6. LAST ONE YEAR REVENUE TREND
+// 9. LAST ONE YEAR REVENUE TREND
 const getLastYearRevenueTrend = async () => {
   const cacheKey = `last_one_year_revenue_trend`;
   const getCachedData = await redisClient.get(cacheKey);
@@ -701,7 +870,7 @@ const getLastYearRevenueTrend = async () => {
   return final_data;
 };
 
-// 7. LATEST TRANSACTION
+// 10. LATEST TRANSACTION
 const getLatestTransaction = async (query: Record<string, string>) => {
   // MAKE CACHE KEY
   const cacheKey = `latest_transaction:${query.join || ''}_${query.fields || ''}_${query.searchTerm || ''}_page_${query.page}_limit_${query.limit || ''}_sort_${query.sort || ''}`;
@@ -744,7 +913,7 @@ const getLatestTransaction = async (query: Record<string, string>) => {
   return data;
 };
 
-// 8. SEND SYSTEM NOTIFICATION AND EMAIL
+// 11. SEND SYSTEM NOTIFICATION AND EMAIL
 const sendNotificationAndEmail = async (
   payload: IDashBoardNotificationPayload
 ) => {
@@ -825,7 +994,7 @@ const sendNotificationAndEmail = async (
   };
 };
 
-// 9. BAN DEAL BY ADMIN
+// 12. BAN DEAL BY ADMIN
 const banDealByAdmin = async (
   adminUser: JwtPayload,
   dealId: string,
@@ -929,7 +1098,7 @@ const banDealByAdmin = async (
   return deal;
 };
 
-// 10. UNBAN DEAL BY ADMIN
+// 13. UNBAN DEAL BY ADMIN
 const unbanDealByAdmin = async (adminUser: JwtPayload, dealId: string) => {
   const deal = await DealModel.findById(dealId);
 
@@ -970,4 +1139,7 @@ export const dashboardServices = {
   sendNotificationAndEmail,
   banDealByAdmin,
   unbanDealByAdmin,
+  exportVendorsList,
+  getVendorExportStatus,
+  downloadVendorExport,
 };

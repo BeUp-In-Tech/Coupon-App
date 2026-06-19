@@ -6,7 +6,6 @@ import { IShop, ShopApproval } from './shop.interface';
 import { Shop } from './shop.model';
 import { Role } from '../user/user.interface';
 import mongoose, { Types } from 'mongoose';
-import { OutletModel } from '../outlet/outlet.model';
 import { JwtPayload } from 'jsonwebtoken';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
 import { redisClient } from '../../config/redis.config';
@@ -17,56 +16,42 @@ import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 
-// Custom interface
-interface ShopCreatePayload {
-  shop: IShop;
-  outlet: {
-    outlet_name: string;
-    address: string;
-    zip_code: string;
-    coordinates: [number, number];
-  }[];
-}
 
 // CREATE SHOP
 const createShopService = async (
   user: JwtPayload,
-  payload: ShopCreatePayload
+  payload: IShop
 ) => {
-  if (!payload.shop.business_logo) {
+  if (!payload?.business_logo) {
     throw new AppError(StatusCodes.BAD_REQUEST, 'business_logo missing');
   }
 
   const isUser = await User.findById(user.userId);
   if (!isUser) {
-    if (payload.shop.business_logo) {
-      await addImageDeleteJob([payload.shop.business_logo]); // Delete image first
+    if (payload?.business_logo) {
+      await addImageDeleteJob([payload?.business_logo]);
     }
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  // CHECK USER VERIFIED
   if (!isUser.isVerified) {
-    if (payload.shop.business_logo) {
-      await addImageDeleteJob([payload.shop.business_logo]); // Delete image first
+    if (payload?.business_logo) {  
+      await addImageDeleteJob([payload?.business_logo]); 
     }
-
-    // Throw Error
     throw new AppError(StatusCodes.BAD_REQUEST, 'Verify your profile');
   }
 
   const vendorId = new Types.ObjectId(user.userId);
 
-  // Security rule: 1 vendor => 1 shop (remove if you allow multiple)
+  // Security rule: 1 vendor => 1 shop (remove allow multiple)
   const alreadyHasShop = await Shop.findOne({ vendor: vendorId })
     .select('_id')
     .lean();
   if (alreadyHasShop) {
-    if (payload.shop.business_logo) {
-      await addImageDeleteJob([payload.shop.business_logo]); // Delete image first
+    if (payload?.business_logo) {
+      await addImageDeleteJob([payload?.business_logo]);
     }
 
-    // THROW Error
     throw new AppError(
       StatusCodes.CONFLICT,
       'Shop already exists for this vendor'
@@ -77,51 +62,20 @@ const createShopService = async (
     .select('_id')
     .lean();
 
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
     // 1) Create shop
-    const [shopDoc] = await Shop.create(
-      [
-        {
+    const shopDoc = await Shop.create({
           vendor: vendorId,
-          business_name: payload.shop.business_name.trim(),
+          business_name: payload?.business_name.trim(),
           business_email: isUser.email.trim().toLowerCase(),
-          business_phone: payload.shop.business_phone,
-          business_logo: payload.shop.business_logo,
-          description: payload.shop.description.trim(),
-          website: payload.shop.website?.trim(),
-        },
-      ],
-      { session }
-    );
+          business_phone: payload?.business_phone,
+          business_logo: payload?.business_logo,
+          description: payload?.description.trim(),
+          website: payload?.website?.trim(),
+        });
 
-    // 2) Create outlets linked to shop
-    const outlets = (payload.outlet || []).map((o) => ({
-      shop: shopDoc._id,
-      vendor: vendorId,
-      outlet_name: o.outlet_name,
-      address: o.address.trim(),
-      zip_code: o.zip_code.trim(),
-      location: {
-        type: 'Point',
-        coordinates: [...o.coordinates],
-      },
-    }));
-
-    if (outlets.length) {
-      await OutletModel.insertMany(outlets, { session, ordered: true });
-    }
 
     // REMOVE CACHE (DASHBOARD API CACHE)
-    await invalidateAllMachineryCache('all_vendors_dashboard:*'); // recent vendors stats
-
-    // SESSION END
-    await session.commitTransaction();
-    session.endSession();
-
+    await invalidateAllMachineryCache('all_vendors_dashboard:*'); // invalidate recent vendors stats api cache
     await redisClient.del(`user_me:${vendorId}`);
 
     // NOTIFY ADMIN ABOUT NEW SHOP APPROVAL REQUEST
@@ -133,14 +87,14 @@ const createShopService = async (
             {
               user: adminUser._id,
               title: 'New shop approval request',
-              body: `${payload.shop.business_name.trim()} submitted a new shop for approval.`,
+              body: `${payload?.business_name.trim()} submitted a new shop for approval.`,
               type: NotificationType.SHOP,
               entityId: shopDoc._id.toString(),
               webUrl: `${env.FRONTEND_URL}/dashboard/admin-vendor`,
               deepLink: `${env.DEEP_LINK}dashboard/admin-vendor`,
               data: {
                 shopId: shopDoc._id.toString(),
-                shopName: payload.shop.business_name.trim(),
+                shopName: payload?.business_name.trim(),
                 vendorId: vendorId.toString(),
               },
             },
@@ -162,34 +116,15 @@ const createShopService = async (
       });
     }
 
-    return {
-      shop: shopDoc,
-      outlets_created: outlets.length,
-    };
-  } catch (err: any) {
-    await session.abortTransaction();
-    session.endSession();
-
-    // Duplicate key handling (unique index errors)
-    if (err?.code === 11000) {
-      throw new AppError(
-        StatusCodes.CONFLICT,
-        `Duplicate key: ${JSON.stringify(err.keyValue)}`
-      );
-    }
-
-    throw err;
-  }
+    return shopDoc;
 };
 
 // GET SHOP DETAILS
 const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   const shopDynamicId = my_shop ? my_shop : shopId;
 
-  // CREATED DYNAMIC SHOP CACHE KEY
+  // Cache layer
   const shopCacheKey = `shop:${shopDynamicId}`;
-
-  // GET DATA FROM REDIS AND RETURN
   if (shopCacheKey) {
     const shopData = await redisClient.get(shopCacheKey);
     if (shopData) {
@@ -206,17 +141,16 @@ const getShopDetailsService = async (shopId?: string, my_shop?: string) => {
   }
 
   // Aggregate shop
-
   const isShopExist = await Shop.aggregate([
     {
       $match: shopQuery,
     },
     {
       $lookup: {
-        from: 'outlets',
+        from: 'locations',
         localField: '_id',
         foreignField: 'shop',
-        as: 'outlets',
+        as: 'locations',
       },
     },
     {
@@ -256,13 +190,11 @@ const updateShopService = async (
   shopId: string,
   payload: Partial<IShop>
 ) => {
-  // 1. ensure user exists
   const user = await User.findById(userId).select('_id email role');
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  // 2. Build filter
   const filter: Record<string, any> = { _id: shopId };
   if (user.role === Role.VENDOR) {
     filter.vendor = user._id; // only vendor ownership enforced
@@ -303,7 +235,7 @@ const updateShopService = async (
     if (user.role !== Role.ADMIN) {
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        'Only admin can change approval status'
+        'Your are unauthorize to change status'
       );
     }
 
@@ -345,24 +277,25 @@ const updateShopService = async (
 
   // =================BACKGROUND JOB HANDLING==============
 
-  // DELETE EXISTING IMAGE ASYNCHRONOUSLY TO PREVENT LOAD FOR MAIN API RESPONSE
-  setImmediate(async () => {
-    // Delete old business logo
-    if (payload.business_logo && shop.business_logo) {
+  
+  
+  //==================================================== BULLMQ JOB PROCESSING================================
+  
+  // Delete old business logo
+  if (payload.business_logo && shop.business_logo) {
       await addImageDeleteJob([shop.business_logo]);
     }
-  });
 
-  //==================================================== BULLMQ JOB PROCESSING================================
-  // IF SHOP APPROVAL 'APPROVED'
+
+  // SEND NOTIFICATION AND & EMAIL IF SHOP HAS 'APPROVED'
   if (
     payload.shop_approval &&
     payload.shop_approval === ShopApproval.APPROVED
   ) {
-    // =============SEND NOTIFICATION=============
+    // =============NOTIFICATION=============
     const notificationPayload = {
       user: updatedShop.vendor,
-      title: 'Congratulations! Your shop approved by Yepp',
+      title: 'Congratulations! Your shop approved by Yepp Ads',
       body: 'Your shop is live now. You can promote your service and deals',
       type: NotificationType.SHOP,
       entityId: shopId,
@@ -381,7 +314,7 @@ const updateShopService = async (
       removeOnFail: 1000,
     });
 
-    //================= SEND EMAIL ==========================
+    //================= EMAIL ==========================
     const shopOwner = await User.findOne({ _id: updatedShop.vendor });
     if (!shopOwner) {
       return 0;
@@ -390,7 +323,7 @@ const updateShopService = async (
     const now = new Date().toLocaleString();
     const emailPayload = {
       to: shopOwner.email,
-      subject: 'Congratulations! Your shop approved by Yepp',
+      subject: 'Congratulations! Your shop approved by Yepp Ads',
       templateName: 'shop_approval',
       templateData: {
         shop_owner_name: shopOwner.user_name,
@@ -417,12 +350,12 @@ const updateShopService = async (
     await redisClient.del(`shop:${shopOwner._id}`);
   }
 
-  // IF SHOP APPROVAL 'REJECTED'
+   // SEND NOTIFICATION AND & EMAIL IF SHOP HAS 'REJECTED'
   if (
     payload.shop_approval &&
     payload.shop_approval === ShopApproval.REJECTED
   ) {
-    // =============SEND NOTIFICATION AND EMAIL============
+    // =============NOTIFICATION============
     const notificationPayload = {
       user: updatedShop.vendor,
       title: 'Your shop rejected by Yepp',
@@ -454,7 +387,7 @@ const updateShopService = async (
 
     const emailPayload = {
       to: shopOwner.email,
-      subject: 'Your shop creation rejected by Yepp',
+      subject: 'Your shop rejected by Yepp Ads',
       templateName: 'shop_rejection',
       templateData: {
         shop_owner_name: shopOwner.user_name,

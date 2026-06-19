@@ -11,7 +11,7 @@ import { removeTokenFromOtherUsers } from '../../utils/removeToken';
 import { Shop } from '../shop/shop.model';
 import { createUserTokens } from '../../utils/user.tokens';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
-import { OutletModel } from '../outlet/outlet.model';
+import { Location as OutletModel } from '../location/location.model';
 import { DealModel } from '../deal/deal.model';
 import { Promotion } from '../promotion/promotion.model';
 import { PaymentModel } from '../payment/payment.model';
@@ -137,7 +137,12 @@ const getMeService = async (userId: string) => {
 
 
 // 4. SEND VERIFICATION OTP
-const sendVerificationOtpService = async (email: string) => {
+const sendVerificationOtpService = async (email: string, auth: JwtPayload) => {
+  
+  if (email !== auth.email) {
+    throw new AppError(StatusCodes.FORBIDDEN, "Email not matched");
+  }
+
   const user = (await User.findOne({ email }).select(
     'user_name email isVerified'
   )) as Partial<IUser>;

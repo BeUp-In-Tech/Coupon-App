@@ -40,7 +40,7 @@ const ShopSchema = new Schema<IShop>(
       type: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false}
 );
 
  
