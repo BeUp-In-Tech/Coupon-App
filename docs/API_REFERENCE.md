@@ -110,13 +110,22 @@ Create shop `data` example:
 | PATCH | `/category/:categoryId` | `ADMIN` | Multipart optional `file`; optional `category_name`, `isDeleted` |
 | DELETE | `/category/:categoryId` | `ADMIN` | None |
 
-## Outlet Module (`/outlet`)
+## Location Module (`/locations`)
 
 | Method | Endpoint | Auth | Request |
 | --- | --- | --- | --- |
-| PATCH | `/outlet/?outletId=<id>` | Vendor ownership enforced | `{ "outlet_name?", "address?", "zip_code?", "coordinates?" }` |
+| POST | `/locations/` | `VENDOR` | Single location JSON payload |
+| PATCH | `/locations/?l_id=<id>` | Logged user with shop ownership | Partial location JSON payload |
+| GET | `/locations/bulk/template` | `VENDOR` | Download the XLSX upload template |
+| POST | `/locations/bulk/preview` | `VENDOR` | Multipart `file`: `.xlsx` or `.csv`, maximum 10 MB / 5,000 rows |
+| POST | `/locations/bulk/:batchId/confirm` | `VENDOR` | Import valid rows from a previewed batch |
 
 `coordinates` must be `[lng, lat]`.
+
+Bulk location headers are `Location name`, `Street`, `Zip code`, `City`,
+`State`, `Country`, `Longitude`, `Latitude`, and `Is active`. Preview validates
+without inserting; the backend maps these labels to the location model and a
+batch remains confirmable for 30 minutes.
 
 ## Deal Module (`/service`)
 

@@ -45,6 +45,12 @@ export const globalErrorHandler = (
     statusCode = simplifiedError.statusCode;
     errorSources = simplifiedError.errorSources as TErrorSources[];
     message = simplifiedError.message;
+  } else if (err.name === 'MulterError') {
+    statusCode = 400;
+    message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'Uploaded file exceeds the allowed size'
+        : err.message;
   } else if (err instanceof AppError) {
     statusCode = err.statusCode;
     message = err.message;
