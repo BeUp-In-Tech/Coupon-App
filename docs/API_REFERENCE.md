@@ -213,6 +213,9 @@ All dashboard endpoints require `ADMIN`.
 | --- | --- | --- |
 | GET | `/dashboard/deals_by_category_stats` | None |
 | GET | `/dashboard/vendor_stats` | Query: `searchTerm?`, `sort?`, `page?`, `limit?` |
+| POST | `/dashboard/export_vendors` | Queue a complete vendor XLSX export |
+| GET | `/dashboard/export_vendors/:jobId/status` | Poll export status and progress |
+| GET | `/dashboard/export_vendors/:jobId/download` | Download a completed export within one hour |
 | GET | `/dashboard/recent_deals` | QueryBuilder params |
 | GET | `/dashboard/deals_stats` | Query: `searchTerm?`, `page?`, `limit?`, `sortBy?` |
 | GET | `/dashboard/dashboard_analytics_total` | None |

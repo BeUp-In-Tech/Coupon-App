@@ -10,6 +10,9 @@ const router = Router();
 
 router.get('/deals_by_category_stats', checkAuth(Role.ADMIN), dashboardControllers.dealsByCategoryStats);
 router.get('/vendor_stats', checkAuth(Role.ADMIN), dashboardControllers.vendorsStats);
+router.post('/export_vendors', checkAuth(Role.ADMIN), dashboardControllers.exportVendorsList);
+router.get('/export_vendors/:jobId/status', checkAuth(Role.ADMIN), dashboardControllers.getVendorExportStatus);
+router.get('/export_vendors/:jobId/download', checkAuth(Role.ADMIN), dashboardControllers.downloadVendorExport);
 router.get('/recent_deals', checkAuth(Role.ADMIN), dashboardControllers.recentDealsStats);
 router.get('/deals_stats', checkAuth(Role.ADMIN), dashboardControllers.dealsStats);
 router.get('/dashboard_analytics_total', checkAuth(Role.ADMIN), dashboardControllers.dashboardAnalyticsTotal);

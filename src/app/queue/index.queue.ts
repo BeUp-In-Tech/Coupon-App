@@ -16,3 +16,4 @@ export const imageDeleteQueue = new Queue('imageDeleteQueue', { connection });
 export const invoiceGenerationQueue = new Queue('invoiceGenerationQueue', {
   connection,
 });
+export const vendorExportQueue = new Queue('vendorExportQueue', { connection });
