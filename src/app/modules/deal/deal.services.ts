@@ -314,7 +314,6 @@ const getSingleDealsService = async (
     },
   ]);
 
-  console.log(deals);
 
   const final_deal = deals[0];
 
