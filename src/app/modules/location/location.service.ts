@@ -366,10 +366,73 @@ const generateBulkLocationTemplate = async () => {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 };
 
+// GET LOCATION SUGGESTION FROM SEARCHBAR
+const getLocationSuggestions = async (query: Record<string, string>) => {
+   const search = String(query.search || '')
+    .trim()
+    .toLowerCase();
+
+  if (!search) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Empty search');
+  }
+
+  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = { $regex: escapedSearch, $options: 'i' };
+
+  const suggestions = await Location.aggregate([
+    {
+      $match: {
+        isActive: true,
+        $or: [
+          { location_name: regex },
+          { 'address.city': regex },
+          { 'address.state': regex },
+          { 'address.zip_code': regex },
+          { 'address.country': regex },
+        ],
+      },
+    },
+    {
+      $group: {
+        _id: {
+          city: '$address.city',
+          state: '$address.state',
+          country: '$address.country',
+        },
+        zip_code: {
+          $first: '$address.zip_code',
+        },
+        location: {
+          $first: '$location',
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        city: '$_id.city',
+        state: '$_id.state',
+        country: '$_id.country',
+        zip_code: 1,
+        location: 1,
+        label: {
+          $concat: ['$_id.city', ', ', '$_id.state'],
+        },
+      },
+    },
+    {
+      $limit: 30,
+    },
+  ]);
+
+  return suggestions;
+};
+
 export const locationServices = {
   createLocationService,
   updateLocationService,
   previewBulkLocationsService,
   confirmBulkLocationsService,
   generateBulkLocationTemplate,
+  getLocationSuggestions
 };

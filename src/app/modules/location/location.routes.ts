@@ -10,6 +10,11 @@ import { bulkLocationUpload } from '../../config/multer.config';
 const router = Router();
 
 router.get(
+  '/suggestions',
+  locationControllers.getLocationSuggestions
+);
+
+router.get(
   '/bulk/template',
   checkAuth(Role.VENDOR),
   locationControllers.downloadBulkLocationTemplate

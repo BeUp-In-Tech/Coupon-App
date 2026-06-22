@@ -1067,7 +1067,7 @@ const getAllDealsService = async (
       $lookup: {
         from: 'deals',
         localField: '_id',
-        foreignField: 'available_in_outlet',
+        foreignField: 'available_in_location',
         as: 'deal',
       },
     },
@@ -1099,8 +1099,7 @@ const getAllDealsService = async (
           { 'deal.description': { $regex: searchTerm, $options: 'i' } },
           { 'deal.tags': { $regex: searchTerm, $options: 'i' } },
           { 'deal.highlight': { $regex: searchTerm, $options: 'i' } },
-          { zip_code: { $regex: searchTerm, $options: 'i' } },
-          { address: { $regex: searchTerm, $options: 'i' } },
+          { 'address.zip_code': { $regex: searchTerm, $options: 'i' } },        
         ],
       },
     },

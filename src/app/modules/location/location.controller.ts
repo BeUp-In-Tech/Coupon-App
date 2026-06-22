@@ -92,10 +92,27 @@ const updateLocation = CatchAsync(
   }
 );
 
+
+const getLocationSuggestions = CatchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const query = req.query as Record<string, string>
+
+    const result = await locationServices.getLocationSuggestions(query);
+
+    SendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Location suggestions fetched success',
+      data: result,
+    });
+  }
+);
+
 export const locationControllers = {
   downloadBulkLocationTemplate,
   previewBulkLocations,
   confirmBulkLocations,
   createLocation,
-  updateLocation
+  updateLocation,
+  getLocationSuggestions
 };

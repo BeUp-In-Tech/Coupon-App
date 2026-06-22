@@ -35,4 +35,11 @@ locationSchema.index({ location: "2dsphere" });
 // Helpful for shop outlets listing
 locationSchema.index({ shop: 1, isActive: 1 });
 
+// Text search
+locationSchema.index({ 'address.city': 1 });
+locationSchema.index({ 'address.state': 1 });
+locationSchema.index({ 'address.zip_code': 1 });
+locationSchema.index({ 'address.country': 1 });
+locationSchema.index({  location_name: 1 });
+
 export const Location = mongoose.model<ILocation>("location", locationSchema);
