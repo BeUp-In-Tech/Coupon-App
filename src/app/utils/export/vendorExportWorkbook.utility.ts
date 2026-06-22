@@ -7,6 +7,9 @@ import { Location } from '../../modules/location/location.model';
 import { ShopApproval } from '../../modules/shop/shop.interface';
 import { Shop } from '../../modules/shop/shop.model';
 import User from '../../modules/user/user.model';
+import { IUser } from '../../modules/user/user.interface';
+import { DealModel } from '../../modules/deal/deal.model';
+import { PaymentModel } from '../../modules/payment/payment.model';
 
 // Keep database and workbook memory bounded while processing large exports.
 const EXPORT_BATCH_SIZE = 5000;
@@ -43,6 +46,11 @@ interface IGenerateVendorExportParams {
   onProgress: (progress: number) => Promise<void>;
 }
 
+interface IPartialUser extends IUser {
+  _id: Types.ObjectId;
+  createdAt: Date;
+}
+
 // Match vendor_stats: multiple location records make both fields "Multiple".
 const summarizeLocationValue = (
   locationCount: number,
@@ -69,6 +77,9 @@ const configureWorksheet = (
     { header: 'Shop Status', key: 'shopStatus', width: 18 },
     { header: 'City', key: 'city', width: 24 },
     { header: 'State', key: 'state', width: 24 },
+    { header: 'Signed up', key: 'signUpDate', width: 24 },
+    { header: 'Total Ads', key: 'total_ads', width: 24 },
+    { header: 'Revenue', key: 'total_revenue', width: 24 },
   ];
 
   const headerRow = worksheet.getRow(1);
@@ -119,10 +130,10 @@ export const generateVendorExportWorkbook = async ({
       const shopIds = shops.map((shop) => shop._id);
 
       // Fetch related users and location summaries once per batch to avoid N+1 queries.
-      const [users, locationSummaries] = await Promise.all([
+      const [users, locationSummaries, shopByDeals, shopsByPayments] = await Promise.all([
         User.find({ _id: { $in: vendorIds } })
-          .select('user_name')
-          .lean(),
+          .select('user_name createdAt')
+          .lean<IPartialUser[]>(),
         Location.aggregate<ILocationSummary>([
           { $match: { shop: { $in: shopIds } } },
           {
@@ -134,11 +145,31 @@ export const generateVendorExportWorkbook = async ({
             },
           },
         ]),
+        DealModel.find({ shop: { $in: shopIds }, isPromoted: true}).select("_id title shop"),
+        PaymentModel.find({ user: { $in: vendorIds }}).select("user amount payment_status"),
       ]);
 
-      const userNameById = new Map(
-        users.map((user) => [user._id.toString(), user.user_name])
+      const userById = new Map(
+        users.map((user: IPartialUser) => [
+          user._id.toString(),
+          { user_name: user.user_name, signupDate: user.createdAt },
+        ])
       );
+
+      const totalAdsByShop = shopByDeals.reduce<Record<string, number>>((accumulator, deal) => {
+        const shopId = deal.shop.toString();
+
+        accumulator[shopId] = (accumulator[shopId] || 0) + 1;
+        return accumulator;
+      }, {});
+
+      const totalRevenueByShop = shopsByPayments.reduce<Record<string, number>>((accumulator, payment) => {
+          const userId = (payment.user as unknown as Types.ObjectId)?.toString() || '';
+          accumulator[userId] = (accumulator[userId] || 0) + payment.amount;
+          return accumulator;
+      }, {}) 
+       
+
       const locationByShopId = new Map(
         locationSummaries.map((summary) => [summary._id.toString(), summary])
       );
@@ -153,11 +184,17 @@ export const generateVendorExportWorkbook = async ({
         }
 
         const location = locationByShopId.get(shop._id.toString());
+        const user = userById.get(shop.vendor.toString());
+        const vendorTotalDeals = totalAdsByShop[shop._id.toString()] || 0;
+        const shopTotalRevenue = totalRevenueByShop[shop.vendor.toString()] || 0;
+ 
+
         worksheet
           .addRow({
             businessName: shop.business_name,
             businessEmail: shop.business_email,
-            userName: userNameById.get(shop.vendor.toString()) || 'N/A',
+            userName: user?.user_name || 'N/A',
+            signUpDate: user?.signupDate.toDateString() || 'N/A',
             shopStatus: shop.shop_approval,
             city: summarizeLocationValue(
               location?.locationCount || 0,
@@ -167,6 +204,8 @@ export const generateVendorExportWorkbook = async ({
               location?.locationCount || 0,
               location?.state
             ),
+            total_ads : vendorTotalDeals,
+            total_revenue : `$${shopTotalRevenue.toFixed(2) || 0}`,
           })
           .commit();
 

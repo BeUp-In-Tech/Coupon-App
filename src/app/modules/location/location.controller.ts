@@ -41,10 +41,11 @@ const previewBulkLocations = CatchAsync(
 
 const confirmBulkLocations = CatchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
+    const batchId = req.params.batchId as string;
     const { userId } = req.user as JwtPayload;
     const result = await locationServices.confirmBulkLocationsService(
       userId,
-      req.params.batchId as string
+      batchId
     );
 
     SendResponse(res, {
