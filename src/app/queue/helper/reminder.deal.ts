@@ -1,10 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import { Types } from 'mongoose';
 import { DealModel } from './../../modules/deal/deal.model';
 import { notifyUser } from '../../utils/notification/push.notification';
 import { NotificationType } from '../../modules/notification/notification.interface';
 import env from '../../config/env';
+import { workerLogger } from '../../utils/logger/logger.child';
+
+const queuedLogger = workerLogger.child({
+  queue: 'dealHandleQueue',
+  helper: 'reminderDeal',
+});
 
 export const oneDayReminder = async (dealId: string) => {
   try {
@@ -16,7 +21,7 @@ export const oneDayReminder = async (dealId: string) => {
     });
 
     if (!deal) {
-      console.log('Deal not found');
+      queuedLogger.info({ dealId, reminderType: 'oneDay' }, 'Deal not found');
       return;
     }
 
@@ -35,7 +40,7 @@ export const oneDayReminder = async (dealId: string) => {
       },
     });
   } catch (error: any) {
-    console.log(`One day reminder send error: `, error.message);
+    queuedLogger.error({ error, dealId, reminderType: 'oneDay' }, 'One day reminder send error');
   }
 };
 
@@ -50,7 +55,7 @@ export const oneHourReminder = async (dealId: string) => {
     });
 
     if (!deal) {
-      console.log('Deal not found');
+      queuedLogger.info({ dealId, reminderType: 'oneHour' }, 'Deal not found');
       return;
     }
 
@@ -69,6 +74,6 @@ export const oneHourReminder = async (dealId: string) => {
       },
     });
   } catch (error: any) {
-    console.log('One hour Reminder send error: ', error.message);
+    queuedLogger.error({ error, dealId, reminderType: 'oneHour' }, 'One hour reminder send error');
   }
 };

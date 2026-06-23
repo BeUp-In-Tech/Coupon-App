@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import { PaymentStatus } from '../../modules/payment/payment.interface';
 import { PaymentModel } from '../../modules/payment/payment.model';
 import { Promotion } from '../../modules/promotion/promotion.model';
+import { workerLogger } from '../../utils/logger/logger.child';
+
+const queuedLogger = workerLogger.child({
+  queue: 'dealHandleQueue',
+  helper: 'cleanupPaymentPromotionPending',
+});
 
 interface Id {
   promotionId: string;
@@ -14,7 +19,7 @@ const removePaymentPendingOver15Min = async ({
   paymentId,
 }: Id) => {
   try {
-    console.log('Running cleanup job...');
+    queuedLogger.info({ promotionId, paymentId }, 'Running cleanup job');
 
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
@@ -31,10 +36,15 @@ const removePaymentPendingOver15Min = async ({
       createdAt: { $lt: fifteenMinutesAgo },
     });
 
-    console.log('Deleted payments:', deletedPayments.deletedCount);
-    console.log('Deleted promotions:', deletedPromotions.deletedCount);
+    queuedLogger.info(
+      {
+        deletedPayments: deletedPayments.deletedCount,
+        deletedPromotions: deletedPromotions.deletedCount,
+      },
+      'Pending payment promotion cleanup completed'
+    );
   } catch (error: any) {
-    console.log('Pending cleanup queue error: ', error.message);
+    queuedLogger.error({ error, promotionId, paymentId }, 'Pending cleanup queue error');
   }
 };
 

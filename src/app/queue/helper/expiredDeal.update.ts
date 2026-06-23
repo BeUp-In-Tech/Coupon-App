@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import { Types } from 'mongoose';
 import { DealModel } from '../../modules/deal/deal.model';
 import { Promotion } from '../../modules/promotion/promotion.model';
 import { PromotionStatus } from '../../modules/promotion/promotion.interface';
 import { connectRedis, redisClient } from '../../config/redis.config';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+import { workerLogger } from '../../utils/logger/logger.child';
+
+const queuedLogger = workerLogger.child({
+  queue: 'dealHandleQueue',
+  helper: 'expiredDealUpdate',
+});
 
 const clearDealExpireCache = async (dealUpdate: any) => {
   try {
@@ -18,7 +23,10 @@ const clearDealExpireCache = async (dealUpdate: any) => {
       `my_deals-userId:${dealUpdate.user.toString()}:*`
     ); // get my deals cache invalidate (deal.service.ts)
   } catch (error: any) {
-    console.log('Deal expire cache clear problem: ', error.message);
+    queuedLogger.error(
+      { error, dealId: dealUpdate?._id?.toString() },
+      'Deal expire cache clear problem'
+    );
   }
 };
 
@@ -39,7 +47,7 @@ export const dealExpireHandle = async (dealId: string) => {
     );
 
     if (!dealUpdate) {
-      console.log('Deal not found or not promoted');
+      queuedLogger.info({ dealId }, 'Deal not found or not promoted');
       return;
     }
 
@@ -54,15 +62,18 @@ export const dealExpireHandle = async (dealId: string) => {
       }
     );
 
-    console.log(`Deal "${dealUpdate?.title}" updated to isPromoted=false`);
-    console.log(
-      'Promotion updated to expired count:',
-      promotionUpdate.modifiedCount || 0
+    queuedLogger.info(
+      {
+        dealId,
+        title: dealUpdate?.title,
+        expiredPromotions: promotionUpdate.modifiedCount || 0,
+      },
+      'Deal updated to isPromoted=false'
     );
 
     // CLEAR CACHE
     await clearDealExpireCache(dealUpdate);
   } catch (error: any) {
-    console.log(`Deal expire handle problem: `, error.message);
+    queuedLogger.error({ error, dealId }, 'Deal expire handle problem');
   }
 };

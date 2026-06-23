@@ -15,6 +15,7 @@ import { DealModel } from '../deal/deal.model';
 import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+import { shopLogger } from '../../utils/logger/logger.child';
 
 
 // CREATE SHOP
@@ -110,8 +111,7 @@ const createShopService = async (
             }
           );
         } catch (error) {
-          // eslint-disable-next-line no-console
-          console.log('Admin notification queue error:', error);
+          shopLogger.error({error}, 'Admin notification queue error');
         }
       });
     }

@@ -1,9 +1,13 @@
-/* eslint-disable no-console */
 import { Worker } from 'bullmq';
 import { connection } from '../index.queue'
 import { dealExpireHandle } from '../helper/expiredDeal.update';
 import { oneDayReminder, oneHourReminder } from '../helper/reminder.deal';
 import removePaymentPendingOver15Min from '../helper/cleanup_payment_promotion_pending';
+import { workerLogger } from '../../utils/logger/logger.child';
+
+const queuedLogger = workerLogger.child({
+  queue: 'dealHandleQueue',
+});
 
 
 export enum JobName {
@@ -14,12 +18,18 @@ export enum JobName {
 }
 
 
-// NOTIFICATION SEND WORKER
+// DEAL HANDLE WORKER
 
 export const dealHandleWorker = () => {
   const worker = new Worker(
     'dealHandleQueue',
     async (job) => {
+      const jobLogger = queuedLogger.child({
+        jobId: job.id,
+        jobName: job.name,
+        attemptsMade: job.attemptsMade,
+      });
+
       try {
         switch (job.name) {
             case JobName.DEAL_REMINDER_DAY :
@@ -39,7 +49,7 @@ export const dealHandleWorker = () => {
                 break;
         }
       } catch (error) {
-        console.log('Notification sending error from bullmq: ', error);
+        jobLogger.error({ error }, 'Deal queue handling error from bullmq');
       }
     },
     { connection }
@@ -47,11 +57,11 @@ export const dealHandleWorker = () => {
 
   // LISTEN COMPLETED AND FAILED EVENT
   worker.on('completed', (job) => {
-    console.log('Deal Job completed:', job.id);
+    queuedLogger.info({ jobId: job.id, jobName: job.name }, 'Job completed');
   });
 
   worker.on('failed', (job, err) => {
-    console.error('Job failed:', err);
+    queuedLogger.error({ jobId: job?.id, jobName: job?.name, err }, 'Job failed');
   });
 };
 
