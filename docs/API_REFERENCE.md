@@ -161,7 +161,7 @@ Create deal `data` example:
   "tags": ["italian", "pasta"],
   "description": "Valid for all pasta items.",
   "coupon": "PASTA50",
-  "available_in_outlet": ["6800d0b0f9f4e50bc1a22222"]
+  "available_in_location": ["6800d0b0f9f4e50bc1a22222"]
 }
 ```
 
@@ -292,7 +292,7 @@ curl -X POST http://localhost:3002/api/v1/service \
   -F 'files=@/path/deal-2.jpg' \
   -F 'qr=@/path/qr-500x500.png' \
   -F 'upc=@/path/upc-800x400.png' \
-  -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"Promo","reguler_price":20,"discount":50,"highlight":["A"],"tags":["t"],"description":"Long enough description","coupon":"PROMO50","available_in_outlet":["6800d0b0f9f4e50bc1a22222"]}'
+  -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"Promo","regular_price":20,"discount":50,"highlight":["A"],"tags":["t"],"description":"Long enough description","coupon":"PROMO50","available_in_location":["6800d0b0f9f4e50bc1a22222"]}'
 ```
 
 ### Create Stripe Checkout Session
