@@ -34,6 +34,7 @@ const previewBulkLocations = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Location file validated successfully',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -52,6 +53,7 @@ const confirmBulkLocations = CatchAsync(
       success: true,
       statusCode: StatusCodes.CREATED,
       message: 'Valid locations imported successfully',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -67,6 +69,7 @@ const createLocation = CatchAsync(
       success: true,
       statusCode: StatusCodes.CREATED,
       message: 'Locations created',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -87,6 +90,7 @@ const updateLocation = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Location successfully updated',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -103,6 +107,7 @@ const getLocationSuggestions = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Location suggestions fetched success',
+      trace_id: req.id as string,
       data: result,
     });
   }

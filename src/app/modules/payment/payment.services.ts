@@ -5,7 +5,7 @@ import { Role } from '../user/user.interface';
 import AppError from '../../errorHelpers/AppError';
 import { StatusCodes } from 'http-status-codes';
 import { Plan } from '../plan/plan.model';
-import { voucherServices } from '../voucher/voucher.services';
+import { voucherServices } from '../voucher/voucher.service';
 import { stripe } from '../../config/stripe.config';
 import { Promotion } from '../promotion/promotion.model';
 import mongoose, { Types } from 'mongoose';
@@ -31,6 +31,7 @@ import {
 } from '../../queue/job/invoice.job';
 import { buildVendorInvoiceGenerationPayload } from '../../utils/invoice/vendorInvoicePayload.utility';
 import { ensureDealCanBePromoted, getStripeObjectId, paymentFailedHandler, paymentIntentFailedHandler, paymentSuccessHandler, validateAndroid, validateIOS } from './payment.helper';
+import { LoggerModule, paymentLogger } from '../../utils/logger/logger.child';
 
 
 
@@ -43,14 +44,14 @@ const appleInAppPurchase = async (receipt: any) => {
   });
 
   if (existingPayment) {
-    console.log('Transaction already used!');
+    paymentLogger.error('Transaction already used!');
     return;
   }
 
   const lockKey = `apple-iap:${data?.transactionId as string}`;
   const locked = await redisClient.set(lockKey, '1', { NX: true, EX: 300 });
   if (!locked) {
-    console.log('❌ Duplicate transaction processing blocked');
+    paymentLogger.error('❌ Duplicate transaction processing blocked');
     return;
   }
 
@@ -71,7 +72,7 @@ const appleInAppPurchase = async (receipt: any) => {
 
     const getDeal = await DealModel.findById(receipt?.dealId);
     if (!getDeal) {
-      throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+      throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.PAYMENT);
     }
     ensureDealCanBePromoted(getDeal);
 
@@ -88,7 +89,8 @@ const appleInAppPurchase = async (receipt: any) => {
 
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        'This service already promoted'
+        'This service already promoted',
+        LoggerModule.PAYMENT
       );
     }
 
@@ -219,7 +221,7 @@ const googleInAppPurchase = async (payload: any) => {
 
     const getDeal = await DealModel.findById(payload?.dealId);
     if (!getDeal) {
-      throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+      throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.PAYMENT);
     }
     ensureDealCanBePromoted(getDeal);
 
@@ -236,7 +238,8 @@ const googleInAppPurchase = async (payload: any) => {
 
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        'This ad/deal already promoted'
+        'This ad/deal already promoted',
+        LoggerModule.PAYMENT
       );
     }
 
@@ -355,7 +358,7 @@ const stripePay = async (
 
   /* ---------- VALIDATION (OUTSIDE TRANSACTION) ---------- */
   if (user.role !== Role.VENDOR) {
-    throw new AppError(StatusCodes.UNAUTHORIZED, "You can't promote service");
+    throw new AppError(StatusCodes.UNAUTHORIZED, "You can't promote service", LoggerModule.PAYMENT);
   }
 
   const [deal, plan, shop] = await Promise.all([
@@ -364,13 +367,13 @@ const stripePay = async (
     Shop.findOne({ vendor: user.userId }),
   ]);
 
-  if (!deal) throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
-  if (!plan) throw new AppError(StatusCodes.NOT_FOUND, 'Plan not found');
-  if (!shop) throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+  if (!deal) throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.PAYMENT);
+  if (!plan) throw new AppError(StatusCodes.NOT_FOUND, 'Plan not found', LoggerModule.PAYMENT);
+  if (!shop) throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.PAYMENT);
   ensureDealCanBePromoted(deal);
 
   if (!deal.shop.equals(shop._id)) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Unauthorized');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Unauthorized', LoggerModule.PAYMENT);
   }
 
   // CHECK ALREADY PROMOTED
@@ -386,7 +389,8 @@ const stripePay = async (
   if (alreadyPromoted) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'This service already promoted'
+      'This service already promoted',
+      LoggerModule.PAYMENT
     );
   }
 
@@ -409,7 +413,7 @@ const stripePay = async (
       voucher_payload.voucher_id = voucher_id;
       voucher_payload.voucher = voucher;
     } catch (err: any) {
-      throw new AppError(StatusCodes.BAD_REQUEST, err.message);
+      throw new AppError(StatusCodes.BAD_REQUEST, err.message, LoggerModule.PAYMENT);
     }
   }
 
@@ -559,7 +563,7 @@ const stripePay = async (
       { status: PromotionStatus.CANCELED }
     );
 
-    throw new AppError(StatusCodes.BAD_GATEWAY, error.message);
+    throw new AppError(StatusCodes.BAD_GATEWAY, error.message, LoggerModule.PAYMENT);
   }
 };
 
@@ -578,7 +582,8 @@ const stripeWebhookHandling = async (req: Request) => {
   } catch (err: any) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      `Webhook Error: ${err.message} `
+      `Webhook Error: ${err.message}`,
+      LoggerModule.PAYMENT
     );
   }
 

@@ -19,6 +19,7 @@ const createPlan = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Plan created",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -32,6 +33,7 @@ const getPlan = CatchAsync(async (req: Request, res: Response, next: NextFunctio
         success: true,
         statusCode: StatusCodes.OK,
         message: "Plan fetched",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -51,6 +53,7 @@ const updatePlan = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.OK,
         message: "Plan updated",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -66,6 +69,7 @@ const deletePlan = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.OK,
         message: "Plan deleted",
+        trace_id: req.id as string,
         data: null
     })
 });

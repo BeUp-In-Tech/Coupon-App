@@ -13,6 +13,7 @@ const createStaticPage = CatchAsync(async (req: Request, res: Response, next: Ne
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Page created",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -24,6 +25,7 @@ const getStaticPage = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Page fetched",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -35,6 +37,7 @@ const getAllStaticPages = CatchAsync(async (req: Request, res: Response, next: N
         success: true,
         statusCode: StatusCodes.OK,
         message: "All Page fetched",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -46,6 +49,7 @@ const updateStaticPage = CatchAsync(async (req: Request, res: Response, next: Ne
         success: true,
         statusCode: StatusCodes.OK,
         message: "Page updated",
+        trace_id: req.id as string,
         data: result
     })
 })

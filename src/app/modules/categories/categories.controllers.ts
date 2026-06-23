@@ -18,6 +18,7 @@ const createCategory = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Category created",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -29,6 +30,7 @@ const getCategories = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Category fetched",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -45,6 +47,7 @@ const updateCategory = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Category updated",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -57,6 +60,7 @@ const deleteCategory = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Category deleted",
+        trace_id: req.id as string,
         data: result
     })
 });

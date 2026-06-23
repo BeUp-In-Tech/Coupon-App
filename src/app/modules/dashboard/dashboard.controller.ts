@@ -14,6 +14,7 @@ const dealsByCategoryStats = CatchAsync(async (req: Request, res: Response, next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Deals by category statistics fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -27,6 +28,7 @@ const vendorsStats = CatchAsync(async (req: Request, res: Response, next: NextFu
         success: true,
         statusCode: StatusCodes.OK,
         message: "Vendors statistics fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -41,6 +43,7 @@ const exportVendorsList = CatchAsync(async (req: Request, res: Response, next: N
         success: true,
         statusCode: StatusCodes.ACCEPTED,
         message: "Vendor XLSX export queued successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -56,6 +59,7 @@ const getVendorExportStatus = CatchAsync(async (req: Request, res: Response) => 
         success: true,
         statusCode: StatusCodes.OK,
         message: "Vendor export status fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -93,6 +97,7 @@ const recentDealsStats = CatchAsync(async (req: Request, res: Response, next: Ne
         success: true,
         statusCode: StatusCodes.OK,
         message: "Recent deals statistics fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -106,6 +111,7 @@ const dealsStats = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.OK,
         message: "Deals statistics fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -119,6 +125,7 @@ const dashboardAnalyticsTotal = CatchAsync(async (req: Request, res: Response, n
         success: true,
         statusCode: StatusCodes.OK,
         message: "Dashboard total analytics counts fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -131,6 +138,7 @@ const getRevenueTrend = CatchAsync(async (req: Request, res: Response, next: Nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Last one yer revenue trend fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -144,6 +152,7 @@ const getLatestTransaction = CatchAsync(async (req: Request, res: Response, next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Latest transaction fetched successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -157,6 +166,7 @@ const sendNotificationAndEmail = CatchAsync(async (req: Request, res: Response, 
         success: true,
         statusCode: StatusCodes.OK,
         message: "Notification and email sent successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -171,6 +181,7 @@ const banDealByAdmin = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Deal banned successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
@@ -185,6 +196,7 @@ const unbanDealByAdmin = CatchAsync(async (req: Request, res: Response, next: Ne
         success: true,
         statusCode: StatusCodes.OK,
         message: "Deal unbanned successfully",
+        trace_id: req.id as string,
         data: result
     });
 });
