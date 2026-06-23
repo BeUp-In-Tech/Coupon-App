@@ -147,7 +147,7 @@ const createDealsService = async (params: {
 
   const images = (payload.images || []).map((u) => u.trim()).filter(Boolean);
 
-  const available_in_outlet = payload.available_in_location?.map(
+  const available_in_location = payload.available_in_location?.map(
     (outletId) => new Types.ObjectId(outletId)
   );
 
@@ -165,7 +165,7 @@ const createDealsService = async (params: {
     tags: payload.tags,
     description: payload.description,
     images,
-    available_in_outlet,
+    available_in_location,
     coupon: payload.coupon,
     coupon_option: payload.coupon_option,
   };
@@ -297,7 +297,7 @@ const getSingleDealsService = async (
     // CLEAN RESPONSE
     {
       $project: {
-        available_in_outlet: 0,
+        available_in_location: 0,
         activePromotion: 0,
 
         'category.createdAt': 0,
@@ -748,7 +748,7 @@ const getDealsByCategoryService = async (
       $lookup: {
         from: 'deals',
         localField: '_id',
-        foreignField: 'available_in_outlet',
+        foreignField: 'available_in_location',
         as: 'deal',
       },
     },

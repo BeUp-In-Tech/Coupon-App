@@ -17,7 +17,7 @@ export const CreateDealZodSchema = z
     description: z.string("Description must be string").min(10, "Description must be minimum 10 characters").max(5000, "Max description length should be 5000 characters").trim(),
     images: z.array(z.string().url()),
     coupon: z.string("Coupon must be string").optional(),
-    available_in_outlet: z.array(z.string()),
+    available_in_location: z.array(z.string()),
 
     coupon_option: z.object({
       qr: z.string().url().optional(),
