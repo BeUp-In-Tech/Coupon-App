@@ -14,12 +14,12 @@ import { paymentControllers } from './app/modules/payment/payment.controllers';
 import { RedisStore } from 'connect-redis';
 import { redisClient } from './app/config/redis.config';
 import helmet from 'helmet';
-
+import { httpLogger } from './app/middlewares/httpLogger.middleware';
+import { requestId } from './app/middlewares/requestId.middleware';
 
 const app = express();
-const allowedOrigins = env.FRONTEND_URL.split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+app.use(requestId);
+app.use(httpLogger);
 
 app.disable('x-powered-by');
 
@@ -39,6 +39,9 @@ app.post(
 app.set('trust proxy', 1);
 
 // CORS
+const allowedOrigins = env.CORS_URL.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -62,13 +65,11 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 app.use(safeSanitizeMiddleware);
 
-
 // Redis session store
 const redisStore = new RedisStore({
   client: redisClient,
   prefix: 'yeppads:sess:',
 });
-
 
 app.use(
   session({

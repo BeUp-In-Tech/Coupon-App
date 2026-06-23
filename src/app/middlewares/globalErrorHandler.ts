@@ -8,6 +8,7 @@ import { handleCastError } from '../helper/cast.error';
 import { validationError } from '../helper/validation.error';
 import { TErrorSources } from '../interface/error.types';
 import env from '../config/env';
+import { logger } from '../utils/logger/logger.config';
 
 // Error Handler
 export const globalErrorHandler = (
@@ -62,6 +63,7 @@ export const globalErrorHandler = (
   res.status(statusCode).json({
     success: false,
     message,
+    trace_id: req.id,
     errorSources,
     err: env.NODE_ENV === 'development' ? err : null,
     stack: env.NODE_ENV === 'development' ? err.stack : null,
