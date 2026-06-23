@@ -155,7 +155,7 @@ Create deal `data` example:
 {
   "category": "6800d0b0f9f4e50bc1a11111",
   "title": "50% Off Pasta",
-  "reguler_price": 20,
+  "regular_price": 20,
   "discount": 50,
   "highlight": ["Dine in", "Dinner"],
   "tags": ["italian", "pasta"],
