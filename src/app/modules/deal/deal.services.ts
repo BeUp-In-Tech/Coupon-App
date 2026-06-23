@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose, { Types, PipelineStage } from 'mongoose';
 import { JwtPayload } from 'jsonwebtoken';
@@ -19,6 +18,7 @@ import { generateCacheKey } from '../../utils/cacheKeyGen';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import crypto from 'crypto';
 import { sortObject } from '../../utils/sortObject';
+import { dealLogger, LoggerModule } from '../../utils/logger/logger.child';
 
 const visibleDealFilter = {
   isBanned: { $ne: true },
@@ -38,7 +38,7 @@ const createDealsService = async (params: {
     if (payload.images) {
       await addImageDeleteJob(payload.images);
     }
-    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can create deals');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can create deals', LoggerModule.DEAL);
   }
 
   // IS SHOP EXIST BY USER ID
@@ -60,7 +60,8 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.NOT_FOUND,
-      'No relatable shop found to upload this deal. Create a shop first.'
+      'No relatable shop found to upload this deal. Create a shop first.',
+      LoggerModule.DEAL
     );
   }
 
@@ -76,7 +77,8 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'At least one of these required: Coupon code, Qr and Bar code'
+      'At least one of these required: Coupon code, Qr and Bar code',
+      LoggerModule.DEAL
     );
   }
 
@@ -94,7 +96,7 @@ const createDealsService = async (params: {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
-    throw new AppError(StatusCodes.FORBIDDEN, 'Your shop was rejected');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Your shop was rejected', LoggerModule.DEAL);
   }
 
   // THROW ERROR IF SHOP IS NOT APPROVED YET
@@ -111,7 +113,7 @@ const createDealsService = async (params: {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Wait for shop approval');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Wait for shop approval', LoggerModule.DEAL);
   }
 
   // IS CATEGORY EXIST
@@ -131,13 +133,14 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Invalid category, category not found'
+      'Invalid category, category not found',
+      LoggerModule.DEAL
     );
   }
 
   // 2) VENDOR MUST OWN THE SHOP
   if (![Role.ADMIN, Role.VENDOR].includes(user.role)) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Forbidden');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Forbidden', LoggerModule.DEAL);
   }
 
   // NORMALIZE INPUTS O(n) BOUNDED
@@ -195,7 +198,7 @@ const getSingleDealsService = async (
   });
 
   if (!deal) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
   }
 
   // ADD VIEW
@@ -320,7 +323,7 @@ const getSingleDealsService = async (
   
 
   if (!final_deal) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
   }
 
   return final_deal;
@@ -329,13 +332,13 @@ const getSingleDealsService = async (
 // 3. DELETE DEAL
 const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
   if (user.role !== Role.VENDOR) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can delete');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can delete', LoggerModule.DEAL);
   }
 
   // Check is service exist
   const isServiceExist = await DealModel.findById(serviceId);
   if (!isServiceExist) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Service not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Service not found', LoggerModule.DEAL);
   }
 
   // 3. Check if the vendor owns the service by shop
@@ -346,7 +349,8 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
   if (!isShopOwner) {
     throw new AppError(
       StatusCodes.UNAUTHORIZED,
-      'You are not authorized to delete this service'
+      'You are not authorized to delete this service',
+      LoggerModule.DEAL
     );
   }
 
@@ -357,7 +361,7 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
     try {
       await addImageDeleteJob(isServiceExist.images);
     } catch (error) {
-      console.error('Error deleting images from Cloudinary:', error);
+      dealLogger.error({ error }, 'Error deleting images from Cloudinary');
     }
   });
 
@@ -396,13 +400,13 @@ const updateDealsService = async (
             await addImageDeleteJob([payload.coupon_option.upc]);
           }
         } catch (error: any) {
-          console.log('Cloudinary image deletion error: ', error.message);
+          dealLogger.error({error}, 'Cloudinary image deletion error');
         }
       }
     });
 
     // Throw Error
-    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.DEAL);
   }
 
   // CHECK IF THE USER IS AUTHORIZED TO UPDATE THE SERVICE
@@ -422,14 +426,15 @@ const updateDealsService = async (
             await addImageDeleteJob([payload.coupon_option.upc]);
           }
         } catch (error: any) {
-          console.log('Cloudinary image deletion error: ', error.message);
+          dealLogger.error({error}, 'Cloudinary image deletion error');
         }
       }
     });
     // Throw Error
     throw new AppError(
       StatusCodes.UNAUTHORIZED,
-      'You are not authorized to update this service'
+      'You are not authorized to update this service',
+      LoggerModule.DEAL
     );
   }
 
@@ -554,8 +559,8 @@ const updateDealsService = async (
     if (payload.deletedImages && payload.deletedImages.length > 0) {
       try {
         await addImageDeleteJob(payload.deletedImages);
-      } catch (error) {
-        console.log(`Cloudinary image deleting error`, error);
+      } catch (error: any) {
+        dealLogger.error({error}, `Cloudinary image deleting error`);
       }
     }
 
@@ -563,8 +568,8 @@ const updateDealsService = async (
     if (payload?.coupon_option?.qr) {
       try {
         await addImageDeleteJob([deal.coupon_option.qr as string]);
-      } catch (e) {
-        console.log(`Cloudinary image deleting error`, e);
+      } catch (error: any) {
+        dealLogger.error({error}, `Cloudinary image deleting error`);
       }
     }
 
@@ -572,8 +577,8 @@ const updateDealsService = async (
     if (payload?.coupon_option?.upc) {
       try {
         await addImageDeleteJob([deal.coupon_option.upc as string]);
-      } catch (e) {
-        console.log(`Cloudinary image deleting error`, e);
+      } catch (error: any) {
+        dealLogger.error({error}, `Cloudinary image deleting error`);
       }
     }
   });
@@ -727,7 +732,8 @@ const getDealsByCategoryService = async (
   if (!lng || !lat || !categoryId) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'lng, lat, and categoryId are required'
+      'lng, lat, and categoryId are required',
+      LoggerModule.DEAL
     );
   }
 
@@ -1237,7 +1243,7 @@ const topViewedDealsService = async (
   const getShop = await Shop.findOne({ vendor: user.userId });
 
   if (!getShop) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.DEAL);
   }
 
   const deals = await DealModel.find({ shop: getShop._id }, { _id: 1 });
@@ -1344,11 +1350,11 @@ const dealAnalyticsService = async (authUserId: string, dealId: string) => {
   ]);
 
   if (!isDealExist) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.DEAL);
   }
 
   if (!shop) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.DEAL);
   }
 
   const stats = await Views_Impressions.aggregate([

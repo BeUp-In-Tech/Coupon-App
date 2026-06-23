@@ -11,7 +11,7 @@ export default tseslint.config(
   {
     rules: {
       '@typescript-eslint/no-var-requires': 'error',
-      'no-console': 'warn',
+      'no-console': 'error',
     },
   }
 );
