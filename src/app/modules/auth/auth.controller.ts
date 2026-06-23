@@ -67,6 +67,7 @@ const googleAuthSystem = CatchAsync(
       success: true,
       statusCode: 200,
       message: 'Authentication success',
+      trace_id: req.id as string,
       data: result,
     })
   }
@@ -242,6 +243,7 @@ const appleLogin = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Authentication success',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -262,6 +264,7 @@ const credentialsLogin = CatchAsync(
         success: true,
         statusCode: httpStatus.OK,
         message: 'Login success',
+        trace_id: req.id as string,
         data: userTokens,
       });
     })(req, res, next);
@@ -279,6 +282,7 @@ const changePassword = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Password has been changed',
+      trace_id: req.id as string,
       data: null,
     });
   }
@@ -294,6 +298,7 @@ const forgetPassword = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Password reset OTP sent',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -312,6 +317,7 @@ const verifyForgetPasswordOTP = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'OTP verified',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -329,6 +335,7 @@ const resetPassword = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'Password reset success',
+      trace_id: req.id as string,
       data: result,
     });
   }
@@ -344,6 +351,7 @@ const getNewAccessToken = CatchAsync(
       success: true,
       statusCode: StatusCodes.OK,
       message: 'New access token generated',
+      trace_id: req.id as string,
       data: result,
     });
   }
