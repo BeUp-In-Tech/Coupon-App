@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import { google } from "googleapis";
 import { StatusCodes } from "http-status-codes";
 import { importX509, jwtVerify } from "jose";
@@ -22,6 +21,7 @@ import { Location } from "../location/location.model";
 import { InvoiceData } from "../../utils/invoice/invoicePdf.utility";
 import { invalidateAllMachineryCache } from "../../utils/deleteCachedData";
 import { redisClient } from "../../config/redis.config";
+import { LoggerModule, paymentLogger } from "../../utils/logger/logger.child";
 
 export const getStripeObjectId = (
   value: string | { id?: string } | null | undefined
@@ -38,7 +38,8 @@ export const ensureDealCanBePromoted = (deal: {
   ) {
     throw new AppError(
       StatusCodes.FORBIDDEN,
-      'This deal is banned by admin and cannot be promoted'
+      'This deal is banned by admin and cannot be promoted',
+      LoggerModule.PAYMENT
     );
   }
 };
@@ -52,7 +53,11 @@ export const ensureDealCanBePromoted = (deal: {
 export const validateAndroid = async (productId: string, purchaseToken: string) => {
   try {
     if (!process.env.GOOGLE_SERVICE_ACCOUNT) {
-      throw new Error(`Env required: ${process.env.GOOGLE_SERVICE_ACCOUNT}`);
+      throw new AppError(
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        `Env required: ${process.env.GOOGLE_SERVICE_ACCOUNT}`,
+        LoggerModule.PAYMENT
+      );
     }
     const credentials = JSON.parse(
       process.env.GOOGLE_SERVICE_ACCOUNT as string
@@ -82,7 +87,7 @@ export const validateAndroid = async (productId: string, purchaseToken: string) 
       data.acknowledgementState === 1 // acknowledged
     );
   } catch (error: any) {
-    console.log('Android In app purchase error: ', error);
+    paymentLogger.error({error}, 'Android In app purchase error');
     return false;
   }
 }
@@ -99,7 +104,11 @@ export const validateIOS = async (signedTransactionInfo: string) => {
     );
 
     if (!header.x5c || !header.x5c.length) {
-      throw new Error('Missing Apple certificate chain (x5c)');
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        'Missing Apple certificate chain (x5c)',
+        LoggerModule.PAYMENT
+      );
     }
 
     // 3. GET APPLE LEAF CERTIFICATE (FIRST CERT IN CHAIN)
@@ -121,7 +130,11 @@ export const validateIOS = async (signedTransactionInfo: string) => {
 
     // 6. (IMPORTANT) VALIDATE APP-SPECIFIC FIELDS
     if (payload.bundleId !== env.APPLE_IOS_CLIENT_ID) {
-      throw new Error('Invalid bundleId');
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        'Invalid bundleId',
+        LoggerModule.PAYMENT
+      );
     }
 
     // 🎉 7. Return verified transaction
@@ -130,7 +143,7 @@ export const validateIOS = async (signedTransactionInfo: string) => {
       data: payload,
     };
   } catch (error: any) {
-    console.error('Apple JWS verification failed:', error.message);
+    paymentLogger.error({ error }, 'Apple JWS verification failed');
 
     return {
       valid: false,
@@ -170,7 +183,7 @@ export const paymentSuccessHandler = async (
       dbSession
     );
     if (!deal) {
-      throw new AppError(StatusCodes.NOT_FOUND, `deal not found`);
+      throw new AppError(StatusCodes.NOT_FOUND, `deal not found`, LoggerModule.PAYMENT);
     }
 
     if (

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { JwtPayload } from 'jsonwebtoken';
 import { Role } from '../user/user.interface';
@@ -83,7 +82,9 @@ const appleInAppPurchase = async (receipt: any) => {
     });
 
     if (alreadyPromoted) {
-      console.log(
+      paymentLogger.info({
+        provider: 'Stripe'
+      },
         `This service already promoted: dealId: ${receipt?.dealId}, active_promotion_id: ${alreadyPromoted._id.toString()} `
       );
 
@@ -165,9 +166,6 @@ const appleInAppPurchase = async (receipt: any) => {
       // ADD QUEUE JOB SCHEDULE
       scheduleDealJobs(getDeal);
 
-      console.log('[APPLE_IAP_SUCCESS]');
-      console.log('[APPLE_IAP_FAIL]');
-
       // REMOVE REDIS CACHE KEY
       const invoicePayload = invoiceGenerationPayload;
       setImmediate(async () => {
@@ -191,7 +189,7 @@ const appleInAppPurchase = async (receipt: any) => {
         }
       });
     } catch (error: any) {
-      console.log('Deal promotion error from In App Purchase: ', error.message);
+      paymentLogger.error({ error }, 'Deal promotion error from In App Purchase');
       await session.abortTransaction();
       throw error;
     } finally {
@@ -232,7 +230,7 @@ const googleInAppPurchase = async (payload: any) => {
     });
 
     if (alreadyPromoted) {
-      console.log(
+      paymentLogger.info(
         `This ad already promoted: dealId: ${payload?.dealId}, active_promotion_id: ${alreadyPromoted._id.toString()} `
       );
 
@@ -334,7 +332,7 @@ const googleInAppPurchase = async (payload: any) => {
         }
       });
     } catch (error: any) {
-      console.log('Deal promotion error from In App Purchase: ', error.message);
+      paymentLogger.error({ error }, 'Deal promotion error from In App Purchase');
       await session.abortTransaction();
       throw error;
     } finally {
@@ -547,7 +545,7 @@ const stripePay = async (
       }
     );
 
-    console.log('Job name:', job.name);
+    paymentLogger.info({ jobName: job.name }, 'Payment pending cleanup job queued');
 
     // RETURN CHECKOUT URL
     return { checkout_url: stripeSession.url };
