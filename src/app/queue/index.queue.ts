@@ -1,12 +1,17 @@
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
+import { createClient } from 'redis';
+import env from '../config/env';
 
-export const connection = new IORedis({
-  host: '127.0.0.1',
-  port: 6379,
-  maxRetriesPerRequest: null,
-});
-
+// Keep BullMQ's connection lifecycle separate from the application cache/session client.
+// The redis client from 'redis' (node-redis v4) has a different type than BullMQ expects
+// (which commonly targets ioredis). Cast to `any` to satisfy BullMQ's ConnectionOptions type.
+export const connection = createClient({
+  socket: {
+    host: env.REDIS_HOST,
+    port: Number(env.REDIS_PORT),
+  },
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+}) as any;
 
 // QUEUE LIST
 export const mailQueue = new Queue('emailSendQueue', { connection });

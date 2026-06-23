@@ -7,7 +7,14 @@ import { dealHandleWorker } from './worker/deal.worker';
 import { imageDeleteWorker } from './worker/cloudinaryImageDeletion';
 import { invoiceGenerationWorker } from './worker/invoice.worker';
 import { vendorExportWorker } from './worker/vendorExport.worker';
-
+import {
+  dealHandleQueue,
+  imageDeleteQueue,
+  invoiceGenerationQueue,
+  mailQueue,
+  notificationQueue,
+  vendorExportQueue,
+} from './index.queue';
 
 // RUN ALL WORKER JOB HERE WITH DATABASE CONNECTION
 const connectQueueDB = async () => {
@@ -15,6 +22,17 @@ const connectQueueDB = async () => {
     await mongoose.connect(env.MONGO_URI as string);
     console.log('Connected to queue database');
 
+    // SET GLOBAL CONCURRENCY FIRST
+    await Promise.all([
+      mailQueue.setGlobalConcurrency(10),
+      notificationQueue.setGlobalConcurrency(20),
+      dealHandleQueue.setGlobalConcurrency(3),
+      imageDeleteQueue.setGlobalConcurrency(5),
+      invoiceGenerationQueue.setGlobalConcurrency(2),
+      vendorExportQueue.setGlobalConcurrency(1),
+    ]);
+
+    console.log('Global concurrency configured');
 
     // DEAL EXPIRATION AND REMINDER HANDLING
     dealHandleWorker();
@@ -24,9 +42,6 @@ const connectQueueDB = async () => {
 
     // EMAIL SEND WORKER
     emailSendWorker();
-    
-    // DEAL HANDLE WORKER
-    dealHandleWorker();
 
     // IMAGES HANDLE WORKER
     imageDeleteWorker();
@@ -36,7 +51,6 @@ const connectQueueDB = async () => {
 
     // VENDOR XLSX EXPORT WORKER
     vendorExportWorker();
-
   } catch (error) {
     console.log('Error connecting to Redis:', error);
   }
