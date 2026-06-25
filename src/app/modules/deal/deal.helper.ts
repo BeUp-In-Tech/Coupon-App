@@ -85,6 +85,7 @@ export const getDealListFacet = (
             shop: 1,
             isPromoted: 1,
             promotedUntil: 1,
+            nationwide: 1,
           },
         },
       ],
@@ -136,6 +137,34 @@ export const buildLocationEqualityCondition = (
     ],
   };
 };
+
+export const getNationwideDealsUnionStage = (
+  now: Date,
+  extraMatch: Record<string, unknown> = {}
+): PipelineStage => ({
+  $unionWith: {
+    coll: 'deals',
+    pipeline: [
+      {
+        $match: {
+          nationwide: true,
+          isPromoted: true,
+          promotedUntil: { $gte: now },
+          ...visibleDealFilter,
+          ...extraMatch,
+        },
+      },
+      {
+        $addFields: {
+          distance: null,
+          nearest_location: null,
+          matched_location: null,
+          locationSort: 1,
+        },
+      },
+    ],
+  },
+});
 
 export const buildLocationDealsCacheKey = (
   query: SearchDealsByLocationQuery

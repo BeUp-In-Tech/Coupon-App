@@ -83,6 +83,7 @@ const dealSchema = new Schema<IDeal>(
       ],
     },
 
+    nationwide: { type: Boolean, default: false },
     available_in_location: [
       { type: Schema.Types.ObjectId, ref: 'location', index: true },
     ],
@@ -132,6 +133,12 @@ dealSchema.post('save', async function (error: any, doc: IDeal, next: any) {
 // Indexes you’ll use often
 dealSchema.index({ shop: 1, category: 1 });
 dealSchema.index({ category: 1, promotedUntil: -1 });
+dealSchema.index({
+  nationwide: 1,
+  isPromoted: 1,
+  promotedUntil: -1,
+  isBanned: 1,
+});
 
 // make coupon codes unique per shop (only when exists)
 dealSchema.index(

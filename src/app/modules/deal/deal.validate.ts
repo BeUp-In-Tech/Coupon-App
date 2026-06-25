@@ -17,12 +17,22 @@ export const CreateDealZodSchema = z
     description: z.string("Description must be string").min(10, "Description must be minimum 10 characters").max(5000, "Max description length should be 5000 characters").trim(),
     images: z.array(z.string().url()),
     coupon: z.string("Coupon must be string").optional(),
-    available_in_location: z.array(z.string()),
+    nationwide: z.boolean().optional().default(false),
+    available_in_location: z.array(z.string()).default([]),
 
     coupon_option: z.object({
       qr: z.string().url().optional(),
       upc: z.string().url().optional(),
     }).optional()
+  })
+  .superRefine((payload, ctx) => {
+    if (!payload.nationwide && payload.available_in_location.length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'At least one location is required when nationwide is false',
+        path: ['available_in_location'],
+      });
+    }
   });
 
 // UPDATE ZOD SCHEMA
@@ -37,6 +47,8 @@ export const UpdateDealZodSchema = z.object({
   images: z.array(z.string("Image must be string").url("Image must be a valid URL")).optional(),
   description: z.string("Description must be string").min(10, "Description must be minimum 10 characters").max(5000, "Max description length should be 5000 characters").trim().optional(),
   deletedImages: z.array(z.string("Deleted image must be string").url("Deleted image must be a valid URL")).optional(), // Images should be an array of valid URLs
+  available_in_location: z.array(z.string("Location must be string")).optional(),
+  nationwide: z.boolean().optional(),
   coupon: z
     .string("Coupon must be string")
     .optional(),
@@ -44,6 +56,18 @@ export const UpdateDealZodSchema = z.object({
       qr: z.string("QR must be string").url("QR must be a valid URL").optional(),
       upc: z.string("UPC must be string").url("UPC must be a valid URL").optional(),
     }).optional()
+}).superRefine((payload, ctx) => {
+  if (
+    payload.nationwide === false &&
+    payload.available_in_location &&
+    payload.available_in_location.length === 0
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'At least one location is required when nationwide is false',
+      path: ['available_in_location'],
+    });
+  }
 });
 
 const paginationQuerySchema = {

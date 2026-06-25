@@ -134,6 +134,10 @@ const searchDealsByLocation = CatchAsync(async (req: Request, res: Response, nex
     const query = await SearchDealsByLocationQuerySchema.parseAsync(req.query);
     const result = await dealsServices.searchDealsByLocationService(query);
 
+    // Set http headers
+    res.setHeader('Cache-Control', 'public, max-age=60 stale-while-revalidate=120');
+    res.setHeader('Expires', new Date(Date.now() + 60 * 1000).toUTCString());
+
     SendResponse(res, {
         success: true,
         statusCode: StatusCodes.OK,
