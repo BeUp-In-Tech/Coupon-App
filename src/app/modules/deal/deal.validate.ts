@@ -45,3 +45,46 @@ export const UpdateDealZodSchema = z.object({
       upc: z.string("UPC must be string").url("UPC must be a valid URL").optional(),
     }).optional()
 });
+
+const paginationQuerySchema = {
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+};
+
+export const SearchDealsByLocationQuerySchema = z
+  .discriminatedUnion('locationMode', [
+    z.object({
+      locationMode: z.literal('CURRENT_LOCATION'),
+      lat: z.coerce.number().min(-90).max(90),
+      lng: z.coerce.number().min(-180).max(180),
+      radiusKm: z.coerce.number().min(1).max(100).default(25),
+      ...paginationQuerySchema,
+    }),
+    z.object({
+      locationMode: z.literal('SELECTED_LOCATION'),
+      city: z.string().trim().min(1).max(100).optional(),
+      state: z.string().trim().min(1).max(100).optional(),
+      country: z.string().trim().min(1).max(100),
+      zip_code: z.string().trim().min(1).max(30).optional(),
+      ...paginationQuerySchema,
+    }),
+  ])
+  .superRefine((query, ctx) => {
+    if (
+      query.locationMode === 'SELECTED_LOCATION' &&
+      !query.city &&
+      !query.state &&
+      !query.zip_code
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'At least one of city, state, or zip_code is required with country',
+        path: ['city'],
+      });
+    }
+  });
+
+export type SearchDealsByLocationQuery = z.infer<
+  typeof SearchDealsByLocationQuerySchema
+>;

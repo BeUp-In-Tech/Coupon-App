@@ -5,6 +5,7 @@ import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
 import { dealsServices } from "./deal.service";
 import { JwtPayload } from "jsonwebtoken";
+import { SearchDealsByLocationQuerySchema } from "./deal.validate";
 
 
 export interface MulterRequest extends Request {
@@ -128,6 +129,20 @@ const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
     })
 })
 
+// SEARCH DEALS BY ACTIVE LOCATION MODE
+const searchDealsByLocation = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const query = await SearchDealsByLocationQuerySchema.parseAsync(req.query);
+    const result = await dealsServices.searchDealsByLocationService(query);
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Deals fetched by location",
+        trace_id: req.id as string,
+        data: result
+    })
+})
+
 // GET USERS SAVED DEALS
 const getDealsByIds = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const idString = req.query.ids as string;
@@ -207,5 +222,6 @@ export const dealsControllers = {
     getAllDeals,
     getDealsByIds,
     topViewedDeals,
-    dealAnalytics
+    dealAnalytics,
+    searchDealsByLocation
 }

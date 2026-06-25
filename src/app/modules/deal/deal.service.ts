@@ -19,11 +19,9 @@ import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import crypto from 'crypto';
 import { sortObject } from '../../utils/sortObject';
 import { dealLogger, LoggerModule } from '../../utils/logger/logger.child';
+import { SearchDealsByLocationQuery } from './deal.validate';
+import { buildLocationDealsCacheKey, buildLocationEqualityCondition, buildLocationLabel, getDealListFacet, getDealLookupStage, recordDealImpressions, visibleDealFilter } from './deal.helper';
 
-const visibleDealFilter = {
-  isBanned: { $ne: true },
-  deal_status: { $ne: 'BANNED' },
-};
 
 // 1. CREATE DEAL
 const createDealsService = async (params: {
@@ -176,6 +174,7 @@ const createDealsService = async (params: {
 
   // REMOVE CACHE (DASHBOARD API CACHE)
   await redisClient.del('deals_by_category_stats');
+  await invalidateAllMachineryCache('location_deals:*');
   await invalidateAllMachineryCache('recent_deals:*');
   await invalidateAllMachineryCache('deals_stats:*');
   await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
@@ -367,6 +366,7 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
 
   setImmediate(async () => {
     await invalidateAllMachineryCache('machinery:*');
+    await invalidateAllMachineryCache('location_deals:*');
     await invalidateAllMachineryCache('recent_deals:*');
     await invalidateAllMachineryCache('deals_stats:*');
     await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
@@ -587,6 +587,7 @@ const updateDealsService = async (
   setImmediate(async () => {
     await redisClient.del(`shop:${updateDeal?.shop.toString()}`);
     await invalidateAllMachineryCache('machinery:*');
+    await invalidateAllMachineryCache('location_deals:*');
     await invalidateAllMachineryCache('recent_deals:*');
     await invalidateAllMachineryCache('deals_stats:*');
     await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
@@ -1199,7 +1200,174 @@ const getAllDealsService = async (
   return { meta, deals };
 };
 
-// 8. GET USERS SAVED DEALS BY IDS
+// 8. LOCATION MODE DEAL FETCH
+const searchCurrentLocationDeals = async (
+  query: Extract<SearchDealsByLocationQuery, { locationMode: 'CURRENT_LOCATION' }>
+) => {
+  const now = new Date();
+  const pipeline: PipelineStage[] = [
+    {
+      $geoNear: {
+        near: {
+          type: 'Point',
+          coordinates: [query.lng, query.lat],
+        },
+        distanceField: 'distance',
+        maxDistance: query.radiusKm * 1000,
+        spherical: true,
+        key: 'location',
+        query: { isActive: true },
+      },
+    },
+    getDealLookupStage(now),
+    { $unwind: '$deal' },
+    {
+      $addFields: {
+        'deal.distance': '$distance',
+        'deal.nearest_location': '$_id',
+        'deal.matched_location': {
+          _id: '$_id',
+          location_name: '$location_name',
+          address: '$address',
+          distance: '$distance',
+        },
+      },
+    },
+    { $replaceRoot: { newRoot: '$deal' } },
+    { $sort: { distance: 1 } },
+    {
+      $group: {
+        _id: '$_id',
+        doc: { $first: '$$ROOT' },
+      },
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
+    getDealListFacet(query.page, query.limit, { distance: 1 }),
+  ];
+
+  const [result] = await Location.aggregate(pipeline);
+  const deals = result?.deals ?? [];
+  const total = result?.total?.[0]?.count ?? 0;
+
+  recordDealImpressions(deals);
+
+  return {
+    meta: {
+      locationMode: query.locationMode,
+      locationLabel: buildLocationLabel(query),
+      radiusKm: query.radiusKm,
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+    deals,
+  };
+};
+
+const searchSelectedLocationDeals = async (
+  query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>
+) => {
+  const now = new Date();
+  const locationConditions = [
+    buildLocationEqualityCondition('country', query.country),
+  ];
+
+  if (query.city) {
+    locationConditions.push(buildLocationEqualityCondition('city', query.city));
+  }
+
+  if (query.state) {
+    locationConditions.push(
+      buildLocationEqualityCondition('state', query.state)
+    );
+  }
+
+  if (query.zip_code) {
+    locationConditions.push(
+      buildLocationEqualityCondition('zip_code', query.zip_code)
+    );
+  }
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        isActive: true,
+        $and: locationConditions,
+      },
+    },
+    getDealLookupStage(now),
+    { $unwind: '$deal' },
+    {
+      $addFields: {
+        'deal.nearest_location': '$_id',
+        'deal.matched_location': {
+          _id: '$_id',
+          location_name: '$location_name',
+          address: '$address',
+        },
+      },
+    },
+    { $replaceRoot: { newRoot: '$deal' } },
+    { $sort: { promotedUntil: -1, createdAt: -1 } },
+    {
+      $group: {
+        _id: '$_id',
+        doc: { $first: '$$ROOT' },
+      },
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
+    getDealListFacet(query.page, query.limit, {
+      promotedUntil: -1,
+      createdAt: -1,
+    }),
+  ];
+
+  const [result] = await Location.aggregate(pipeline);
+  const deals = result?.deals ?? [];
+  const total = result?.total?.[0]?.count ?? 0;
+
+  recordDealImpressions(deals);
+
+  return {
+    meta: {
+      locationMode: query.locationMode,
+      locationLabel: buildLocationLabel(query),
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+    deals,
+  };
+};
+
+// [GET]
+const searchDealsByLocationService = async (
+  query: SearchDealsByLocationQuery
+) => {
+  const cacheKey = buildLocationDealsCacheKey(query);
+  const cachedData = await redisClient.get(cacheKey);
+
+  // return cached
+  if (cachedData) {
+    dealLogger.debug("Cached returned");
+    return JSON.parse(cachedData);
+  }
+  
+  // Cache data
+  const data =
+    query.locationMode === 'CURRENT_LOCATION'
+    ? await searchCurrentLocationDeals(query)
+    : await searchSelectedLocationDeals(query);
+    
+    await redisClient.set(cacheKey, JSON.stringify(data), { EX: 180 });
+    dealLogger.debug("DB returned returned");
+
+  return data;
+};
+
+// 9. GET USERS SAVED DEALS BY IDS
 const getDealsByIdsService = async (
   ids: string[],
   query: Record<string, string>
@@ -1235,7 +1403,7 @@ const getDealsByIdsService = async (
   return deals;
 };
 
-// 9. GET TOP VIEWED DEALS
+// 10. GET TOP VIEWED DEALS
 const topViewedDealsService = async (
   user: JwtPayload,
   query: Record<string, string>
@@ -1336,7 +1504,7 @@ const topViewedDealsService = async (
   return { meta, topDeals };
 };
 
-// 10. DEAL ANALYTICS
+// 11. DEAL ANALYTICS
 const dealAnalyticsService = async (authUserId: string, dealId: string) => {
   const isDealExistPromise = await DealModel.findOne({
     _id: dealId,
@@ -1387,4 +1555,5 @@ export const dealsServices = {
   getDealsByIdsService,
   topViewedDealsService,
   dealAnalyticsService,
+  searchDealsByLocationService,
 };

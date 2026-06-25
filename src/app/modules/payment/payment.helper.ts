@@ -373,6 +373,7 @@ export const paymentSuccessHandler = async (
         await redisClient.del(`dashboard_analytics_total`); // dashboard analytics total cache invalidate
         await redisClient.del(`last_one_year_revenue_trend`); // last one year revenue trend cached invalidate (dashboard api)
         await invalidateAllMachineryCache('machinery:*'); // vendor stats cache invalidate (dashboard)
+        await invalidateAllMachineryCache('location_deals:*'); // location mode deal search cache invalidate
         await invalidateAllMachineryCache('all_vendors_dashboard:*'); // vendor stats cache invalidate (dashboard)
         await invalidateAllMachineryCache('recent_deals:*'); // recent deals list (dashboard)
         await invalidateAllMachineryCache('latest_transaction:*'); // latest transaction list cache invalidate (dashboard)

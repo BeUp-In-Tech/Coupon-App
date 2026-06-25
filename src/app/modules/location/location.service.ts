@@ -26,6 +26,8 @@ const bulkBatchKey = (batchId: string) => `bulk-location:${batchId}`;
 const bulkLockKey = (batchId: string) => `bulk-location-lock:${batchId}`;
 const bulkCompletedKey = (batchId: string) => `bulk-location-done:${batchId}`;
 
+const normalizeLocationText = (value?: string) => value?.trim().toLowerCase();
+
 // CREATE LOCATION
 const createLocationService = async (
   userId: string,
@@ -49,6 +51,12 @@ const createLocationService = async (
       state: payload?.address?.state.trim(),
       country: payload?.address?.country.trim(),
     },
+    normalized: {
+      city: normalizeLocationText(payload?.address?.city),
+      state: normalizeLocationText(payload?.address?.state),
+      country: normalizeLocationText(payload?.address?.country),
+      zip_code: normalizeLocationText(payload?.address?.zip_code),
+    },
     isActive: payload.isActive,
     location: {
       type: 'Point',
@@ -60,6 +68,7 @@ const createLocationService = async (
 
   await redisClient.del(`shop:${shop._id.toString()}`);
   await redisClient.del(`shop:${userId}`);
+  await invalidateAllMachineryCache('location_deals:*');
 
   return createdLocation;
 };
@@ -100,6 +109,7 @@ const updateLocationService = async (
     Object.entries(payload.address).forEach(([key, value]) => {
       if (value !== undefined) {
         updateData[`address.${key}`] = value;
+        updateData[`normalized.${key}`] = normalizeLocationText(value);
       }
     });
   }
@@ -124,6 +134,7 @@ const updateLocationService = async (
   // DELETE SHOP CACHED DATA
   await redisClient.del(`shop:${updateOutlet.shop.toString()}`);
   await redisClient.del(`shop:${userId}`);
+  await invalidateAllMachineryCache('location_deals:*');
 
   return updateOutlet;
 };
@@ -260,6 +271,12 @@ const confirmBulkLocationsService = async (userId: string, batchId: string) => {
         state: row.state,
         country: row.country,
       },
+      normalized: {
+        city: normalizeLocationText(row.city),
+        state: normalizeLocationText(row.state),
+        country: normalizeLocationText(row.country),
+        zip_code: normalizeLocationText(row.zip_code),
+      },
       location: {
         type: 'Point' as const,
         coordinates: [row.longitude, row.latitude] as [number, number],
@@ -279,6 +296,7 @@ const confirmBulkLocationsService = async (userId: string, batchId: string) => {
       redisClient.del(`shop:${shop._id.toString()}`),
       redisClient.del(`shop:${userId}`),
       invalidateAllMachineryCache('all_vendors_dashboard:*'),
+      invalidateAllMachineryCache('location_deals:*'),
       redisClient.set(
         bulkCompletedKey(batchId),
         JSON.stringify({ userId, result }),

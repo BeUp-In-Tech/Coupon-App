@@ -13,6 +13,12 @@ export interface ILocation {
     state: string;
     country: string;
   }
+  normalized?: {
+    city?: string;
+    state?: string;
+    country?: string;
+    zip_code?: string;
+  };
   location: GeoPoint;
   isActive?: boolean;
 }
