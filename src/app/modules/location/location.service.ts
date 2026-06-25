@@ -384,14 +384,90 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
       $match: {
         isActive: true,
         $or: [
-          { location_name: regex },
           { 'address.city': regex },
           { 'address.state': regex },
           { 'address.zip_code': regex },
           { 'address.country': regex },
+          { location_name: regex },
         ],
       },
     },
+    {
+      $addFields: {
+        searchRank: {
+          $switch: {
+            branches: [
+              {
+                case: {
+                  $eq: [
+                    { $toLower: { $ifNull: ['$address.city', ''] } },
+                    search,
+                  ],
+                },
+                then: 1,
+              },
+              {
+                case: {
+                  $regexMatch: {
+                    input: { $ifNull: ['$address.city', ''] },
+                    regex: `^${escapedSearch}`,
+                    options: 'i',
+                  },
+                },
+                then: 2,
+              },
+              {
+                case: {
+                  $regexMatch: {
+                    input: { $ifNull: ['$address.city', ''] },
+                    regex: escapedSearch,
+                    options: 'i',
+                  },
+                },
+                then: 3,
+              },
+              {
+                case: {
+                  $eq: [
+                    { $toLower: { $ifNull: ['$address.state', ''] } },
+                    search,
+                  ],
+                },
+                then: 4,
+              },
+              {
+                case: {
+                  $eq: [
+                    { $toLower: { $ifNull: ['$address.zip_code', ''] } },
+                    search,
+                  ],
+                },
+                then: 5,
+              },
+              {
+                case: {
+                  $regexMatch: {
+                    input: { $ifNull: ['$location_name', ''] },
+                    regex: escapedSearch,
+                    options: 'i',
+                  },
+                },
+                then: 6,
+              },
+            ],
+            default: 99,
+          },
+        },
+      },
+    },
+    {
+      $sort: {
+        searchRank: 1,
+        'address.city': 1,
+        'address.state': 1,
+      },
+    },
+
     {
       $group: {
         _id: {
@@ -405,6 +481,16 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
         location: {
           $first: '$location',
         },
+        searchRank: {
+          $first: '$searchRank',
+        },
+      },
+    },
+    {
+      $sort: {
+        searchRank: 1,
+        '_id.city': 1,
+        '_id.state': 1,
       },
     },
     {
