@@ -14,6 +14,7 @@ const appleInAppPurchase = CatchAsync(async (req: Request, res: Response, next: 
         success: true,
         statusCode: StatusCodes.OK,
         message: "Apple in app purchase completed",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -25,6 +26,7 @@ const googleInAppPurchase = CatchAsync(async (req: Request, res: Response, next:
         success: true,
         statusCode: StatusCodes.OK,
         message: "Google in app purchase completed",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -39,6 +41,7 @@ const stripePayment = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Checkout session created",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -51,6 +54,7 @@ const stripeWebhook = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Webhook Listened",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -65,6 +69,7 @@ const getTransactionHistory = CatchAsync(async (req: Request, res: Response, nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Transaction history fetched",
+        trace_id: req.id as string,
         data: result
     })
 })

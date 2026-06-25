@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose, { Types, PipelineStage } from 'mongoose';
 import { JwtPayload } from 'jsonwebtoken';
@@ -19,11 +18,10 @@ import { generateCacheKey } from '../../utils/cacheKeyGen';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import crypto from 'crypto';
 import { sortObject } from '../../utils/sortObject';
+import { dealLogger, LoggerModule } from '../../utils/logger/logger.child';
+import { SearchDealsByLocationQuery } from './deal.validate';
+import { buildLocationDealsCacheKey, buildLocationEqualityCondition, buildLocationLabel, getDealListFacet, getDealLookupStage, getNationwideDealsUnionStage, recordDealImpressions, visibleDealFilter } from './deal.helper';
 
-const visibleDealFilter = {
-  isBanned: { $ne: true },
-  deal_status: { $ne: 'BANNED' },
-};
 
 // 1. CREATE DEAL
 const createDealsService = async (params: {
@@ -38,7 +36,7 @@ const createDealsService = async (params: {
     if (payload.images) {
       await addImageDeleteJob(payload.images);
     }
-    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can create deals');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can create deals', LoggerModule.DEAL);
   }
 
   // IS SHOP EXIST BY USER ID
@@ -60,7 +58,8 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.NOT_FOUND,
-      'No relatable shop found to upload this deal. Create a shop first.'
+      'No relatable shop found to upload this deal. Create a shop first.',
+      LoggerModule.DEAL
     );
   }
 
@@ -76,7 +75,8 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'At least one of these required: Coupon code, Qr and Bar code'
+      'At least one of these required: Coupon code, Qr and Bar code',
+      LoggerModule.DEAL
     );
   }
 
@@ -94,7 +94,7 @@ const createDealsService = async (params: {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
-    throw new AppError(StatusCodes.FORBIDDEN, 'Your shop was rejected');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Your shop was rejected', LoggerModule.DEAL);
   }
 
   // THROW ERROR IF SHOP IS NOT APPROVED YET
@@ -111,7 +111,7 @@ const createDealsService = async (params: {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Wait for shop approval');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Wait for shop approval', LoggerModule.DEAL);
   }
 
   // IS CATEGORY EXIST
@@ -131,13 +131,14 @@ const createDealsService = async (params: {
 
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Invalid category, category not found'
+      'Invalid category, category not found',
+      LoggerModule.DEAL
     );
   }
 
   // 2) VENDOR MUST OWN THE SHOP
   if (![Role.ADMIN, Role.VENDOR].includes(user.role)) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Forbidden');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Forbidden', LoggerModule.DEAL);
   }
 
   // NORMALIZE INPUTS O(n) BOUNDED
@@ -147,9 +148,17 @@ const createDealsService = async (params: {
 
   const images = (payload.images || []).map((u) => u.trim()).filter(Boolean);
 
-  const available_in_outlet = payload.available_in_location?.map(
+  const available_in_location = payload.available_in_location?.map(
     (outletId) => new Types.ObjectId(outletId)
-  );
+  ) ?? [];
+
+  if (!payload.nationwide && available_in_location.length === 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'At least one location is required when nationwide is false',
+      LoggerModule.DEAL
+    );
+  }
 
   // 5) CREATE
   const finalPayload = {
@@ -165,7 +174,8 @@ const createDealsService = async (params: {
     tags: payload.tags,
     description: payload.description,
     images,
-    available_in_outlet,
+    nationwide: payload.nationwide ?? false,
+    available_in_location,
     coupon: payload.coupon,
     coupon_option: payload.coupon_option,
   };
@@ -173,6 +183,7 @@ const createDealsService = async (params: {
 
   // REMOVE CACHE (DASHBOARD API CACHE)
   await redisClient.del('deals_by_category_stats');
+  await invalidateAllMachineryCache('location_deals:*');
   await invalidateAllMachineryCache('recent_deals:*');
   await invalidateAllMachineryCache('deals_stats:*');
   await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
@@ -188,6 +199,43 @@ const getSingleDealsService = async (
 ) => {
   const dealId = new mongoose.Types.ObjectId(_dealId);
 
+  const getNearestShopLocation = async (
+    shopId: Types.ObjectId,
+    maxDistance?: number
+  ) => {
+    const pipeline: PipelineStage[] = [
+      {
+        $geoNear: {
+          near: {
+            type: 'Point',
+            coordinates: [lng, lat],
+          },
+          distanceField: 'distance',
+          spherical: true,
+          key: 'location',
+          query: {
+            shop: shopId,
+            isActive: true,
+          },
+          ...(maxDistance ? { maxDistance } : {}),
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: '$location_name',
+          address: 1,
+          location: 1,
+          distance: 1,
+        },
+      },
+      { $limit: 1 },
+    ];
+
+    const [nearestLocation] = await Location.aggregate(pipeline);
+    return nearestLocation;
+  };
+
   // IF DEAL NOT FOUND
   const deal = await DealModel.findOne({
     _id: dealId,
@@ -195,7 +243,7 @@ const getSingleDealsService = async (
   });
 
   if (!deal) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
   }
 
   // ADD VIEW
@@ -203,6 +251,71 @@ const getSingleDealsService = async (
     deal: dealId,
     type: 'view',
   });
+
+  if (deal.nationwide) {
+    const nearestLocationWithinRadius = await getNearestShopLocation(
+      deal.shop,
+      200 * 1000
+    );
+    const nearestLocation =
+      nearestLocationWithinRadius ?? (await getNearestShopLocation(deal.shop));
+
+    const nationwideDeal = await DealModel.aggregate([
+      {
+        $match: {
+          _id: dealId,
+          nationwide: true,
+          ...visibleDealFilter,
+        },
+      },
+      {
+        $addFields: {
+          available_location: {
+            $literal: nearestLocation ? [nearestLocation] : [],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'category',
+        },
+      },
+      { $unwind: '$category' },
+      {
+        $lookup: {
+          from: 'shops',
+          localField: 'shop',
+          foreignField: '_id',
+          as: 'shop',
+        },
+      },
+      { $unwind: '$shop' },
+      {
+        $project: {
+          available_in_location: 0,
+          activePromotion: 0,
+          'category.createdAt': 0,
+          'category.updatedAt': 0,
+          'shop.vendor': 0,
+          'shop.description': 0,
+          'shop.business_phone': 0,
+          'shop.business_email': 0,
+          'shop.updatedAt': 0,
+          'shop.createdAt': 0,
+          'shop.__v': 0,
+        },
+      },
+    ]);
+
+    if (nationwideDeal[0]) {
+      return nationwideDeal[0];
+    }
+
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
+  }
 
   const deals = await Location.aggregate([
     // FIND OUTLETS NEAR USER
@@ -297,7 +410,7 @@ const getSingleDealsService = async (
     // CLEAN RESPONSE
     {
       $project: {
-        available_in_outlet: 0,
+        available_in_location: 0,
         activePromotion: 0,
 
         'category.createdAt': 0,
@@ -314,14 +427,13 @@ const getSingleDealsService = async (
     },
   ]);
 
-  console.log(deals);
 
   const final_deal = deals[0];
 
   
 
   if (!final_deal) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
   }
 
   return final_deal;
@@ -330,13 +442,13 @@ const getSingleDealsService = async (
 // 3. DELETE DEAL
 const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
   if (user.role !== Role.VENDOR) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can delete');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Only vendor can delete', LoggerModule.DEAL);
   }
 
   // Check is service exist
   const isServiceExist = await DealModel.findById(serviceId);
   if (!isServiceExist) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Service not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Service not found', LoggerModule.DEAL);
   }
 
   // 3. Check if the vendor owns the service by shop
@@ -347,7 +459,8 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
   if (!isShopOwner) {
     throw new AppError(
       StatusCodes.UNAUTHORIZED,
-      'You are not authorized to delete this service'
+      'You are not authorized to delete this service',
+      LoggerModule.DEAL
     );
   }
 
@@ -358,12 +471,13 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
     try {
       await addImageDeleteJob(isServiceExist.images);
     } catch (error) {
-      console.error('Error deleting images from Cloudinary:', error);
+      dealLogger.error({ error }, 'Error deleting images from Cloudinary');
     }
   });
 
   setImmediate(async () => {
     await invalidateAllMachineryCache('machinery:*');
+    await invalidateAllMachineryCache('location_deals:*');
     await invalidateAllMachineryCache('recent_deals:*');
     await invalidateAllMachineryCache('deals_stats:*');
     await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
@@ -381,35 +495,28 @@ const updateDealsService = async (
   // CHECK IF THE DEAL EXISTS
   const deal = await DealModel.findById(dealId);
 
+  // Delete image from cloudinary
   if (!deal) {
-    // DELETE IMAGE ASYNC
-    setImmediate(async () => {
-      // Delete image from cloudinary
       if (payload.images) {
         try {
           await addImageDeleteJob(payload.images);
-
           if (payload.coupon_option.qr) {
             await addImageDeleteJob([payload.coupon_option.qr]);
           }
-
           if (payload.coupon_option.upc) {
             await addImageDeleteJob([payload.coupon_option.upc]);
           }
         } catch (error: any) {
-          console.log('Cloudinary image deletion error: ', error.message);
+          dealLogger.error({error}, 'Cloudinary image deletion error');
         }
       }
-    });
 
     // Throw Error
-    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.DEAL);
   }
 
   // CHECK IF THE USER IS AUTHORIZED TO UPDATE THE SERVICE
   if (deal.user.toString() !== user.userId) {
-    // Delete image from cloudinary
-    setImmediate(async () => {
       // Delete image from cloudinary
       if (payload.images) {
         try {
@@ -423,14 +530,15 @@ const updateDealsService = async (
             await addImageDeleteJob([payload.coupon_option.upc]);
           }
         } catch (error: any) {
-          console.log('Cloudinary image deletion error: ', error.message);
+          dealLogger.error({error}, 'Cloudinary image deletion error');
         }
       }
-    });
+
     // Throw Error
     throw new AppError(
       StatusCodes.UNAUTHORIZED,
-      'You are not authorized to update this service'
+      'You are not authorized to update this service',
+      LoggerModule.DEAL
     );
   }
 
@@ -498,6 +606,28 @@ const updateDealsService = async (
     updateData.regular_price = payload.regular_price;
   if (payload.discount !== undefined) updateData.discount = payload.discount;
 
+  const nextNationwide = payload.nationwide ?? deal.nationwide ?? false;
+  const nextLocationIds =
+    payload.available_in_location !== undefined
+      ? payload.available_in_location.map((locationId) => new Types.ObjectId(locationId))
+      : deal.available_in_location ?? [];
+
+  if (!nextNationwide && nextLocationIds.length === 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'At least one location is required when nationwide is false',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (payload.nationwide !== undefined) {
+    updateData.nationwide = payload.nationwide;
+  }
+
+  if (payload.available_in_location !== undefined) {
+    updateData.available_in_location = nextLocationIds;
+  }
+
   // ONLY UPDATE IMAGES IF CHANGES WERE MADE
   if (
     updatedImages.length !== deal.images.length ||
@@ -549,14 +679,14 @@ const updateDealsService = async (
     new: true,
   });
 
-  // DELETE IMAGES FROM CLOUDINARY ASYNCHRONOUSLY IF NEEDED
+  // DELETE IMAGES FROM CLOUDINARY ASYNCHRONOUSLY
   setImmediate(async () => {
     // DEAL IMAGE DELETION
     if (payload.deletedImages && payload.deletedImages.length > 0) {
       try {
         await addImageDeleteJob(payload.deletedImages);
-      } catch (error) {
-        console.log(`Cloudinary image deleting error`, error);
+      } catch (error: any) {
+        dealLogger.error({error}, `Cloudinary image deleting error`);
       }
     }
 
@@ -564,8 +694,8 @@ const updateDealsService = async (
     if (payload?.coupon_option?.qr) {
       try {
         await addImageDeleteJob([deal.coupon_option.qr as string]);
-      } catch (e) {
-        console.log(`Cloudinary image deleting error`, e);
+      } catch (error: any) {
+        dealLogger.error({error}, `Cloudinary image deleting error`);
       }
     }
 
@@ -573,8 +703,8 @@ const updateDealsService = async (
     if (payload?.coupon_option?.upc) {
       try {
         await addImageDeleteJob([deal.coupon_option.upc as string]);
-      } catch (e) {
-        console.log(`Cloudinary image deleting error`, e);
+      } catch (error: any) {
+        dealLogger.error({error}, `Cloudinary image deleting error`);
       }
     }
   });
@@ -583,6 +713,7 @@ const updateDealsService = async (
   setImmediate(async () => {
     await redisClient.del(`shop:${updateDeal?.shop.toString()}`);
     await invalidateAllMachineryCache('machinery:*');
+    await invalidateAllMachineryCache('location_deals:*');
     await invalidateAllMachineryCache('recent_deals:*');
     await invalidateAllMachineryCache('deals_stats:*');
     await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
@@ -705,6 +836,7 @@ const getDealsByCategoryService = async (
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 20;
   const skip = (page - 1) * limit;
+  const now = new Date();
   const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
 
   // Build the sort object.
@@ -728,7 +860,8 @@ const getDealsByCategoryService = async (
   if (!lng || !lat || !categoryId) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'lng, lat, and categoryId are required'
+      'lng, lat, and categoryId are required',
+      LoggerModule.DEAL
     );
   }
 
@@ -749,7 +882,7 @@ const getDealsByCategoryService = async (
       $lookup: {
         from: 'deals',
         localField: '_id',
-        foreignField: 'available_in_outlet',
+        foreignField: 'available_in_location',
         as: 'deal',
       },
     },
@@ -766,7 +899,7 @@ const getDealsByCategoryService = async (
     {
       $match: {
         'deal.isPromoted': true,
-        'deal.promotedUntil': { $gte: new Date() },
+        'deal.promotedUntil': { $gte: now },
       },
     },
     // Join shop info
@@ -793,13 +926,12 @@ const getDealsByCategoryService = async (
 
     { $replaceRoot: { newRoot: '$doc' } },
 
-    // Apply requested ordering on the deduplicated deal list.
-    { $sort: sort },
+    { $addFields: { locationSort: 0 } },
 
-    // Project needed fields
     {
       $project: {
         distance: 1,
+        locationSort: 1,
         'shop._id': 1,
         'shop.business_name': 1,
         'shop.business_logo': 1,
@@ -810,8 +942,67 @@ const getDealsByCategoryService = async (
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
         'deal.images': 1,
+        'deal.nationwide': 1,
       },
     },
+    {
+      $unionWith: {
+        coll: 'deals',
+        pipeline: [
+          {
+            $match: {
+              category: categoryObjectId,
+              nationwide: true,
+              isPromoted: true,
+              promotedUntil: { $gte: now },
+              ...visibleDealFilter,
+            },
+          },
+          {
+            $lookup: {
+              from: 'shops',
+              localField: 'shop',
+              foreignField: '_id',
+              as: 'shop',
+              pipeline: [
+                {
+                  $project: {
+                    business_name: 1,
+                    business_logo: 1,
+                  },
+                },
+              ],
+            },
+          },
+          { $unwind: '$shop' },
+          {
+            $project: {
+              distance: { $literal: null },
+              locationSort: { $literal: 1 },
+              shop: 1,
+              deal: {
+                _id: '$_id',
+                title: '$title',
+                regular_price: '$regular_price',
+                discount: '$discount',
+                isPromoted: '$isPromoted',
+                promotedUntil: '$promotedUntil',
+                images: '$images',
+                nationwide: '$nationwide',
+              },
+            },
+          },
+        ],
+      },
+    },
+    { $sort: { locationSort: 1, ...sort } },
+    {
+      $group: {
+        _id: '$deal._id',
+        doc: { $first: '$$ROOT' },
+      },
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
 
     // Pagination
     { $skip: skip },
@@ -822,7 +1013,7 @@ const getDealsByCategoryService = async (
   const total = await DealModel.countDocuments({
     category: categoryObjectId,
     isPromoted: true,
-    promotedUntil: { $gte: new Date() },
+    promotedUntil: { $gte: now },
     ...visibleDealFilter,
   });
 
@@ -929,7 +1120,9 @@ const getNearestDealsService = async (
     { $replaceRoot: { newRoot: '$deals' } },
 
     // STEP 5: SORT NEAREST FIRST
-    { $sort: { distance: 1 } },
+    { $addFields: { locationSort: 0 } },
+    getNationwideDealsUnionStage(new Date()),
+    { $sort: { locationSort: 1, distance: 1 } },
 
     // STEP 6: REMOVE DUPLICATES (IF DEAL AVAILABLE IN MULTIPLE OUTLETS)
     {
@@ -942,7 +1135,7 @@ const getNearestDealsService = async (
     { $replaceRoot: { newRoot: '$doc' } },
 
     // STEP 7: SORT AGAIN AFTER GROUPING
-    { $sort: { distance: 1 } },
+    { $sort: { locationSort: 1, distance: 1 } },
 
     // STEP 8: PAGINATION
     { $skip: skip },
@@ -977,9 +1170,11 @@ const getNearestDealsService = async (
         images: { $slice: ['$images', 1] },
         distance: 1,
         nearest_location: 1,
+        matched_location: 1,
         shop: 1,
         isPromoted: 1,
         promotedUntil: 1,
+        nationwide: 1,
       },
     },
   ];
@@ -1046,6 +1241,7 @@ const getAllDealsService = async (
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 20;
   const skip = (page - 1) * limit;
+  const now = new Date();
 
   // DEALS QUERY
   const dealsPromise = Location.aggregate([
@@ -1068,7 +1264,7 @@ const getAllDealsService = async (
       $lookup: {
         from: 'deals',
         localField: '_id',
-        foreignField: 'available_in_outlet',
+        foreignField: 'available_in_location',
         as: 'deal',
       },
     },
@@ -1100,8 +1296,7 @@ const getAllDealsService = async (
           { 'deal.description': { $regex: searchTerm, $options: 'i' } },
           { 'deal.tags': { $regex: searchTerm, $options: 'i' } },
           { 'deal.highlight': { $regex: searchTerm, $options: 'i' } },
-          { zip_code: { $regex: searchTerm, $options: 'i' } },
-          { address: { $regex: searchTerm, $options: 'i' } },
+          { 'address.zip_code': { $regex: searchTerm, $options: 'i' } },        
         ],
       },
     },
@@ -1115,8 +1310,9 @@ const getAllDealsService = async (
       $match: {
         $and: [
           { 'deal.isPromoted': true },
-          { 'deal.promotedUntil': { $gte: new Date() } },
+          { 'deal.promotedUntil': { $gte: now } },
           { 'deal.isBanned': { $ne: true } },
+          { 'deal.deal_status': { $ne: 'BANNED' } },
         ],
       },
     },
@@ -1131,6 +1327,7 @@ const getAllDealsService = async (
     {
       $replaceRoot: { newRoot: '$doc' },
     },
+    { $addFields: { locationSort: 0 } },
 
     // STAGE 6: FINAL PROJECTION
     {
@@ -1138,6 +1335,7 @@ const getAllDealsService = async (
         'shop.business_logo': 1,
         'shop.business_name': 1,
         distance: 1,
+        locationSort: 1,
         'deal._id': 1,
         'deal.title': 1,
         'deal.regular_price': 1,
@@ -1145,8 +1343,78 @@ const getAllDealsService = async (
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
         'deal.images': 1,
+        'deal.nationwide': 1,
       },
     },
+    {
+      $unionWith: {
+        coll: 'deals',
+        pipeline: [
+          {
+            $match: {
+              nationwide: true,
+              isPromoted: true,
+              promotedUntil: { $gte: now },
+              ...visibleDealFilter,
+            },
+          },
+          {
+            $lookup: {
+              from: 'shops',
+              localField: 'shop',
+              foreignField: '_id',
+              as: 'shop',
+              pipeline: [
+                {
+                  $project: {
+                    business_name: 1,
+                    business_logo: 1,
+                  },
+                },
+              ],
+            },
+          },
+          { $unwind: '$shop' },
+          {
+            $match: {
+              $or: [
+                { 'shop.business_name': { $regex: searchTerm, $options: 'i' } },
+                { title: { $regex: searchTerm, $options: 'i' } },
+                { description: { $regex: searchTerm, $options: 'i' } },
+                { tags: { $regex: searchTerm, $options: 'i' } },
+                { highlight: { $regex: searchTerm, $options: 'i' } },
+              ],
+            },
+          },
+          {
+            $project: {
+              'shop.business_logo': 1,
+              'shop.business_name': 1,
+              distance: { $literal: null },
+              locationSort: { $literal: 1 },
+              deal: {
+                _id: '$_id',
+                title: '$title',
+                regular_price: '$regular_price',
+                discount: '$discount',
+                isPromoted: '$isPromoted',
+                promotedUntil: '$promotedUntil',
+                images: '$images',
+                nationwide: '$nationwide',
+              },
+            },
+          },
+        ],
+      },
+    },
+    { $sort: { locationSort: 1, distance: 1 } },
+    {
+      $group: {
+        _id: '$deal._id',
+        doc: { $first: '$$ROOT' },
+      },
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
 
     // PAGINATE
     {
@@ -1161,7 +1429,7 @@ const getAllDealsService = async (
   // TOTAL PROMOTED DEALS COUNT
   const totalPromotedDocPromise = DealModel.countDocuments({
     isPromoted: true,
-    promotedUntil: { $gte: new Date() },
+    promotedUntil: { $gte: now },
     ...visibleDealFilter,
   });
 
@@ -1195,7 +1463,182 @@ const getAllDealsService = async (
   return { meta, deals };
 };
 
-// 8. GET USERS SAVED DEALS BY IDS
+// 8. LOCATION MODE DEAL FETCH
+const searchCurrentLocationDeals = async (
+  query: Extract<SearchDealsByLocationQuery, { locationMode: 'CURRENT_LOCATION' }>
+) => {
+  const now = new Date();
+  const pipeline: PipelineStage[] = [
+    {
+      $geoNear: {
+        near: {
+          type: 'Point',
+          coordinates: [query.lng, query.lat],
+        },
+        distanceField: 'distance',
+        maxDistance: query.radiusKm * 1000,
+        spherical: true,
+        key: 'location',
+        query: { isActive: true },
+      },
+    },
+    getDealLookupStage(now),
+    { $unwind: '$deal' },
+    {
+      $addFields: {
+        'deal.distance': '$distance',
+        'deal.nearest_location': '$_id',
+        'deal.matched_location': {
+          _id: '$_id',
+          location_name: '$location_name',
+          address: '$address',
+          distance: '$distance',
+        },
+      },
+    },
+    { $replaceRoot: { newRoot: '$deal' } },
+    { $addFields: { locationSort: 0 } },
+    getNationwideDealsUnionStage(now),
+    { $sort: { locationSort: 1, distance: 1 } },
+    {
+      $group: {
+        _id: '$_id',
+        doc: { $first: '$$ROOT' },
+      },
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
+    getDealListFacet(query.page, query.limit, {
+      locationSort: 1,
+      distance: 1,
+    }),
+  ];
+
+  const [result] = await Location.aggregate(pipeline);
+  const deals = result?.deals ?? [];
+  const total = result?.total?.[0]?.count ?? 0;
+
+  recordDealImpressions(deals);
+
+  return {
+    meta: {
+      locationMode: query.locationMode,
+      locationLabel: buildLocationLabel(query),
+      radiusKm: query.radiusKm,
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+    deals,
+  };
+};
+
+const searchSelectedLocationDeals = async (
+  query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>
+) => {
+  const now = new Date();
+  const locationConditions = [
+    buildLocationEqualityCondition('country', query.country),
+  ];
+
+  if (query.city) {
+    locationConditions.push(buildLocationEqualityCondition('city', query.city));
+  }
+
+  if (query.state) {
+    locationConditions.push(
+      buildLocationEqualityCondition('state', query.state)
+    );
+  }
+
+  if (query.zip_code) {
+    locationConditions.push(
+      buildLocationEqualityCondition('zip_code', query.zip_code)
+    );
+  }
+
+  const pipeline: PipelineStage[] = [
+    {
+      $match: {
+        isActive: true,
+        $and: locationConditions,
+      },
+    },
+    getDealLookupStage(now),
+    { $unwind: '$deal' },
+    {
+      $addFields: {
+        'deal.nearest_location': '$_id',
+        'deal.matched_location': {
+          _id: '$_id',
+          location_name: '$location_name',
+          address: '$address',
+        },
+      },
+    },
+    { $replaceRoot: { newRoot: '$deal' } },
+    { $addFields: { locationSort: 0 } },
+    getNationwideDealsUnionStage(now),
+    { $sort: { locationSort: 1, promotedUntil: -1, createdAt: -1 } },
+    {
+      $group: {
+        _id: '$_id',
+        doc: { $first: '$$ROOT' },
+      },
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
+    getDealListFacet(query.page, query.limit, {
+      locationSort: 1,
+      promotedUntil: -1,
+      createdAt: -1,
+    }),
+  ];
+
+  const [result] = await Location.aggregate(pipeline);
+  const deals = result?.deals ?? [];
+  const total = result?.total?.[0]?.count ?? 0;
+
+  recordDealImpressions(deals);
+
+  return {
+    meta: {
+      locationMode: query.locationMode,
+      locationLabel: buildLocationLabel(query),
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    },
+    deals,
+  };
+};
+
+// [GET]
+const searchDealsByLocationService = async (
+  query: SearchDealsByLocationQuery
+) => {
+  const cacheKey = buildLocationDealsCacheKey(query);
+  const cachedData = await redisClient.get(cacheKey);
+
+  // return cached
+  if (cachedData) {
+    dealLogger.debug("Cached returned");
+    return JSON.parse(cachedData);
+  }
+  
+  // Cache data
+  const data =
+    query.locationMode === 'CURRENT_LOCATION'
+    ? await searchCurrentLocationDeals(query)
+    : await searchSelectedLocationDeals(query);
+    
+    await redisClient.set(cacheKey, JSON.stringify(data), { EX: 180 });
+    dealLogger.debug("DB returned returned");
+
+  return data;
+};
+
+// 9. GET USERS SAVED DEALS BY IDS
 const getDealsByIdsService = async (
   ids: string[],
   query: Record<string, string>
@@ -1231,7 +1674,7 @@ const getDealsByIdsService = async (
   return deals;
 };
 
-// 9. GET TOP VIEWED DEALS
+// 10. GET TOP VIEWED DEALS
 const topViewedDealsService = async (
   user: JwtPayload,
   query: Record<string, string>
@@ -1239,7 +1682,7 @@ const topViewedDealsService = async (
   const getShop = await Shop.findOne({ vendor: user.userId });
 
   if (!getShop) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.DEAL);
   }
 
   const deals = await DealModel.find({ shop: getShop._id }, { _id: 1 });
@@ -1332,7 +1775,7 @@ const topViewedDealsService = async (
   return { meta, topDeals };
 };
 
-// 10. DEAL ANALYTICS
+// 11. DEAL ANALYTICS
 const dealAnalyticsService = async (authUserId: string, dealId: string) => {
   const isDealExistPromise = await DealModel.findOne({
     _id: dealId,
@@ -1346,11 +1789,11 @@ const dealAnalyticsService = async (authUserId: string, dealId: string) => {
   ]);
 
   if (!isDealExist) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Deal not found', LoggerModule.DEAL);
   }
 
   if (!shop) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.DEAL);
   }
 
   const stats = await Views_Impressions.aggregate([
@@ -1383,4 +1826,5 @@ export const dealsServices = {
   getDealsByIdsService,
   topViewedDealsService,
   dealAnalyticsService,
+  searchDealsByLocationService,
 };

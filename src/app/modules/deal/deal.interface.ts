@@ -23,6 +23,7 @@ export interface IDeal {
         qr?: string;
         upc?: string;
     }
+    nationwide?: true | false;
     available_in_location?: [Types.ObjectId];
     isBanned?: boolean;
     ban_reason?: string;

@@ -1,6 +1,11 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { imageDeleteQueue } from '../queue/index.queue';
+import { uploadLogger } from './logger/logger.child';
+
+const queuedLogger = uploadLogger.child({
+  queue: 'imageDeleteQueue',
+  job: 'addImageDeleteJob',
+});
 
 const DEFAULT_CHUNK_SIZE = 50;
 const DEFAULT_ATTEMPTS = 3;
@@ -79,7 +84,7 @@ export const addImageDeleteJob = async (
       throw error;
     }
 
-    console.log('Image delete queue add error:', error?.message || error);
+    queuedLogger.error({ error }, 'Image delete queue add error');
     return {
       totalReceived: images?.length || 0,
       totalQueuedImages: 0,

@@ -5,6 +5,8 @@ interface EnvInterfaces {
   PORT: string;
   MONGO_URI: string;
   NODE_ENV: 'development' | 'production';
+  LOG_LEVEL: 'debug' | 'info';
+  SERVICE_NAME: string;
 
   JWT_ACCESS_SECRET: string;
   JWT_ACCESS_EXPIRATION: string;
@@ -17,6 +19,7 @@ interface EnvInterfaces {
   FRONTEND_URL: string;
   DEEP_LINK: string;
   BACKEND_URL: string;
+  CORS_URL: string;
 
   CLOUDINARY_SECRET: string;
   CLOUDINARY_API_KEY: string;
@@ -77,6 +80,9 @@ const loadEnvVariables = (): EnvInterfaces => {
     'MONGO_URI',
     'NODE_ENV',
 
+    'LOG_LEVEL',
+    'SERVICE_NAME',
+
     'JWT_ACCESS_SECRET',
     'JWT_ACCESS_EXPIRATION',
     'JWT_REFRESH_SECRET',
@@ -88,6 +94,7 @@ const loadEnvVariables = (): EnvInterfaces => {
     'FRONTEND_URL',
     'DEEP_LINK',
     'BACKEND_URL',
+    'CORS_URL',
 
     'CLOUDINARY_NAME',
     'CLOUDINARY_SECRET',
@@ -151,6 +158,10 @@ const loadEnvVariables = (): EnvInterfaces => {
     MONGO_URI: process.env.MONGO_URI as string,
     PORT: process.env.PORT as string,
     NODE_ENV: process.env.NODE_ENV as 'development' | 'production',
+
+    LOG_LEVEL: process.env.LOG_LEVEL as 'debug' | 'info',
+    SERVICE_NAME: process.env.SERVICE_NAME as string,
+
     BCRYPT_SALT_ROUND: process.env.BCRYPT_SALT_ROUND as string,
 
     JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET as string,
@@ -165,6 +176,7 @@ const loadEnvVariables = (): EnvInterfaces => {
     FRONTEND_URL: process.env.FRONTEND_URL as string,
     DEEP_LINK: process.env.DEEP_LINK as string,
     BACKEND_URL: process.env.BACKEND_URL as string,
+    CORS_URL: process.env.CORS_URL as string,
 
     CLOUDINARY_SECRET: process.env.CLOUDINARY_SECRET as string,
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY as string,

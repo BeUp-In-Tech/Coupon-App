@@ -8,6 +8,7 @@ import { handleCastError } from '../helper/cast.error';
 import { validationError } from '../helper/validation.error';
 import { TErrorSources } from '../interface/error.types';
 import env from '../config/env';
+import { logger } from '../utils/logger/logger.config';
 
 // Error Handler
 export const globalErrorHandler = (
@@ -45,6 +46,12 @@ export const globalErrorHandler = (
     statusCode = simplifiedError.statusCode;
     errorSources = simplifiedError.errorSources as TErrorSources[];
     message = simplifiedError.message;
+  } else if (err.name === 'MulterError') {
+    statusCode = 400;
+    message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'Uploaded file exceeds the allowed size'
+        : err.message;
   } else if (err instanceof AppError) {
     statusCode = err.statusCode;
     message = err.message;
@@ -56,6 +63,7 @@ export const globalErrorHandler = (
   res.status(statusCode).json({
     success: false,
     message,
+    trace_id: req.id,
     errorSources,
     err: env.NODE_ENV === 'development' ? err : null,
     stack: env.NODE_ENV === 'development' ? err.stack : null,

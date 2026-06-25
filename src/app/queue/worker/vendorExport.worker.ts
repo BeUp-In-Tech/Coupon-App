@@ -1,9 +1,9 @@
-/* eslint-disable no-console */
 import { promises as fs } from 'fs';
 import path from 'path';
 import cron from 'node-cron';
 import { Worker } from 'bullmq';
 import { Shop } from '../../modules/shop/shop.model';
+import { workerLogger } from '../../utils/logger/logger.child';
 import {
   cleanupExpiredVendorExports,
   generateVendorExportWorkbook,
@@ -17,6 +17,10 @@ import {
   VendorExportJobName,
 } from '../job/vendorExport.job';
 
+const queuedLogger = workerLogger.child({
+  queue: 'vendorExportQueue',
+});
+
 // Retries must never leave a corrupted or incomplete workbook behind.
 const removePartialExport = async (jobId: string | undefined) => {
   if (!jobId) return;
@@ -28,19 +32,25 @@ const removePartialExport = async (jobId: string | undefined) => {
 export const vendorExportWorker = () => {
   // Clean files missed while the worker was stopped before accepting new work.
   cleanupExpiredVendorExports().catch((error) =>
-    console.error('Initial vendor export cleanup failed:', error)
+    queuedLogger.error({ error }, 'Initial vendor export cleanup failed')
   );
 
   // One worker process owns local files, so lightweight process-local cleanup is enough.
   cron.schedule('0 * * * *', () => {
     cleanupExpiredVendorExports().catch((error) =>
-      console.error('Vendor export cleanup failed:', error)
+      queuedLogger.error({ error }, 'Vendor export cleanup failed')
     );
   });
 
   const worker = new Worker<IVendorExportJobData, IVendorExportJobResult>(
     'vendorExportQueue',
     async (job) => {
+      const jobLogger = queuedLogger.child({
+        jobId: job.id,
+        jobName: job.name,
+        attemptsMade: job.attemptsMade,
+      });
+
       if (job.name !== VendorExportJobName.GENERATE_VENDOR_EXPORT) {
         throw new Error(`Unsupported vendor export job: ${job.name}`);
       }
@@ -62,6 +72,8 @@ export const vendorExportWorker = () => {
         onProgress: (progress) => job.updateProgress(progress),
       });
 
+      jobLogger.info({ rowCount, fileName }, 'Vendor export workbook generated');
+
       // Returning metadata makes it available through job.returnvalue.
       return {
         filePath,
@@ -75,11 +87,11 @@ export const vendorExportWorker = () => {
   );
 
   worker.on('completed', (job) => {
-    console.log('Vendor export completed:', job.id);
+    queuedLogger.info({ jobId: job.id, jobName: job.name }, 'Job completed');
   });
 
   worker.on('failed', (job, error) => {
     removePartialExport(job?.id).catch(() => undefined);
-    console.error('Vendor export failed:', job?.id, error);
+    queuedLogger.error({ jobId: job?.id, jobName: job?.name, error }, 'Job failed');
   });
 };

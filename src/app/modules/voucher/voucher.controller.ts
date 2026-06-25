@@ -4,7 +4,7 @@ import { CatchAsync } from "../../utils/CatchAsync";
 import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
 import { JwtPayload } from "jsonwebtoken";
-import { voucherServices } from "./voucher.services";
+import { voucherServices } from "./voucher.service";
 
 
 // CREATE VOUCHER
@@ -18,6 +18,7 @@ const createVoucher = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Voucher created",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -31,6 +32,7 @@ const getAllVouchers = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.OK,
         message: "All vouchers fetched",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -45,6 +47,7 @@ const getSingleVoucher = CatchAsync(async (req: Request, res: Response, next: Ne
         success: true,
         statusCode: StatusCodes.OK,
         message: "Voucher fetched",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -62,6 +65,7 @@ const updateVoucher = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Voucher updated",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -78,6 +82,7 @@ const deleteVoucher = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Voucher deleted",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -93,6 +98,7 @@ const applyVoucher = CatchAsync(async (req: Request, res: Response, next: NextFu
         success: true,
         statusCode: StatusCodes.OK,
         message: "Voucher applied",
+        trace_id: req.id as string,
         data: result
     })
 });

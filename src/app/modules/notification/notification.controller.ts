@@ -35,6 +35,7 @@ const readAllNotification = CatchAsync(async (req: Request, res: Response, next:
         success: true,
         statusCode: StatusCodes.OK,
         message: "Notification fetched successfully",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -48,6 +49,7 @@ const openNotificationPanel = CatchAsync(async (req: Request, res: Response, nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Notification panel opened successfully",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -62,6 +64,7 @@ const getSingleNotification = CatchAsync(async (req: Request, res: Response, nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Notification fetched successfully",
+        trace_id: req.id as string,
         data: result
     })
 });

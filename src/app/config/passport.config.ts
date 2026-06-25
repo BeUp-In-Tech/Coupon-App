@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import {
@@ -11,6 +10,7 @@ import bcrypt from 'bcrypt';
 import env from './env';
 import { Role } from '../modules/user/user.interface';
 import User from '../modules/user/user.model';
+import { authLogger } from '../utils/logger/logger.child';
  
 
 // CREDENTIALS LOGIN LOCAL STRATEGY
@@ -57,8 +57,8 @@ passport.use(
         }
 
         return done(null, user);
-      } catch (error) {
-        console.log('Passport Local login error: ', error);
+      } catch (error: any) {
+        authLogger.error({error}, 'Passport Local auth error');
         done(error);
       }
     }
@@ -105,8 +105,8 @@ passport.use(
         }
 
         return done(null, user);
-      } catch (error) {
-        console.log('Google strategy error', error);
+      } catch (error: any) {
+        authLogger.error({error}, 'Google strategy error');
         done(error);
       }
     }
@@ -122,8 +122,8 @@ passport.deserializeUser(async (id: string, done: any) => {
   try {
     const user = await User.findById(id);
     done(null, user);
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+    authLogger.error({error}, error.message);
     done(error);
   }
 });

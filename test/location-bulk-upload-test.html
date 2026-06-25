@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Location Upload Test</title>
+  <style>
+    :root {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #162033;
+      background: #f3f6fb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 18px;
+    }
+
+    main {
+      width: min(900px, 100%);
+      margin: 0 auto;
+      padding: 30px;
+      border: 1px solid #dbe3ef;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 18px 50px rgba(30, 52, 84, 0.08);
+    }
+
+    h1 { margin: 0 0 8px; font-size: 27px; }
+    p { margin: 0 0 22px; color: #5b677a; line-height: 1.55; }
+    label { display: block; margin: 15px 0 7px; font-weight: 700; }
+
+    input, textarea, button {
+      width: 100%;
+      font: inherit;
+      border-radius: 9px;
+    }
+
+    input, textarea {
+      padding: 11px 12px;
+      border: 1px solid #c9d4e4;
+      background: #fff;
+    }
+
+    textarea { min-height: 100px; resize: vertical; }
+
+    button {
+      padding: 12px 16px;
+      border: 0;
+      font-weight: 750;
+      color: #172033;
+      background: #e8edf5;
+      cursor: pointer;
+    }
+
+    button.primary { color: #fff; background: #2864dc; }
+    button.success { color: #fff; background: #087443; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .metric {
+      padding: 16px;
+      border-radius: 10px;
+      background: #f4f7fb;
+    }
+
+    .metric span { display: block; color: #657187; font-size: 13px; }
+    .metric strong { display: block; margin-top: 5px; font-size: 24px; }
+
+    .status { min-height: 22px; margin-top: 16px; color: #4d5b70; }
+    .status.error { color: #b42318; }
+    .status.success { color: #087443; }
+
+    .table-wrap { overflow-x: auto; margin-top: 20px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #e1e7f0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #f4f7fb; }
+    .hidden { display: none; }
+
+    @media (max-width: 680px) {
+      main { padding: 21px; }
+      .actions, .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Bulk Location Upload</h1>
+    <p>Use a vendor JWT to download the template, preview an XLSX/CSV file, and confirm its valid rows.</p>
+
+    <label for="apiBase">API base URL</label>
+    <input id="apiBase" type="url" value="http://localhost:5000/api/v1">
+
+    <label for="jwtToken">Vendor JWT access token</label>
+    <textarea id="jwtToken" spellcheck="false" placeholder="Paste vendor JWT"></textarea>
+
+    <label for="locationFile">Location XLSX or CSV</label>
+    <input id="locationFile" type="file" accept=".xlsx,.csv">
+
+    <div class="actions">
+      <button id="templateButton" type="button">Download template</button>
+      <button id="previewButton" class="primary" type="button">Preview file</button>
+      <button id="confirmButton" class="success" type="button" disabled>Confirm valid rows</button>
+    </div>
+
+    <div id="summary" class="summary hidden">
+      <div class="metric"><span>Total rows</span><strong id="totalRows">0</strong></div>
+      <div class="metric"><span>Valid rows</span><strong id="validRows">0</strong></div>
+      <div class="metric"><span>Invalid rows</span><strong id="invalidRows">0</strong></div>
+    </div>
+
+    <div id="status" class="status" aria-live="polite">Enter a vendor JWT to begin.</div>
+
+    <div id="errorsSection" class="table-wrap hidden">
+      <table>
+        <thead>
+          <tr><th>Row</th><th>Field</th><th>Value</th><th>Error</th></tr>
+        </thead>
+        <tbody id="errorsBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const apiBaseInput = document.getElementById('apiBase');
+    const tokenInput = document.getElementById('jwtToken');
+    const fileInput = document.getElementById('locationFile');
+    const templateButton = document.getElementById('templateButton');
+    const previewButton = document.getElementById('previewButton');
+    const confirmButton = document.getElementById('confirmButton');
+    const summaryElement = document.getElementById('summary');
+    const errorsSection = document.getElementById('errorsSection');
+    const errorsBody = document.getElementById('errorsBody');
+    const statusElement = document.getElementById('status');
+    const totalRows = document.getElementById('totalRows');
+    const validRows = document.getElementById('validRows');
+    const invalidRows = document.getElementById('invalidRows');
+
+    tokenInput.value = sessionStorage.getItem('bulkLocationJwt') || '';
+    let batchId = null;
+
+    const endpoint = (path) =>
+      `${apiBaseInput.value.trim().replace(/\/$/, '')}${path}`;
+
+    const getToken = () => tokenInput.value.trim().replace(/^Bearer\s+/i, '');
+
+    const setStatus = (message, type = '') => {
+      statusElement.textContent = message;
+      statusElement.className = `status ${type}`.trim();
+    };
+
+    const request = async (url, options = {}) => {
+      const token = getToken();
+      if (!token) throw new Error('Vendor JWT is required');
+      sessionStorage.setItem('bulkLocationJwt', token);
+
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message || `Request failed (${response.status})`);
+      }
+
+      return response;
+    };
+
+    const downloadBlob = (blob, fileName) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    const renderErrors = (errors) => {
+      errorsBody.replaceChildren();
+      errorsSection.classList.toggle('hidden', errors.length === 0);
+
+      errors.forEach((error) => {
+        const row = document.createElement('tr');
+        [error.rowNumber, error.field, String(error.value ?? ''), error.message]
+          .forEach((value) => {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.appendChild(cell);
+          });
+        errorsBody.appendChild(row);
+      });
+    };
+
+    templateButton.addEventListener('click', async () => {
+      templateButton.disabled = true;
+      setStatus('Downloading template…');
+
+      try {
+        const response = await request(endpoint('/locations/bulk/template'));
+        downloadBlob(await response.blob(), 'location-upload-template.xlsx');
+        setStatus('Template downloaded.', 'success');
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Download failed', 'error');
+      } finally {
+        templateButton.disabled = false;
+      }
+    });
+
+    previewButton.addEventListener('click', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) {
+        setStatus('Choose an XLSX or CSV file first.', 'error');
+        return;
+      }
+
+      previewButton.disabled = true;
+      confirmButton.disabled = true;
+      batchId = null;
+      setStatus('Validating file…');
+
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await request(endpoint('/locations/bulk/preview'), {
+          method: 'POST',
+          body: form,
+        });
+        const payload = await response.json();
+        const preview = payload.data;
+
+        totalRows.textContent = preview.summary.totalRows;
+        validRows.textContent = preview.summary.validRows;
+        invalidRows.textContent = preview.summary.invalidRows;
+        summaryElement.classList.remove('hidden');
+        renderErrors(preview.errors);
+
+        batchId = preview.batchId || null;
+        confirmButton.disabled = !batchId;
+        setStatus(
+          batchId
+            ? `Preview ready. ${preview.summary.validRows} valid rows can be imported.`
+            : 'No valid rows are available to import.',
+          batchId ? 'success' : 'error'
+        );
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Preview failed', 'error');
+      } finally {
+        previewButton.disabled = false;
+      }
+    });
+
+    confirmButton.addEventListener('click', async () => {
+      if (!batchId) return;
+      confirmButton.disabled = true;
+      setStatus('Importing valid locations…');
+
+      try {
+        const response = await request(
+          endpoint(`/locations/bulk/${encodeURIComponent(batchId)}/confirm`),
+          { method: 'POST' }
+        );
+        const payload = await response.json();
+        setStatus(
+          `Imported ${payload.data.importedCount} locations; skipped ${payload.data.skippedInvalidCount}.`,
+          'success'
+        );
+        batchId = null;
+      } catch (error) {
+        confirmButton.disabled = false;
+        setStatus(error instanceof Error ? error.message : 'Import failed', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

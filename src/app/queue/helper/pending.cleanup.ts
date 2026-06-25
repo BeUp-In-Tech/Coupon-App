@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import { PaymentModel } from '../../modules/payment/payment.model';
 import { Promotion } from '../../modules/promotion/promotion.model';
+import { workerLogger } from '../../utils/logger/logger.child';
+
+const queuedLogger = workerLogger.child({
+  queue: 'dealHandleQueue',
+  helper: 'pendingCleanUp',
+});
 
 export const pendingCleanUp = async () => {
   try {
-    console.log('Running cleanup job...');
+    queuedLogger.info('Running cleanup job');
     const fifteenMinutesAgo = new Date(Date.now() - 10 * 1000);
     //   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
@@ -19,9 +24,14 @@ export const pendingCleanUp = async () => {
       createdAt: { $lt: fifteenMinutesAgo },
     });
 
-    console.log('Deleted payments:', deletedPayments.deletedCount);
-    console.log('Deleted promotions:', deletedPromotions.deletedCount);
+    queuedLogger.info(
+      {
+        deletedPayments: deletedPayments.deletedCount,
+        deletedPromotions: deletedPromotions.deletedCount,
+      },
+      'Pending cleanup completed'
+    );
   } catch (error: any) {
-    console.log('Pending cleanup queue error: ', error.message);
+    queuedLogger.error({ error }, 'Pending cleanup queue error');
   }
 };

@@ -14,6 +14,7 @@ import axios from 'axios';
 import qs from 'qs';
 import { AppleTokenExchangeResponse, generateAppleClientSecret, verifyAppleIdToken } from './auth.utility';
 import { OAuth2Client } from 'google-auth-library';
+import { LoggerModule } from '../../utils/logger/logger.child';
 
 
 // CHANGE PASSWORD
@@ -22,22 +23,29 @@ const changePasswordService = async (
   oldPassword: string,
   newPassword: string
 ) => {
+
+  if (oldPassword === newPassword) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Your new password must be different from old password!', LoggerModule.AUTH);
+  }
+
   const user = await User.findById(userId).select('+password');
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!', LoggerModule.AUTH);
   }
 
   if (!oldPassword) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Please provide your old password!'
+      'Please provide your old password!',
+       LoggerModule.AUTH
     );
   }
 
   if (!newPassword) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Please provide your new password!'
+      'Please provide your new password!',
+      LoggerModule.AUTH
     );
   }
 
@@ -46,10 +54,8 @@ const changePasswordService = async (
     user.password as string
   );
   if (!matchPassword) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "Password doesn't matched!");
+    throw new AppError(StatusCodes.BAD_REQUEST, "Password doesn't matched!", LoggerModule.AUTH);
   }
-
-  //   console.log(newPassword);
 
   user.password = newPassword;
   await user.save();
@@ -61,18 +67,18 @@ const changePasswordService = async (
 const forgetPasswordService = async (email: string) => {
   const user = await User.findOne({ email });
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!');
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found!', LoggerModule.AUTH);
   }
 
   if (user.isDeleted) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'User was deleted!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'User was deleted!', LoggerModule.AUTH);
   }
 
   if (
     user.isActive === IsActiveUser.INACTIVE ||
     user.isActive === IsActiveUser.BLOCKED
   ) {
-    throw new AppError(StatusCodes.BAD_REQUEST, `User is ${user.isActive}`);
+    throw new AppError(StatusCodes.BAD_REQUEST, `User is ${user.isActive}`, LoggerModule.AUTH);
   }
 
   const otp = randomOTPGenerator(100000, 999999).toString(); // Generate OTP
@@ -99,30 +105,30 @@ const forgetPasswordService = async (email: string) => {
 // VERIFY RESET PASSWORD OTP
 const verifyForgetPasswordOTPService = async (email: string, otp: string) => {
   if (!email) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Email required!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Email required!', LoggerModule.AUTH);
   }
 
   // CHECK USER
   const user = await User.findOne({ email });
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'No user found!');
+    throw new AppError(StatusCodes.NOT_FOUND, 'No user found!', LoggerModule.AUTH);
   }
 
   if (!otp || otp.length < 6) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Wrong OTP!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Wrong OTP!', LoggerModule.AUTH);
   }
 
   // OTP MATCHING PART
   const getOTP = await redisClient.get(`otp:${email}`);
 
   if (!getOTP) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP has expired!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP has expired!', LoggerModule.AUTH);
   }
 
   // Matching otp
   const isOTPMatched = await bcrypt.compare(otp, getOTP); // COMPARE WITH OTP
   if (!isOTPMatched) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP is not matched!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'OTP is not matched!', LoggerModule.AUTH);
   }
 
   const jwtPayload = { email, verified: true };
@@ -138,7 +144,7 @@ const verifyForgetPasswordOTPService = async (email: string, otp: string) => {
 // RESET PASSWORD
 const resetPasswordService = async (token: string, newPassword: string) => {
   if (!token) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Token must required!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Token must required!', LoggerModule.AUTH);
   }
 
   const verifyToken = jwt.verify(
@@ -147,17 +153,17 @@ const resetPasswordService = async (token: string, newPassword: string) => {
   ) as JwtPayload;
 
   if (!verifyToken) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid token or expired!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid token or expired!', LoggerModule.AUTH);
   }
 
   if (!verifyToken?.verified) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "OTP wasn't verified yet");
+    throw new AppError(StatusCodes.BAD_REQUEST, "OTP wasn't verified yet", LoggerModule.AUTH);
   }
 
   // CHECK USER
   const user = await User.findOne({ email: verifyToken?.email });
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'No user found!');
+    throw new AppError(StatusCodes.NOT_FOUND, 'No user found!', LoggerModule.AUTH);
   }
 
   // SET NEW PASSWORD
@@ -170,7 +176,7 @@ const resetPasswordService = async (token: string, newPassword: string) => {
 // GET NEW ACCESS TOKEN
 const getNewAccessTokenService = async (refreshToken: string) => {
   if (!refreshToken) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'Refresh token needed!');
+    throw new AppError(StatusCodes.NOT_FOUND, 'Refresh token needed!', LoggerModule.AUTH);
   }
 
   const tokenVerify = verifyToken(
@@ -180,7 +186,7 @@ const getNewAccessTokenService = async (refreshToken: string) => {
   const isUserExists = await User.findById(tokenVerify.userId as string); // FIND USER BY ID
 
   if (!isUserExists) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "User Doesn't Exist");
+    throw new AppError(StatusCodes.BAD_REQUEST, "User Doesn't Exist", LoggerModule.AUTH);
   }
 
   if (
@@ -189,12 +195,13 @@ const getNewAccessTokenService = async (refreshToken: string) => {
   ) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'The User "blocked" or "inactive"'
+      'The User "blocked" or "inactive"',
+      LoggerModule.AUTH
     );
   }
 
   if (isUserExists.isDeleted) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'The user was "deleted"');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'The user was "deleted"', LoggerModule.AUTH);
   }
 
   const jwtPayload = {
@@ -216,12 +223,12 @@ const appleLoginService = async (code: string, user_name: string, email: string)
 
   const authorizationCode =  code;
   if (!authorizationCode) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Apple authorization code is required');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Apple authorization code is required', LoggerModule.AUTH);
   }
 
   const clientId = env.APPLE_IOS_CLIENT_ID;
   if (![env.APPLE_IOS_CLIENT_ID, env.APPLE_WEB_CLIENT_ID].includes(clientId)) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid Apple client id');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid Apple client id', LoggerModule.AUTH);
   }
 
   const clientSecret = await generateAppleClientSecret(clientId);
@@ -250,7 +257,7 @@ const appleLoginService = async (code: string, user_name: string, email: string)
       const message = appleError
         ? `Apple token exchange failed: ${appleError}`
         : 'Apple token exchange failed';
-      throw new AppError(StatusCodes.UNAUTHORIZED, message);
+      throw new AppError(StatusCodes.UNAUTHORIZED, message, LoggerModule.AUTH);
     }
     throw error;
   }
@@ -260,7 +267,8 @@ const appleLoginService = async (code: string, user_name: string, email: string)
   if (!identityToken) {
     throw new AppError(
       StatusCodes.UNAUTHORIZED,
-      'Apple identity token is missing after code exchange'
+      'Apple identity token is missing after code exchange',
+      LoggerModule.AUTH
     );
   }
 
@@ -270,7 +278,7 @@ const appleLoginService = async (code: string, user_name: string, email: string)
   // payload.sub is Apple unique user ID
   const appleUserId = payload?.sub;
   if (!appleUserId) {
-    throw new AppError(StatusCodes.UNAUTHORIZED, 'Apple user id not found in token');
+    throw new AppError(StatusCodes.UNAUTHORIZED, 'Apple user id not found in token', LoggerModule.AUTH);
   }
 
   const userEmail = (payload?.email || email || '').toLowerCase().trim();
@@ -308,7 +316,8 @@ const appleLoginService = async (code: string, user_name: string, email: string)
     if (!userEmail) {
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        "Apple didn't return email. Please share email on first Apple sign-in and retry."
+        "Apple didn't return email. Please share email on first Apple sign-in and retry.",
+        LoggerModule.AUTH
       );
     }
 
@@ -330,14 +339,14 @@ const appleLoginService = async (code: string, user_name: string, email: string)
   }
 
   if (user.isDeleted) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'User was deleted!');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'User was deleted!', LoggerModule.AUTH);
   }
 
   if (
     user.isActive === IsActiveUser.INACTIVE ||
     user.isActive === IsActiveUser.BLOCKED
   ) {
-    throw new AppError(StatusCodes.BAD_REQUEST, `User is ${user.isActive}`);
+    throw new AppError(StatusCodes.BAD_REQUEST, `User is ${user.isActive}`, LoggerModule.AUTH);
   }
 
   const userTokens = await createUserTokens({
@@ -366,7 +375,7 @@ const googleAuthSystem = async (payload: { id_token: string }) => {
   const { id_token } = payload;
 
   if (!id_token) {
-    throw new Error('Google idToken is required');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Google idToken is required', LoggerModule.AUTH);
   }
 
   const ticket = await googleClient.verifyIdToken({
@@ -377,7 +386,7 @@ const googleAuthSystem = async (payload: { id_token: string }) => {
   const googlePayload = ticket.getPayload();
 
   if (!googlePayload) {
-    throw new Error('Invalid Google token');
+    throw new AppError(StatusCodes.UNAUTHORIZED, 'Invalid Google token', LoggerModule.AUTH);
   }
 
   const {
@@ -388,7 +397,7 @@ const googleAuthSystem = async (payload: { id_token: string }) => {
   } = googlePayload;
 
   if (!email || !email_verified) {
-    throw new Error('Google email is not verified');
+    throw new AppError(StatusCodes.UNAUTHORIZED, 'Google email is not verified', LoggerModule.AUTH);
   }
 
   // Important:

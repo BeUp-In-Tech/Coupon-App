@@ -4,9 +4,34 @@ import { locationCreateZodSchema, locationUpdateZodSchema } from './location.val
 import { checkAuth } from '../../middlewares/auth.middleware';
 import { Role } from '../user/user.interface';
 import { locationControllers } from './location.controller';
+import { bulkLocationUpload } from '../../config/multer.config';
 
 
 const router = Router();
+
+router.get(
+  '/suggestions',
+  locationControllers.getLocationSuggestions
+);
+
+router.get(
+  '/bulk/template',
+  checkAuth(Role.VENDOR),
+  locationControllers.downloadBulkLocationTemplate
+);
+
+router.post(
+  '/bulk/preview',
+  checkAuth(Role.VENDOR),
+  bulkLocationUpload.single('file'),
+  locationControllers.previewBulkLocations
+);
+
+router.post(
+  '/bulk/:batchId/confirm',
+  checkAuth(Role.VENDOR),
+  locationControllers.confirmBulkLocations
+);
 
 // CREATE Location
 router.post(

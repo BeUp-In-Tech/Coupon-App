@@ -20,6 +20,7 @@ const createShop = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Shop created",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -34,6 +35,7 @@ const  getShopDetails = CatchAsync(async (req: Request, res: Response, next: Nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Shop details fetched!",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -53,6 +55,7 @@ const updateShop = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.OK,
         message: "Shop updated",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -66,6 +69,7 @@ const getDealAnalytics = CatchAsync(async (req: Request, res: Response, next: Ne
         success: true,
         statusCode: StatusCodes.OK,
         message: "Shop analytics fetched",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -81,6 +85,7 @@ const getPrevious3YearsMonthlyAnalytics = CatchAsync(async (req: Request, res: R
         success: true,
         statusCode: StatusCodes.OK,
         message: "Shop monthly analytics fetched",
+        trace_id: req.id as string,
         data: result
     })
 });

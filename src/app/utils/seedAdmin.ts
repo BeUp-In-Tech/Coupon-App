@@ -1,16 +1,15 @@
-/* eslint-disable no-console */
 import env from "../config/env";
 import { IUser, Role } from "../modules/user/user.interface";
 import User from "../modules/user/user.model";
+import { logger } from "./logger/logger.config";
 
 
 export const createAdmin = async () => {
     try {
         const isExist = await User.findOne({email: env.ADMIN_MAIL });
         if (isExist) {
-             console.log("Admin already created");
-             return
-             
+             logger.info("Admin already created");
+             return    
         }
         
         const adminPayload: IUser = {
@@ -23,9 +22,9 @@ export const createAdmin = async () => {
         }
 
     await User.create(adminPayload);
-    console.log("Admin created");
+    logger.info("Admin created");
     
     } catch (error) {
-        console.log(error);
+        logger.error({error}, 'Seed admin error');
     }
 }

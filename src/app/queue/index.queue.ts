@@ -1,12 +1,12 @@
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
+import env from '../config/env';
 
-export const connection = new IORedis({
-  host: '127.0.0.1',
-  port: 6379,
-  maxRetriesPerRequest: null,
-});
-
+// Keep BullMQ's connection lifecycle separate from the application cache/session client.
+// BullMQ creates/manages its own ioredis connections from these options.
+export const connection = {
+  host: env.REDIS_HOST,
+  port: Number(env.REDIS_PORT),
+};
 
 // QUEUE LIST
 export const mailQueue = new Queue('emailSendQueue', { connection });

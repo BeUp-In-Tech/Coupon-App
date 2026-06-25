@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import envVars from './app/config/env';
@@ -6,6 +6,7 @@ import { connectRedis } from './app/config/redis.config';
 import { createAdmin } from './app/utils/seedAdmin';
 import app from './app';
 import { Server } from 'http';
+import { logger } from './app/utils/logger/logger.config';
 
 
 dotenv.config();
@@ -17,13 +18,13 @@ let server: Server
 const startServer = async () => {
   try {
     await mongoose.connect(envVars.MONGO_URI);
-    console.log(`Database connected`);
+    logger.info(`Database connected`);
 
     server = app.listen(PORT, () => {
-      console.log(`Server started on http://localhost:${PORT}`);
+      logger.info({ PORT }, 'Server is running');;
     });
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+   logger.info(`Server crashed: `, error.message);
   }
 };
 
@@ -43,12 +44,12 @@ const startServer = async () => {
 
 // SIGTERM signal detected and close the server
 process.on('SIGTERM', () => {
-  console.log('SIGTERM SIGNAL FOUND and server shutting down...');
+  logger.info('SIGTERM SIGNAL FOUND and server shutting down...');
 
   if (server) {
     server.close(() => {
       // server closing
-      console.log('server closed');
+      logger.info('server closed');
       process.exit(1); // exit from server
     });
   } else {
@@ -56,16 +57,14 @@ process.on('SIGTERM', () => {
   }
 });
 // SIGINT signal send
-process.on('SIGINT', (error) => {
-  console.log(
-    'SIGINT SIGNAL FOUND your server might be closed and server shutting down...',
-    error
-  );
+process.on('SIGINT', (error: any) => {
+  logger.info(
+    `SIGINT SIGNAL FOUND your server might be closed and server shutting down... `, error.message);
 
   if (server) {
     server.close(() => {
       // server closing
-      console.log('server closed');
+      logger.info('server closed');
       process.exit(1); // exit from server
     });
   } else {
@@ -74,11 +73,31 @@ process.on('SIGINT', (error) => {
 });
 
 // Unhandled rejection error
-process.on('unhandledRejection', (error) => {
-  console.log('Unhandled rejection detected and server shutting down...', error);
+process.on('unhandledRejection', (error:  any) => {
+  logger.info('Unhandled rejection detected and server shutting down...', error.message);
+
+  if (server) {
+    server.close(() => {
+      // server closing
+      logger.info('server closed');
+      process.exit(1); // exit from server
+    });
+  } else {
+    process.exit(1);
+  }
 });
 
 // Unhandled rejection error
-process.on('uncaughtException', (error) => {
-  console.log('Uncaught exception detected and server shutting down...', error);
+process.on('uncaughtException', (error: any) => {
+  logger.info('Uncaught exception detected and server shutting down...', error);
+
+  if (server) {
+    server.close(() => {
+      // server closing
+      logger.info('server closed');
+      process.exit(1); // exit from server
+    });
+  } else {
+    process.exit(1);
+  }
 });

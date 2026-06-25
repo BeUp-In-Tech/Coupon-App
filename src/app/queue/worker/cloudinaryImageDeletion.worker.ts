@@ -1,7 +1,13 @@
-/* eslint-disable no-console */
 import { Worker } from 'bullmq';
 import { connection } from '../index.queue';
 import { deleteImageFromCLoudinary } from '../../config/cloudinary.config';
+import { workerLogger } from '../../utils/logger/logger.child';
+
+
+const queuedLogger = workerLogger.child({
+  queue: 'imageDeleteQueue'
+})
+
 
 const strictMultipleImageDelete = async (images: string[]) => {
   const settled = await Promise.allSettled(
@@ -19,6 +25,13 @@ export const imageDeleteWorker = () => {
   const worker = new Worker(
     'imageDeleteQueue',
     async (job) => {
+
+      const jobLogger = queuedLogger.child({
+        jobId: job.id,
+        jobName: job.name,
+        attemptsMade: job.attemptsMade
+      })
+
       try {
         const images = Array.isArray(job.data)
           ? job.data.filter((item) => typeof item === 'string' && item.trim())
@@ -29,9 +42,9 @@ export const imageDeleteWorker = () => {
         }
 
         await strictMultipleImageDelete(images);
-        console.log('Queued image deleted');
+        jobLogger.info('Queued image deleted');
       } catch (error) {
-        console.log('Imaged deletion error from bullmq: ', error);
+        jobLogger.error({error}, 'Imaged deletion error from bullmq');
         throw error;
       }
     },
@@ -40,11 +53,11 @@ export const imageDeleteWorker = () => {
 
   // LISTEN COMPLETED AND FAILED EVENT
   worker.on('completed', (job) => {
-    console.log('Job completed:', job.id);
+    queuedLogger.info({ jobId: job.id, jobName: job.name}, 'Job completed');
   });
 
   worker.on('failed', (job, err) => {
-    console.error('Job failed:', err);
+    queuedLogger.error({err}, 'Job failed');
   });
 };
 

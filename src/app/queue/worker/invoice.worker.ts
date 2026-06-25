@@ -1,8 +1,8 @@
-/* eslint-disable no-console */
 import { Worker } from 'bullmq';
 import { uploadBufferToCloudinary } from '../../config/cloudinary.config';
 import { PaymentModel } from '../../modules/payment/payment.model';
 import { generateInvoicePdf } from '../../utils/invoice/invoicePdf.utility';
+import { workerLogger } from '../../utils/logger/logger.child';
 import { connection, mailQueue } from '../index.queue';
 import {
   IInvoiceGenerationJobData,
@@ -10,6 +10,9 @@ import {
 } from '../job/invoice.job';
 
 const sanitizeFileName = (value: string) => value.replace(/[^a-z0-9._-]/gi, '');
+const queuedLogger = workerLogger.child({
+  queue: 'invoiceGenerationQueue',
+});
 
 const addPaymentConfirmationMailJob = async (
   paymentId: string,
@@ -71,6 +74,12 @@ export const invoiceGenerationWorker = () => {
   const worker = new Worker<IInvoiceGenerationJobData>(
     'invoiceGenerationQueue',
     async (job) => {
+      const jobLogger = queuedLogger.child({
+        jobId: job.id,
+        jobName: job.name,
+        attemptsMade: job.attemptsMade,
+      });
+
       if (job.name !== InvoiceJobName.GENERATE_VENDOR_INVOICE) {
         return;
       }
@@ -86,7 +95,7 @@ export const invoiceGenerationWorker = () => {
         .lean();
 
       if (existingPayment?.invoice_url) {
-        console.log('Invoice already exists for payment:', paymentId);
+        jobLogger.info({ paymentId }, 'Invoice already exists for payment');
         const pdfBuffer = await generateInvoicePdf(invoice);
         await addPaymentConfirmationMailJob(
           paymentId,
@@ -122,17 +131,17 @@ export const invoiceGenerationWorker = () => {
         pdfBuffer
       );
 
-      console.log('Invoice generated for payment:', paymentId);
+      jobLogger.info({ paymentId }, 'Invoice generated for payment');
       return invoiceUrl;
     },
     { connection, concurrency: 2 }
   );
 
   worker.on('completed', (job) => {
-    console.log('Invoice Job completed:', job.id);
+    queuedLogger.info({ jobId: job.id, jobName: job.name }, 'Job completed');
   });
 
   worker.on('failed', (job, err) => {
-    console.error('Invoice Job failed:', job?.id, err);
+    queuedLogger.error({ jobId: job?.id, jobName: job?.name, err }, 'Job failed');
   });
 };

@@ -1,9 +1,10 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import stream from 'stream';
 import AppError from '../errorHelpers/AppError';
 import env from './env';
+import { StatusCodes } from 'http-status-codes';
+import { uploadLogger } from '../utils/logger/logger.child';
 
 
 cloudinary.config({
@@ -40,7 +41,7 @@ export const uploadBufferToCloudinary = async (
         .end(buffer);
     });
   } catch (error: any) {
-    console.log(error);
+   uploadLogger.error({error}, 'Cloudinary buffer upload error');
     throw new AppError(401, `Error uploading file ${error.message}`);
   }
 };
@@ -55,7 +56,8 @@ export const deleteImageFromCLoudinary = async (url: string) => {
       await cloudinary.uploader.destroy(public_id);
     }
   } catch (error: any) {
-    throw new AppError(401, 'Cloudinary image deletion failed', error.message);
+    uploadLogger.error({error}, 'Cloudinary image deletion error');
+    throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, 'Cloudinary image deletion failed', error.message);
   }
 };
 

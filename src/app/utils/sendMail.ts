@@ -1,10 +1,10 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import nodemailer from 'nodemailer';
 import env from '../config/env';
 import AppError from '../errorHelpers/AppError';
 import path from 'path';
 import ejs from 'ejs';
+import { emailLogger, LoggerModule } from './logger/logger.child';
 
 const transporter = nodemailer.createTransport({
   secure: true,
@@ -113,8 +113,8 @@ export const sendEmail = async ({
 
     await transporter.sendMail(mailOptions);
   } catch (error: any) {
-    console.log('Email sending error', error.message);
-    throw new AppError(400, 'Email error');
+    emailLogger.error({ error, to, subject, templateName }, 'Email sending error');
+    throw new AppError(400, 'Email error', LoggerModule.EMAIL);
   }
 };
 

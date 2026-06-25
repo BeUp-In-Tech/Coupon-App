@@ -1,11 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import { Job, Worker } from 'bullmq';
 import { sendEmail } from '../../utils/sendMail';
 import { connection } from '../index.queue';
+import { workerLogger } from '../../utils/logger/logger.child';
 
 const EMAIL_WORKER_CONCURRENCY = 10;
 const BULK_EMAIL_SEND_CONCURRENCY = 10;
+const queuedLogger = workerLogger.child({
+  queue: 'emailSendQueue',
+});
 
 const isBulkEmailJob = (job: Job) =>
   job.name === 'send-email-batch' || Array.isArray(job.data?.emails);
@@ -44,7 +47,7 @@ const sendBulkEmailBatch = async (data: any) => {
     );
   }
 
-  console.log(`Bulk email batch sent: ${emails.length}`);
+  queuedLogger.info({ emailCount: emails.length }, 'Bulk email batch sent');
 };
 
 const sendSingleEmail = async (data: any) => {
@@ -53,13 +56,19 @@ const sendSingleEmail = async (data: any) => {
   }
 
   await sendEmail(data);
-  console.log('Email sent');
+  queuedLogger.info({ to: data.to, subject: data.subject }, 'Email sent');
 };
 
 export const emailSendWorker = async () => {
   const worker = new Worker(
     'emailSendQueue',
     async (job) => {
+      const jobLogger = queuedLogger.child({
+        jobId: job.id,
+        jobName: job.name,
+        attemptsMade: job.attemptsMade,
+      });
+
       try {
         if (isBulkEmailJob(job)) {
           await sendBulkEmailBatch(job.data);
@@ -68,7 +77,7 @@ export const emailSendWorker = async () => {
 
         await sendSingleEmail(job.data);
       } catch (error: any) {
-        console.log('Email sending error from bullmq: ', error.message);
+        jobLogger.error({ error }, 'Email sending error from bullmq');
         throw error;
       }
     },
@@ -77,10 +86,10 @@ export const emailSendWorker = async () => {
 
   // LISTEN COMPLETED AND FAILED EVENT
   worker.on('completed', (job) => {
-    console.log('Email Job completed:', job.id);
+    queuedLogger.info({ jobId: job.id, jobName: job.name }, 'Job completed');
   });
 
   worker.on('failed', (job, err) => {
-    console.error('Email Job failed:', err);
+    queuedLogger.error({ jobId: job?.id, jobName: job?.name, err }, 'Job failed');
   });
 };

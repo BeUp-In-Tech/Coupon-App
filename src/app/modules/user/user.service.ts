@@ -19,6 +19,8 @@ import { PaymentStatus } from '../payment/payment.interface';
 import { NotificationModel } from '../notification/notification.model';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
+import { LoggerModule, userLogger } from '../../utils/logger/logger.child';
+
 
 // 1. CREATE VENDOR SERVICE
 const registerUserService = async (payload: IUser) => {
@@ -26,7 +28,7 @@ const registerUserService = async (payload: IUser) => {
 
   const isVendor = await User.findOne({ email });
   if (isVendor) {
-    throw new AppError(400, 'User already exist. Please login!');
+    throw new AppError(400, 'User already exist. Please login!', LoggerModule.USER);
   }
 
   // Save User Auth
@@ -51,7 +53,6 @@ const registerUserService = async (payload: IUser) => {
   return {tokens, createUser};
 };
 
-
 // 2. UPDATE USER
 const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
   // Allowed field to update data
@@ -59,17 +60,17 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
 
   // Ensure that the user is not attempting to change their password
   if (payload.password) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "You can't change your password from here");
+    throw new AppError(StatusCodes.BAD_REQUEST, "You can't change your password from here", LoggerModule.USER);
   }
 
   // Ensure that role modification is only allowed for admin users
   if (payload.role) {
     if (user.role !== Role.ADMIN) {
-      throw new AppError(StatusCodes.FORBIDDEN, "You can't change your role");
+      throw new AppError(StatusCodes.FORBIDDEN, "You can't change your role", LoggerModule.USER);
     }
     // Validate that the provided role is a valid role
     if (!Object.values(Role).includes(payload.role)) {
-      throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid role');
+      throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid role', LoggerModule.USER);
     }
   }
 
@@ -78,7 +79,8 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
     if (!ALLOWED_FIELDS.includes(key)) {
       throw new AppError(
         StatusCodes.BAD_REQUEST,
-        `Field '${key}' is not allowed to be updated`
+        `Field '${key}' is not allowed to be updated`,
+        LoggerModule.USER
       );
     }
   });
@@ -110,7 +112,7 @@ const getMeService = async (userId: string) => {
   
   const _user = await User.findById(userId).select('-password').lean();
   if (!_user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found', LoggerModule.USER);
   }
   
 
@@ -138,23 +140,24 @@ const getMeService = async (userId: string) => {
 
 // 4. SEND VERIFICATION OTP
 const sendVerificationOtpService = async (email: string, auth: JwtPayload) => {
+
   
   if (email !== auth.email) {
-    throw new AppError(StatusCodes.FORBIDDEN, "Email not matched");
+    throw new AppError(StatusCodes.FORBIDDEN, "Email not matched", LoggerModule.USER);
   }
 
   const user = (await User.findOne({ email }).select(
     'user_name email isVerified'
-  )) as Partial<IUser>;
+  ).lean()) as Partial<IUser>;
 
 
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found', LoggerModule.USER);
   }
   
 
   if (user.isVerified) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "Profile already verified!")
+    throw new AppError(StatusCodes.BAD_REQUEST, "Profile already verified!", LoggerModule.USER)
   }
 
   // Generate OTP
@@ -180,6 +183,9 @@ const sendVerificationOtpService = async (email: string, auth: JwtPayload) => {
     templateData: templateData,
   });
 
+  userLogger.info(`Verification OTP sent`);
+
+  // Return success message
   return null;
 };
 
@@ -197,7 +203,8 @@ const verifyUserProfileService = async (email: string, otp: number) => {
   if (!storedOtp) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'OTP has expired or not found. Please request a new OTP.'
+      'OTP has expired or not found. Please request a new OTP.',
+      LoggerModule.USER
     );
   }
 
@@ -205,7 +212,8 @@ const verifyUserProfileService = async (email: string, otp: number) => {
   if (Number(storedOtp) !== otp) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Invalid OTP. Please try again.'
+      'Invalid OTP. Please try again.',
+      LoggerModule.USER
     );
   }
 
@@ -222,14 +230,14 @@ const verifyUserProfileService = async (email: string, otp: number) => {
 // 6. DELETE USER ACCOUNT
 const deleteUserAccount = async (authUser: JwtPayload) => {
   if (!authUser?.userId) {
-    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid user token payload');
+    throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid user token payload', LoggerModule.USER);
   }
 
   const userId = new Types.ObjectId(authUser.userId);
 
   const user = await User.findById(userId).select('_id email role').lean();
   if (!user) {
-    throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'User not found', LoggerModule.USER);
   }
 
   // Vendor-specific data cleanup should only run for vendor accounts.
@@ -261,7 +269,8 @@ const deleteUserAccount = async (authUser: JwtPayload) => {
     if (hasUnauthorizedDeal) {
       throw new AppError(
         StatusCodes.FORBIDDEN,
-        'Unauthorized deal ownership detected. Account deletion stopped.'
+        'Unauthorized deal ownership detected. Account deletion stopped.',
+        LoggerModule.USER
       );
     }
   }

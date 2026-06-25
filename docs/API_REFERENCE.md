@@ -110,13 +110,22 @@ Create shop `data` example:
 | PATCH | `/category/:categoryId` | `ADMIN` | Multipart optional `file`; optional `category_name`, `isDeleted` |
 | DELETE | `/category/:categoryId` | `ADMIN` | None |
 
-## Outlet Module (`/outlet`)
+## Location Module (`/locations`)
 
 | Method | Endpoint | Auth | Request |
 | --- | --- | --- | --- |
-| PATCH | `/outlet/?outletId=<id>` | Vendor ownership enforced | `{ "outlet_name?", "address?", "zip_code?", "coordinates?" }` |
+| POST | `/locations/` | `VENDOR` | Single location JSON payload |
+| PATCH | `/locations/?l_id=<id>` | Logged user with shop ownership | Partial location JSON payload |
+| GET | `/locations/bulk/template` | `VENDOR` | Download the XLSX upload template |
+| POST | `/locations/bulk/preview` | `VENDOR` | Multipart `file`: `.xlsx` or `.csv`, maximum 10 MB / 5,000 rows |
+| POST | `/locations/bulk/:batchId/confirm` | `VENDOR` | Import valid rows from a previewed batch |
 
 `coordinates` must be `[lng, lat]`.
+
+Bulk location headers are `Location name`, `Street`, `Zip code`, `City`,
+`State`, `Country`, `Longitude`, `Latitude`, and `Is active`. Preview validates
+without inserting; the backend maps these labels to the location model and a
+batch remains confirmable for 30 minutes.
 
 ## Deal Module (`/service`)
 
@@ -146,13 +155,13 @@ Create deal `data` example:
 {
   "category": "6800d0b0f9f4e50bc1a11111",
   "title": "50% Off Pasta",
-  "reguler_price": 20,
+  "regular_price": 20,
   "discount": 50,
   "highlight": ["Dine in", "Dinner"],
   "tags": ["italian", "pasta"],
   "description": "Valid for all pasta items.",
   "coupon": "PASTA50",
-  "available_in_outlet": ["6800d0b0f9f4e50bc1a22222"]
+  "available_in_location": ["6800d0b0f9f4e50bc1a22222"]
 }
 ```
 
@@ -283,7 +292,7 @@ curl -X POST http://localhost:3002/api/v1/service \
   -F 'files=@/path/deal-2.jpg' \
   -F 'qr=@/path/qr-500x500.png' \
   -F 'upc=@/path/upc-800x400.png' \
-  -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"Promo","reguler_price":20,"discount":50,"highlight":["A"],"tags":["t"],"description":"Long enough description","coupon":"PROMO50","available_in_outlet":["6800d0b0f9f4e50bc1a22222"]}'
+  -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"Promo","regular_price":20,"discount":50,"highlight":["A"],"tags":["t"],"description":"Long enough description","coupon":"PROMO50","available_in_location":["6800d0b0f9f4e50bc1a22222"]}'
 ```
 
 ### Create Stripe Checkout Session

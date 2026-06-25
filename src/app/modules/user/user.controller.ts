@@ -14,6 +14,7 @@ const registerUser = CatchAsync(async (req: Request, res: Response, next: NextFu
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "User created!",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -25,6 +26,7 @@ const updateUser = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.OK,
         message: "User updated!",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -36,6 +38,7 @@ const getMe = CatchAsync(async (req: Request, res: Response, next: NextFunction)
         success: true,
         statusCode: StatusCodes.OK,
         message: "Fetch my details",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -49,6 +52,7 @@ const sendVerificationOTP = CatchAsync(async (req: Request, res: Response, next:
         success: true,
         statusCode: StatusCodes.OK,
         message: "6 digit OTP sent",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -61,6 +65,7 @@ const verifyProfile = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Profile verified",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -74,6 +79,7 @@ const deleteUserAccount = CatchAsync(async (req: Request, res: Response, next: N
         success: true,
         statusCode: StatusCodes.OK,
         message: "User account deleted",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -87,6 +93,7 @@ const registerPushToken = CatchAsync(async (req: Request, res: Response, next: N
         success: true,
         statusCode: StatusCodes.OK,
         message: "Push device saved",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -100,6 +107,7 @@ const unregisterPushToken = CatchAsync(async (req: Request, res: Response, next:
         success: true,
         statusCode: StatusCodes.OK,
         message: "Push device removed",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -112,6 +120,7 @@ const getMyDeviceList = CatchAsync(async (req: Request, res: Response, next: Nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Push device list fetched",
+        trace_id: req.id as string,
         data: result
     })
 });

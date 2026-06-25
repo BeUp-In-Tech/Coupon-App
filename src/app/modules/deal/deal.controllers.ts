@@ -3,8 +3,9 @@ import { NextFunction, Request, Response } from "express";
 import { CatchAsync } from "../../utils/CatchAsync";
 import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
-import { dealsServices } from "./deal.services";
+import { dealsServices } from "./deal.service";
 import { JwtPayload } from "jsonwebtoken";
+import { SearchDealsByLocationQuerySchema } from "./deal.validate";
 
 
 export interface MulterRequest extends Request {
@@ -26,6 +27,7 @@ const createDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
         success: true,
         statusCode: StatusCodes.CREATED,
         message: "Service created",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -42,6 +44,7 @@ const getSingleDeals = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Service fetched",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -57,6 +60,7 @@ const deleteDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
         success: true,
         statusCode: StatusCodes.OK,
         message: "Service deleted",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -72,6 +76,7 @@ const updateSingleDeals = CatchAsync(async (req: Request, res: Response, next: N
         success: true,
         statusCode: StatusCodes.OK,
         message: "Service updated",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -86,6 +91,7 @@ const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunc
         success: true,
         statusCode: StatusCodes.OK,
         message: "Fetched deals",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -101,6 +107,7 @@ const getNearestDeals = CatchAsync(async (req: Request, res: Response, next: Nex
         success: true,
         statusCode: StatusCodes.OK,
         message: "Fetched all deals",
+        trace_id: req.id as string,
         data: result
     })
 });
@@ -117,6 +124,25 @@ const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
         success: true,
         statusCode: StatusCodes.OK,
         message: "All deals fetched",
+        trace_id: req.id as string,
+        data: result
+    })
+})
+
+// SEARCH DEALS BY ACTIVE LOCATION MODE
+const searchDealsByLocation = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const query = await SearchDealsByLocationQuerySchema.parseAsync(req.query);
+    const result = await dealsServices.searchDealsByLocationService(query);
+
+    // Set http headers
+    res.setHeader('Cache-Control', 'public, max-age=60 stale-while-revalidate=120');
+    res.setHeader('Expires', new Date(Date.now() + 60 * 1000).toUTCString());
+
+    SendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Deals fetched by location",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -133,6 +159,7 @@ const getDealsByIds = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Save deals fetched",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -150,6 +177,7 @@ const getDealsByCategory = CatchAsync(async  (req: Request, res: Response, next:
         success: true,
         statusCode:StatusCodes.OK,
         message: "Category deals fetched",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -164,6 +192,7 @@ const topViewedDeals = CatchAsync(async (req: Request, res: Response, next: Next
         success: true,
         statusCode: StatusCodes.OK,
         message: "Top deals fetched",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -179,6 +208,7 @@ const dealAnalytics = CatchAsync(async (req: Request, res: Response, next: NextF
         success: true,
         statusCode: StatusCodes.OK,
         message: "Top deals fetched",
+        trace_id: req.id as string,
         data: result
     })
 })
@@ -196,5 +226,6 @@ export const dealsControllers = {
     getAllDeals,
     getDealsByIds,
     topViewedDeals,
-    dealAnalytics
+    dealAnalytics,
+    searchDealsByLocation
 }

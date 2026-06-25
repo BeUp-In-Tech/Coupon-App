@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import AppError from '../../errorHelpers/AppError';
 import env from '../../config/env';
@@ -29,6 +28,7 @@ import {
   IVendorExportJobResult,
 } from '../../queue/job/vendorExport.job';
 import { VENDOR_EXPORT_TTL_MS } from '../../utils/export/vendorExportWorkbook.utility';
+import { logger } from '../../utils/logger/logger.config';
 
 
 // 1. CATEGORY BY DEAL COUNT
@@ -1059,8 +1059,8 @@ const banDealByAdmin = async (
           removeOnFail: 1000,
         }
       );
-    } catch (error) {
-      console.log('Deal ban notification queue error:', error);
+    } catch (error: any) {
+      logger.error({error}, 'Deal ban notification queue error');
     }
 
     try {
@@ -1091,7 +1091,7 @@ const banDealByAdmin = async (
         }
       );
     } catch (error) {
-      console.log('Deal ban email queue error:', error);
+      logger.error({error}, 'Deal ban email queue error');
     }
   }
 

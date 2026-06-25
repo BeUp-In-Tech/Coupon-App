@@ -15,6 +15,7 @@ import { DealModel } from '../deal/deal.model';
 import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+import { shopLogger } from '../../utils/logger/logger.child';
 
 
 // CREATE SHOP
@@ -110,8 +111,7 @@ const createShopService = async (
             }
           );
         } catch (error) {
-          // eslint-disable-next-line no-console
-          console.log('Admin notification queue error:', error);
+          shopLogger.error({error}, 'Admin notification queue error');
         }
       });
     }
@@ -432,23 +432,27 @@ const getDealAnalyticsService = async (user: JwtPayload) => {
   const userObjectId = new mongoose.Types.ObjectId(user.userId);
 
   if (user.role !== Role.VENDOR) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'Forbidden');
+    throw new AppError(StatusCodes.FORBIDDEN, 'Access denied');
   }
 
   const findVendorShop = await Shop.findOne({ vendor: userObjectId });
 
   if (!findVendorShop) {
-    throw new AppError(StatusCodes.FORBIDDEN, 'No shop found');
+    throw new AppError(StatusCodes.NOT_FOUND, 'No shop found');
   }
 
   const deals = await DealModel.find(
     { shop: findVendorShop._id },
     { _id: 1, isPromoted: 1 }
-  );
+  ).populate({path: 'activePromotion', select: "endAt"});
 
+  
   const dealIds = deals.map((d) => d._id);
-
-  const activeDeals = deals.filter((d) => d.isPromoted).length;
+  
+  
+  const now = new Date();
+  const activeDeals = deals.filter((d) => d.isPromoted && d.activePromotion && !(d.activePromotion instanceof Types.ObjectId) && now < (d.activePromotion as { endAt: Date }).endAt).length;
+  
 
   const analytics = await Views_Impressions.aggregate([
     {

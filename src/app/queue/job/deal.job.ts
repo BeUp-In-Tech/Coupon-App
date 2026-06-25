@@ -1,7 +1,12 @@
-/* eslint-disable no-console */
 import { IDeal } from "../../modules/deal/deal.interface";
+import { workerLogger } from "../../utils/logger/logger.child";
 import { dealHandleQueue } from "../index.queue";
 import { JobName } from "../worker/deal.worker";
+
+const queuedLogger = workerLogger.child({
+  queue: 'dealHandleQueue',
+  job: 'scheduleDealJobs',
+});
 
 export const scheduleDealJobs = async (deal: IDeal) => {
   const expireTime = new Date(deal.promotedUntil as Date).getTime();
@@ -41,11 +46,21 @@ export const scheduleDealJobs = async (deal: IDeal) => {
         }
       );
 
-      console.log(`Scheduled ${job.name} in ${Math.round(job.delay / 1000)} seconds`);
+      queuedLogger.info(
+        {
+          jobName: job.name,
+          jobId: job.jobId,
+          delaySeconds: Math.round(job.delay / 1000),
+        },
+        'Deal queue job scheduled'
+      );
       
     }
   }
 
-  console.log("Deal update job schedule registered for", deal.title);
+  queuedLogger.info(
+    { dealId: deal._id?.toString(), title: deal.title },
+    'Deal update job schedule registered'
+  );
   
 };

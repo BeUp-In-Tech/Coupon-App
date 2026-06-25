@@ -31,6 +31,9 @@ router.post(
   dealsControllers.createDeals
 );
 
+// SEARCH DEALS BY CURRENT OR SELECTED LOCATION
+router.get('/deals/search', dealsControllers.searchDealsByLocation);
+
 // GET ALL DEALS
 router.get('/deals/all_deals/:lng/:lat', dealsControllers.getAllDeals);
 
@@ -52,7 +55,7 @@ router.get(
   dealsControllers.getSingleDeals
 );
 
-// GET DEALS BY DEAL
+// GET DEALS BY CATEGORY
 router.get(
   '/c/:categoryId',
   dealsControllers.getDealsByCategory

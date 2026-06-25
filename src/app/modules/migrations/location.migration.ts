@@ -65,6 +65,7 @@ router.get(
         success: true,
         statusCode: 200,
         message: 'Location migration completed',
+        trace_id: req.id as string,
         data: {
           renamedOutletNameCount: renameResult.modifiedCount ?? renameResult.matchedCount,
           addressConvertedCount: addressConvertResult.modifiedCount ?? addressConvertResult.matchedCount,
@@ -150,6 +151,7 @@ router.get(
         success: true,
         statusCode: 200,
         message: 'Ads migration completed',
+        trace_id: req.id as string,
         data: {
           rename_outlet_location: renameLocationAvailableField.modifiedCount ?? renameLocationAvailableField.matchedCount,
           renamed_regular_price: renameRegularPriceField.modifiedCount ?? renameRegularPriceField.matchedCount,

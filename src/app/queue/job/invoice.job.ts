@@ -1,7 +1,12 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { InvoiceData } from '../../utils/invoice/invoicePdf.utility';
+import { workerLogger } from '../../utils/logger/logger.child';
 import { invoiceGenerationQueue } from '../index.queue';
+
+const queuedLogger = workerLogger.child({
+  queue: 'invoiceGenerationQueue',
+  job: 'addInvoiceGenerationJob',
+});
 
 export enum InvoiceJobName {
   GENERATE_VENDOR_INVOICE = 'GENERATE_VENDOR_INVOICE',
@@ -35,10 +40,10 @@ export const addInvoiceGenerationJob = async (
       }
     );
 
-    console.log('Invoice generation job registered:', job.id);
+    queuedLogger.info({ jobId: job.id, paymentId: payload.paymentId }, 'Invoice generation job registered');
     return job;
   } catch (error: any) {
-    console.log('Invoice generation queue add error:', error?.message || error);
+    queuedLogger.error({ error, paymentId: payload.paymentId }, 'Invoice generation queue add error');
     return null;
   }
 };
