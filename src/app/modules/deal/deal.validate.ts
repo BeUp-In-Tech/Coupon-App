@@ -28,7 +28,7 @@ export const CreateDealZodSchema = z
 // UPDATE ZOD SCHEMA
 export const UpdateDealZodSchema = z.object({
   title: z.string("Title must be string").min(2, "Title must be minimum 2 characters").max(120, "Title must be maximum 120 characters").trim().optional(),
-  regular_price: z.number("Reguler price must be number").nonnegative("Regular price shouldn't be negative number").optional(),
+  regular_price: z.number("Regular price must be number").nonnegative("Regular price shouldn't be negative number").optional(),
   discount: z.number("Discount must be number").min(0, "Minimum discount should be 0").max(100, "Maximum discount should be 100%").optional(),
   highlight: z.array(z.string("Highlight must be string").min(1, "Highlight should be minimum 1 character").max(120, "Maximum highlight length should be 120 characters")).max(20, "Maximum 20 highlights allowed").optional(),
   deletedHighlights: z.array(z.string("Deleted highlight must be string").min(1, "Deleted highlight should be minimum 1 character").max(120, "Maximum deleted highlight length should be 120 characters")).max(20, "Maximum 20 deleted highlights allowed").optional(),
