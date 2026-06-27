@@ -1714,8 +1714,6 @@ const searchCurrentLocationDeals = async (
 
   recordDealImpressions(deals);
 
-  dealLogger.debug(deals[0]?.nationwide)
-
   return {
     meta: {
       locationMode: query.locationMode,
