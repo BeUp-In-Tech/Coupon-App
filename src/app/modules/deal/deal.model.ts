@@ -2,6 +2,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { IDeal } from './deal.interface';
 import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
+import { DealDiscountType } from './deal.constant';
 
 const dealSchema = new Schema<IDeal>(
   {
@@ -33,7 +34,13 @@ const dealSchema = new Schema<IDeal>(
     },
 
     regular_price: { type: Number, required: true, min: 0 },
-    discount: { type: Number, default: 0, min: 0, max: 100 }, // percent
+    discount: { type: Number, default: 0, min: 0 },
+    discount_type: {
+      type: String,
+      enum: Object.values(DealDiscountType),
+      default: DealDiscountType.PERCENT_OFF_PRICE,
+    },
+    minimum_purchase: { type: Number, min: 0 },
 
     highlight: {
       type: [String],
@@ -93,6 +100,7 @@ const dealSchema = new Schema<IDeal>(
     promotedUntil: { type: Date, default: new Date(), index: true },
 
     coupon: { type: String },
+    coupon_required: { type: Boolean, default: true },
     coupon_option: {
       qr: { type: String },
       upc: { type: String },

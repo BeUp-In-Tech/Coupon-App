@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { DealDiscountType } from "./deal.constant";
 
 export interface IDeal {
     _id?: Types.ObjectId;
@@ -9,6 +10,8 @@ export interface IDeal {
     title: string;
     regular_price: number;
     discount: number;
+    discount_type?: DealDiscountType;
+    minimum_purchase?: number;
     highlight: string[];
     deletedHighlights?: [];
     tags: string[];
@@ -19,6 +22,7 @@ export interface IDeal {
     isPromoted?: boolean;
     promotedUntil?: Date;
     coupon: string;
+    coupon_required?: boolean;
     coupon_option: {
         qr?: string;
         upc?: string;

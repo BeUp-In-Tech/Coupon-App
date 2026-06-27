@@ -3,6 +3,7 @@ import { Location } from '../location/location.model';
 import { SendResponse } from '../../utils/SendResponse';
 import mongoose from 'mongoose';
 import { DealModel } from '../deal/deal.model';
+import { DealDiscountType } from '../deal/deal.constant';
 
 export const router = Router();
 
@@ -179,6 +180,103 @@ router.get(
         trace_id: req.id as string,
         data: {
           deals_without_nationwide: result.matchedCount,
+          deals_updated: result.modifiedCount,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get(
+  '/deals/pricing-redemption',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await DealModel.collection.updateMany(
+        {
+          $or: [
+            { discount_type: { $exists: false } },
+            { coupon_required: { $exists: false } },
+          ],
+        },
+        [
+          {
+            $set: {
+              discount_type: {
+                $ifNull: [
+                  '$discount_type',
+                  {
+                    $switch: {
+                      branches: [
+                        {
+                          case: {
+                            $and: [
+                              { $eq: [{ $ifNull: ['$discount', 0] }, 0] },
+                              { $eq: [{ $ifNull: ['$regular_price', 0] }, 0] },
+                            ],
+                          },
+                          then: DealDiscountType.FREE,
+                        },
+                        {
+                          case: {
+                            $eq: [{ $ifNull: ['$discount', 0] }, 0],
+                          },
+                          then: DealDiscountType.NO_DISCOUNT,
+                        },
+                      ],
+                      default: DealDiscountType.PERCENT_OFF_PRICE,
+                    },
+                  },
+                ],
+              },
+              coupon_required: {
+                $ifNull: [
+                  '$coupon_required',
+                  {
+                    $or: [
+                      {
+                        $gt: [
+                          { $strLenCP: { $ifNull: ['$coupon', ''] } },
+                          0,
+                        ],
+                      },
+                      {
+                        $gt: [
+                          {
+                            $strLenCP: {
+                              $ifNull: ['$coupon_option.qr', ''],
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                      {
+                        $gt: [
+                          {
+                            $strLenCP: {
+                              $ifNull: ['$coupon_option.upc', ''],
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ]
+      );
+
+      SendResponse(res, {
+        success: true,
+        statusCode: 200,
+        message: 'Deal pricing and redemption migration completed',
+        trace_id: req.id as string,
+        data: {
+          deals_matched: result.matchedCount,
           deals_updated: result.modifiedCount,
         },
       });

@@ -21,6 +21,7 @@ import { sortObject } from '../../utils/sortObject';
 import { dealLogger, LoggerModule } from '../../utils/logger/logger.child';
 import { SearchDealsByLocationQuery } from './deal.validate';
 import { buildLocationDealsCacheKey, buildLocationEqualityCondition, buildLocationLabel, getDealListFacet, getDealLookupStage, getNationwideDealsUnionStage, recordDealImpressions, visibleDealFilter } from './deal.helper';
+import { DealDiscountType } from './deal.constant';
 
 
 // 1. CREATE DEAL
@@ -48,11 +49,11 @@ const createDealsService = async (params: {
       await addImageDeleteJob(payload.images);
     }
 
-    if (payload.coupon_option.qr) {
+    if (payload.coupon_option?.qr) {
       await addImageDeleteJob([payload.coupon_option.qr]);
     }
 
-    if (payload.coupon_option.upc) {
+    if (payload.coupon_option?.upc) {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
@@ -65,6 +66,7 @@ const createDealsService = async (params: {
 
 
   if (
+    (payload.coupon_required ?? true) &&
     !payload.coupon &&
     !payload.coupon_option?.qr &&
     !payload.coupon_option?.upc
@@ -86,11 +88,11 @@ const createDealsService = async (params: {
       await addImageDeleteJob(payload.images);
     }
 
-    if (payload.coupon_option.qr) {
+    if (payload.coupon_option?.qr) {
       await addImageDeleteJob([payload.coupon_option.qr]);
     }
 
-    if (payload.coupon_option.upc) {
+    if (payload.coupon_option?.upc) {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
@@ -103,11 +105,11 @@ const createDealsService = async (params: {
       await addImageDeleteJob(payload.images);
     }
 
-    if (payload.coupon_option.qr) {
+    if (payload.coupon_option?.qr) {
       await addImageDeleteJob([payload.coupon_option.qr]);
     }
 
-    if (payload.coupon_option.upc) {
+    if (payload.coupon_option?.upc) {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
@@ -121,11 +123,11 @@ const createDealsService = async (params: {
       await addImageDeleteJob(payload.images);
     }
 
-    if (payload.coupon_option.qr) {
+    if (payload.coupon_option?.qr) {
       await addImageDeleteJob([payload.coupon_option.qr]);
     }
 
-    if (payload.coupon_option.upc) {
+    if (payload.coupon_option?.upc) {
       await addImageDeleteJob([payload.coupon_option.upc]);
     }
 
@@ -169,6 +171,12 @@ const createDealsService = async (params: {
     title: payload.title,
     regular_price: payload.regular_price,
     discount: payload.discount,
+    discount_type:
+      payload.discount_type ?? DealDiscountType.PERCENT_OFF_PRICE,
+    minimum_purchase:
+      payload.discount_type === DealDiscountType.AMOUNT_OFF_PURCHASE
+        ? payload.minimum_purchase
+        : undefined,
 
     highlight,
     tags: payload.tags,
@@ -177,6 +185,7 @@ const createDealsService = async (params: {
     nationwide: payload.nationwide ?? false,
     available_in_location,
     coupon: payload.coupon,
+    coupon_required: payload.coupon_required ?? true,
     coupon_option: payload.coupon_option,
   };
   const doc = await DealModel.create(finalPayload);
@@ -487,10 +496,66 @@ const deleteDealsService = async (user: JwtPayload, serviceId: string) => {
 };
 
 // 4. UPDATE DEAL
+const validateV2PricingState = (params: {
+  discountType: DealDiscountType;
+  regularPrice: number;
+  discount: number;
+  minimumPurchase?: number;
+}) => {
+  const { discountType, regularPrice, discount, minimumPurchase } = params;
+
+  if (
+    [DealDiscountType.PERCENT_OFF_PRICE, DealDiscountType.PERCENT_OFF_TOTAL].includes(
+      discountType
+    ) &&
+    (discount < 1 || discount > 100)
+  ) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Percentage discount must be between 1 and 100',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (
+    discountType === DealDiscountType.AMOUNT_OFF_PURCHASE &&
+    (discount <= 0 ||
+      minimumPurchase === undefined ||
+      minimumPurchase <= 0 ||
+      minimumPurchase < discount)
+  ) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Dollar-off deals require a positive minimum purchase that is not less than the discount',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (discountType === DealDiscountType.NO_DISCOUNT && discount !== 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Discount must be 0 when no discount is selected',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (
+    discountType === DealDiscountType.FREE &&
+    (regularPrice !== 0 || discount !== 0)
+  ) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Regular price and discount must both be 0 for a free deal',
+      LoggerModule.DEAL
+    );
+  }
+};
+
 const updateDealsService = async (
   user: JwtPayload,
   dealId: string,
-  payload: IDeal
+  payload: IDeal,
+  options: { v2?: boolean } = {}
 ) => {
   // CHECK IF THE DEAL EXISTS
   const deal = await DealModel.findById(dealId);
@@ -500,10 +565,10 @@ const updateDealsService = async (
       if (payload.images) {
         try {
           await addImageDeleteJob(payload.images);
-          if (payload.coupon_option.qr) {
+          if (payload.coupon_option?.qr) {
             await addImageDeleteJob([payload.coupon_option.qr]);
           }
-          if (payload.coupon_option.upc) {
+          if (payload.coupon_option?.upc) {
             await addImageDeleteJob([payload.coupon_option.upc]);
           }
         } catch (error: any) {
@@ -522,11 +587,11 @@ const updateDealsService = async (
         try {
           await addImageDeleteJob(payload.images);
 
-          if (payload.coupon_option.qr) {
+          if (payload.coupon_option?.qr) {
             await addImageDeleteJob([payload.coupon_option.qr]);
           }
 
-          if (payload.coupon_option.upc) {
+          if (payload.coupon_option?.upc) {
             await addImageDeleteJob([payload.coupon_option.upc]);
           }
         } catch (error: any) {
@@ -540,6 +605,60 @@ const updateDealsService = async (
       'You are not authorized to update this service',
       LoggerModule.DEAL
     );
+  }
+
+  const fieldsToUnset: Record<string, 1> = {};
+  let shouldClearCouponValues = false;
+
+  if (options.v2) {
+    const discountType =
+      payload.discount_type ??
+      deal.discount_type ??
+      DealDiscountType.PERCENT_OFF_PRICE;
+    const regularPrice = payload.regular_price ?? deal.regular_price;
+    const discount = payload.discount ?? deal.discount;
+    const minimumPurchase =
+      payload.minimum_purchase ?? deal.minimum_purchase;
+
+    validateV2PricingState({
+      discountType,
+      regularPrice,
+      discount,
+      minimumPurchase,
+    });
+
+    if (
+      payload.discount_type !== undefined &&
+      discountType !== DealDiscountType.AMOUNT_OFF_PURCHASE
+    ) {
+      fieldsToUnset.minimum_purchase = 1;
+    }
+
+    const couponRequired =
+      payload.coupon_required ??
+      deal.coupon_required ??
+      Boolean(
+        deal.coupon || deal.coupon_option?.qr || deal.coupon_option?.upc
+      );
+
+    if (couponRequired) {
+      const coupon = payload.coupon ?? deal.coupon;
+      const qr = payload.coupon_option?.qr ?? deal.coupon_option?.qr;
+      const upc = payload.coupon_option?.upc ?? deal.coupon_option?.upc;
+
+      if (!coupon && !qr && !upc) {
+        throw new AppError(
+          StatusCodes.BAD_REQUEST,
+          'At least one coupon code, QR, or UPC is required',
+          LoggerModule.DEAL
+        );
+      }
+    } else {
+      shouldClearCouponValues = true;
+      fieldsToUnset.coupon = 1;
+      fieldsToUnset['coupon_option.qr'] = 1;
+      fieldsToUnset['coupon_option.upc'] = 1;
+    }
   }
 
 
@@ -605,6 +724,10 @@ const updateDealsService = async (
   if (payload.regular_price !== undefined)
     updateData.regular_price = payload.regular_price;
   if (payload.discount !== undefined) updateData.discount = payload.discount;
+  if (options.v2 && payload.discount_type !== undefined)
+    updateData.discount_type = payload.discount_type;
+  if (options.v2 && payload.minimum_purchase !== undefined)
+    updateData.minimum_purchase = payload.minimum_purchase;
 
   const nextNationwide = payload.nationwide ?? deal.nationwide ?? false;
   const nextLocationIds =
@@ -653,28 +776,36 @@ const updateDealsService = async (
   }
 
   // UPDATE COUPON CODE
-  if (payload?.coupon) {
+  if (!shouldClearCouponValues && payload?.coupon) {
     updateData.coupon = payload.coupon;
+  }
+  if (options.v2 && payload.coupon_required !== undefined) {
+    updateData.coupon_required = payload.coupon_required;
   }
 
   // ONLY UPDATE QR CODE IF CHANGES WERE MADE
-  if (payload?.coupon_option?.qr) {
-    updateData.coupon_option = updateData.coupon_option || {
-      upc: deal.coupon_option.upc,
+  if (!shouldClearCouponValues && payload?.coupon_option?.qr) {
+      updateData.coupon_option = updateData.coupon_option || {
+        upc: deal.coupon_option?.upc,
     };
     updateData.coupon_option.qr = payload?.coupon_option?.qr;
   }
 
   // ONLY UPDATE UPC
-  if (payload?.coupon_option?.upc) {
-    updateData.coupon_option = updateData.coupon_option || {
-      qr: deal.coupon_option.qr,
+  if (!shouldClearCouponValues && payload?.coupon_option?.upc) {
+      updateData.coupon_option = updateData.coupon_option || {
+        qr: deal.coupon_option?.qr,
     };
     updateData.coupon_option.upc = payload?.coupon_option?.upc;
   }
 
   // UPDATE THE DEAL IN DATABASE
-  const updateDeal = await DealModel.findByIdAndUpdate(dealId, updateData, {
+  const updateOperation =
+    options.v2 && Object.keys(fieldsToUnset).length
+      ? { $set: updateData, $unset: fieldsToUnset }
+      : updateData;
+
+  const updateDeal = await DealModel.findByIdAndUpdate(dealId, updateOperation, {
     runValidators: true,
     new: true,
   });
@@ -691,7 +822,7 @@ const updateDealsService = async (
     }
 
     // QR IMAGE DELETION
-    if (payload?.coupon_option?.qr) {
+    if (!shouldClearCouponValues && payload?.coupon_option?.qr) {
       try {
         await addImageDeleteJob([deal.coupon_option.qr as string]);
       } catch (error: any) {
@@ -700,11 +831,31 @@ const updateDealsService = async (
     }
 
     // UPC IMAGE DELETION
-    if (payload?.coupon_option?.upc) {
+    if (!shouldClearCouponValues && payload?.coupon_option?.upc) {
       try {
         await addImageDeleteJob([deal.coupon_option.upc as string]);
       } catch (error: any) {
         dealLogger.error({error}, `Cloudinary image deleting error`);
+      }
+    }
+
+    if (options.v2 && shouldClearCouponValues) {
+      const redemptionImages = [
+        deal.coupon_option?.qr,
+        deal.coupon_option?.upc,
+        payload.coupon_option?.qr,
+        payload.coupon_option?.upc,
+      ].filter((url): url is string => Boolean(url));
+
+      if (redemptionImages.length) {
+        try {
+          await addImageDeleteJob(redemptionImages);
+        } catch (error: any) {
+          dealLogger.error(
+            { error },
+            'Old coupon image deletion error'
+          );
+        }
       }
     }
   });
@@ -965,6 +1116,9 @@ const getDealsByCategoryService = async (
         'deal.title': 1,
         'deal.regular_price': 1,
         'deal.discount': 1,
+        'deal.discount_type': 1,
+        'deal.minimum_purchase': 1,
+        'deal.coupon_required': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
         'deal.createdAt': 1,
@@ -1012,6 +1166,9 @@ const getDealsByCategoryService = async (
                 title: '$title',
                 regular_price: '$regular_price',
                 discount: '$discount',
+                discount_type: '$discount_type',
+                minimum_purchase: '$minimum_purchase',
+                coupon_required: '$coupon_required',
                 isPromoted: '$isPromoted',
                 promotedUntil: '$promotedUntil',
                 createdAt: '$createdAt',
@@ -1196,6 +1353,9 @@ const getNearestDealsService = async (
         title: 1,
         regular_price: 1,
         discount: 1,
+        discount_type: 1,
+        minimum_purchase: 1,
+        coupon_required: 1,
         images: { $slice: ['$images', 1] },
         distance: 1,
         nearest_location: 1,
@@ -1369,6 +1529,9 @@ const getAllDealsService = async (
         'deal.title': 1,
         'deal.regular_price': 1,
         'deal.discount': 1,
+        'deal.discount_type': 1,
+        'deal.minimum_purchase': 1,
+        'deal.coupon_required': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
         'deal.images': 1,
@@ -1426,6 +1589,9 @@ const getAllDealsService = async (
                 title: '$title',
                 regular_price: '$regular_price',
                 discount: '$discount',
+                discount_type: '$discount_type',
+                minimum_purchase: '$minimum_purchase',
+                coupon_required: '$coupon_required',
                 isPromoted: '$isPromoted',
                 promotedUntil: '$promotedUntil',
                 images: '$images',
@@ -1548,6 +1714,8 @@ const searchCurrentLocationDeals = async (
 
   recordDealImpressions(deals);
 
+  dealLogger.debug(deals[0]?.nationwide)
+
   return {
     meta: {
       locationMode: query.locationMode,
@@ -1662,7 +1830,6 @@ const searchDealsByLocationService = async (
     : await searchSelectedLocationDeals(query);
     
     await redisClient.set(cacheKey, JSON.stringify(data), { EX: 180 });
-    dealLogger.debug("DB returned returned");
 
   return data;
 };

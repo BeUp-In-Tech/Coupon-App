@@ -16,6 +16,7 @@ import { redisClient } from './app/config/redis.config';
 import helmet from 'helmet';
 import { httpLogger } from './app/middlewares/httpLogger.middleware';
 import { requestId } from './app/middlewares/requestId.middleware';
+import { v2Router } from './app/routes/v2.index';
 
 const app = express();
 app.use(requestId);
@@ -110,6 +111,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use('/api/v1', router);
+app.use('/api/v2', v2Router);
 
 app.use(globalErrorHandler);
 app.use(NotFound);

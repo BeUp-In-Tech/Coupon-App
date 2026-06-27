@@ -171,6 +171,50 @@ Media constraints:
 - `upc` image must be exactly `800x400`.
 - `files` upload limit is 10.
 
+### Deal V2 Pricing and Redemption (`/api/v2/service`)
+
+The V1 create and update routes remain available. V2 adds conditional pricing
+and optional coupon redemption:
+
+| Method | Endpoint | Auth | Request |
+| --- | --- | --- | --- |
+| POST | `/api/v2/service` | `VENDOR` | Multipart: `files[]`, `qr?`, `upc?`, `data` JSON |
+| PATCH | `/api/v2/service/:dealId` | `VENDOR` | Multipart partial update |
+
+Supported `discount_type` values:
+
+- `PERCENT_OFF_PRICE`: `discount` is a percentage from 1 to 100.
+- `PERCENT_OFF_TOTAL`: `discount` is a percentage from 1 to 100.
+- `AMOUNT_OFF_PURCHASE`: `discount` is the amount off and
+  `minimum_purchase` is required.
+- `NO_DISCOUNT`: `discount` must be `0`.
+- `FREE`: `regular_price` and `discount` must be `0`.
+
+When `coupon_required` is `true`, provide at least one coupon code, QR, or UPC.
+When it is `false`, omit all coupon values.
+
+Legacy records can be backfilled once with:
+
+```http
+GET /api/v1/migrations/deals/pricing-redemption
+```
+
+```json
+{
+  "category": "6800d0b0f9f4e50bc1a11111",
+  "title": "$10 Off a $75 Purchase",
+  "regular_price": 75,
+  "discount_type": "AMOUNT_OFF_PURCHASE",
+  "discount": 10,
+  "minimum_purchase": 75,
+  "coupon_required": false,
+  "highlight": ["Minimum purchase applies"],
+  "tags": ["dining"],
+  "description": "Get ten dollars off when spending at least seventy-five.",
+  "available_in_location": ["6800d0b0f9f4e50bc1a22222"]
+}
+```
+
 ## Plan Module (`/plan`)
 
 | Method | Endpoint | Auth | Request |
@@ -293,6 +337,15 @@ curl -X POST http://localhost:3002/api/v1/service \
   -F 'qr=@/path/qr-500x500.png' \
   -F 'upc=@/path/upc-800x400.png' \
   -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"Promo","regular_price":20,"discount":50,"highlight":["A"],"tags":["t"],"description":"Long enough description","coupon":"PROMO50","available_in_location":["6800d0b0f9f4e50bc1a22222"]}'
+```
+
+### Create V2 Deal Without Coupon
+
+```bash
+curl -X POST http://localhost:3002/api/v2/service \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -F 'files=@/path/deal.jpg' \
+  -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"$10 Off a $75 Purchase","regular_price":75,"discount_type":"AMOUNT_OFF_PURCHASE","discount":10,"minimum_purchase":75,"coupon_required":false,"highlight":["Minimum purchase applies"],"tags":["dining"],"description":"Get ten dollars off when spending at least seventy-five.","available_in_location":["6800d0b0f9f4e50bc1a22222"]}'
 ```
 
 ### Create Stripe Checkout Session
