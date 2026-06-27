@@ -207,7 +207,7 @@ const dealAnalytics = CatchAsync(async (req: Request, res: Response, next: NextF
     SendResponse(res, {
         success: true,
         statusCode: StatusCodes.OK,
-        message: "Top deals fetched",
+        message: "Deal analytics fetched",
         trace_id: req.id as string,
         data: result
     })

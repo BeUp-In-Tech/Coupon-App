@@ -833,20 +833,54 @@ const getDealsByCategoryService = async (
   categoryId: string,
   query: Record<string, string>
 ) => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 20;
+  const requestedPage = Number(query.page);
+  const requestedLimit = Number(query.limit);
+  const page =
+    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const limit =
+    Number.isInteger(requestedLimit) && requestedLimit > 0 ? requestedLimit : 20;
   const skip = (page - 1) * limit;
   const now = new Date();
+
+  if (
+    !Number.isFinite(lng) ||
+    !Number.isFinite(lat) ||
+    !mongoose.Types.ObjectId.isValid(categoryId)
+  ) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Valid lng, lat, and categoryId are required',
+      LoggerModule.DEAL
+    );
+  }
+
   const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
 
   // Build the sort object.
   const sort: Record<string, 1 | -1> = {};
+  const allowedSortFields = new Set([
+    'distance',
+    'title',
+    'regular_price',
+    'discount',
+    'promotedUntil',
+    'createdAt',
+  ]);
+
   if (query.sort) {
     const sortField = query.sort.startsWith('-')
       ? query.sort.substring(1)
       : query.sort;
+
+    if (!allowedSortFields.has(sortField)) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        `Invalid sort field: ${sortField}`,
+        LoggerModule.DEAL
+      );
+    }
+
     const sortOrder = query.sort.startsWith('-') ? -1 : 1;
-    // Let's assume non-distance fields are on the 'deal' sub-document
     if (sortField === 'distance') {
       sort[sortField] = sortOrder;
     } else {
@@ -857,16 +891,8 @@ const getDealsByCategoryService = async (
     sort['distance'] = 1;
   }
 
-  if (!lng || !lat || !categoryId) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      'lng, lat, and categoryId are required',
-      LoggerModule.DEAL
-    );
-  }
-
   // Aggregation pipeline
-  const deals = await Location.aggregate([
+  const [result] = await Location.aggregate([
     //  GeoNear stage
     {
       $geoNear: {
@@ -941,6 +967,7 @@ const getDealsByCategoryService = async (
         'deal.discount': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
+        'deal.createdAt': 1,
         'deal.images': 1,
         'deal.nationwide': 1,
       },
@@ -987,6 +1014,7 @@ const getDealsByCategoryService = async (
                 discount: '$discount',
                 isPromoted: '$isPromoted',
                 promotedUntil: '$promotedUntil',
+                createdAt: '$createdAt',
                 images: '$images',
                 nationwide: '$nationwide',
               },
@@ -1003,22 +1031,23 @@ const getDealsByCategoryService = async (
       },
     },
     { $replaceRoot: { newRoot: '$doc' } },
-
-    // Pagination
-    { $skip: skip },
-    { $limit: limit },
+    { $sort: { locationSort: 1, ...sort } },
+    {
+      $facet: {
+        deals: [{ $skip: skip }, { $limit: limit }],
+        total: [{ $count: 'count' }],
+      },
+    },
   ]);
 
-  // Total promoted deals count
-  const total = await DealModel.countDocuments({
-    category: categoryObjectId,
-    isPromoted: true,
-    promotedUntil: { $gte: now },
-    ...visibleDealFilter,
-  });
+  const deals = result?.deals ?? [];
+  const total = result?.total?.[0]?.count ?? 0;
 
   // Increment impressions asynchronously
-  const ids = deals.map((doc) => doc.deal._id.toString());
+  const ids = deals.map(
+    (doc: { deal: { _id: Types.ObjectId } }) => doc.deal._id.toString()
+  );
+
   setImmediate(() => {
     DealModel.updateMany(
       { _id: { $in: ids } },
