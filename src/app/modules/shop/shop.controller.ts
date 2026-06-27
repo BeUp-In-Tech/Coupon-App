@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import { CatchAsync } from "../../utils/CatchAsync";
 import { SendResponse } from "../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
-import { shopServices } from "./shop.services";
+import { shopServices } from "./shop.service";
 import { JwtPayload } from "jsonwebtoken";
 import { IShop } from "./shop.interface";
 

@@ -15,7 +15,7 @@ import { DealModel } from '../deal/deal.model';
 import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
-import { shopLogger } from '../../utils/logger/logger.child';
+import { dealLogger, shopLogger } from '../../utils/logger/logger.child';
 
 
 // CREATE SHOP
@@ -435,15 +435,14 @@ const getDealAnalyticsService = async (user: JwtPayload) => {
     throw new AppError(StatusCodes.FORBIDDEN, 'Access denied');
   }
 
-  const findVendorShop = await Shop.findOne({ vendor: userObjectId });
-
-  if (!findVendorShop) {
+  const shop = await Shop.findOne({ vendor: userObjectId });
+  if (!shop) {
     throw new AppError(StatusCodes.NOT_FOUND, 'No shop found');
   }
 
   const deals = await DealModel.find(
-    { shop: findVendorShop._id },
-    { _id: 1, isPromoted: 1 }
+    { shop: shop._id },
+    { _id: 1, isPromoted: 1, promotedUntil: 1, activePromotion: 1 }
   ).populate({path: 'activePromotion', select: "endAt"});
 
   
@@ -452,9 +451,17 @@ const getDealAnalyticsService = async (user: JwtPayload) => {
   
   const now = new Date();
   const activeDeals = deals.filter((d) => d.isPromoted && d.activePromotion && !(d.activePromotion instanceof Types.ObjectId) && now < (d.activePromotion as { endAt: Date }).endAt).length;
+  const expiredDeals = deals.filter(
+    (deal) =>
+      !deal.isPromoted &&
+      deal.activePromotion &&
+      deal.promotedUntil &&
+      deal.promotedUntil < now
+  ).length;
+  const newDeals = deals.filter((deal) => !deal.activePromotion).length;
   
 
-  const analytics = await Views_Impressions.aggregate([
+  const analyticsPromise = Views_Impressions.aggregate([
     {
       $match: {
         deal: { $in: dealIds },
@@ -477,6 +484,15 @@ const getDealAnalyticsService = async (user: JwtPayload) => {
     },
   ]);
 
+  const totalDealsPromise =  DealModel.countDocuments({ shop: shop._id, user: new mongoose.Types.ObjectId(user.userId) });
+  
+  const [analytics, totalDeals] = await Promise.all([
+    analyticsPromise,
+    totalDealsPromise,
+  ]);
+  
+  dealLogger.debug(totalDeals);
+
   const totals = analytics[0] || {
     totalViews: 0,
     totalImpressions: 0,
@@ -484,7 +500,10 @@ const getDealAnalyticsService = async (user: JwtPayload) => {
 
   return {
     _id: null,
+    total: totalDeals,
     activeDeals,
+    expiredDeals,
+    newDeals,
     totalViews: totals.totalViews,
     totalImpressions: totals.totalImpressions,
   };

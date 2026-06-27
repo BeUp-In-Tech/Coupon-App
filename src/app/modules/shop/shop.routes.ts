@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { shopController } from './shop.controllers';
+import { shopController } from './shop.controller';
 import { validateRequest } from '../../middlewares/validateRequest';
 import {
   shopValidationSchema,
