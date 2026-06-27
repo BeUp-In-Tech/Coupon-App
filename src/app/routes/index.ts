@@ -12,6 +12,7 @@ import { NotificationRouter } from '../modules/notification/notification.route';
 import { dashboardRouter } from '../modules/dashboard/dashboard.routes';
 import { StaticPageRoutes } from '../modules/staticContent/static.route';
 import { migrationRouter } from '../modules/migrations/location.migration';
+import { healthRouter } from '../modules/health/health.routes';
 
 export const router = Router();
 
@@ -68,6 +69,10 @@ const moduleRoutes = [
     path: '/migrations',
     route: migrationRouter
    }, 
+   {
+    path: '/health',
+    route: healthRouter
+   },
 ];
 
 moduleRoutes.forEach((r) => {
