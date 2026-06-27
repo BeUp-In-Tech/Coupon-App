@@ -163,6 +163,31 @@ router.get(
   }
 );
 
+router.get(
+  '/deals/nationwide',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await DealModel.collection.updateMany(
+        { nationwide: { $exists: false } },
+        { $set: { nationwide: false } }
+      );
+
+      SendResponse(res, {
+        success: true,
+        statusCode: 200,
+        message: 'Deal nationwide field migration completed',
+        trace_id: req.id as string,
+        data: {
+          deals_without_nationwide: result.matchedCount,
+          deals_updated: result.modifiedCount,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
  
 
 export const migrationRouter = router;
