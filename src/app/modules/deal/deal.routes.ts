@@ -32,7 +32,7 @@ router.post(
 );
 
 // SEARCH DEALS BY CURRENT OR SELECTED LOCATION
-router.get('/deals/search', dealsControllers.searchDealsByLocation);
+router.get('/deals/location', dealsControllers.searchDealsByLocation);
 
 // GET ALL DEALS
 router.get('/deals/all_deals/:lng/:lat', dealsControllers.getAllDeals);
