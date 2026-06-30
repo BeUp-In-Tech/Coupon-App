@@ -255,7 +255,7 @@ const credentialsLogin = CatchAsync(
       if (err) next(err);
 
       if (!user) {
-        return next(new AppError(httpStatus.FORBIDDEN, info.message));
+        return next(new AppError(httpStatus.UNAUTHORIZED, info.message));
       }
 
       const userTokens = await createUserTokens(user);

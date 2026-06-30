@@ -1,0 +1,39 @@
+openapi: 3.0.4
+
+info: 
+  title: Yepp Ads - REST API Documentation
+  description: Yepp Ads is an online advertising platform that enables businesses to promote their products, services, and other legal offers to nearby customers. Businesses can create promotional campaigns, publish discount deals, and distribute redeemable coupons to increase customer engagement and drive sales. Users can discover nearby deals, browse available promotions, redeem coupons, and enjoy exclusive discounts at local shops, outlets, restaurants, and boutiques. This documentation provides the complete REST API specification for the Yepp Ads platform. It includes endpoint references, request and response schemas, authentication, validation rules, error responses, edge cases, and implementation details to help developers integrate with the API efficiently and reliably.
+  version: 2.0.0
+
+  contact: 
+    name: Yepp Ads
+    url: https://yeppads.com
+    email: support@yeppads.com
+
+
+
+servers: 
+  - url: http://localhost:5000/api/v1
+    description: Local server (v1)
+
+  - url: https://api.yeppads.com/api/v1
+    description: Live server (v1)
+  
+  - url: http://localhost:5000/api/v2
+    description: Local server (v2)
+
+  - url: https://api.yeppads.com/api/v2
+    description: Live server (v2)
+
+
+
+paths: 
+  /auth/login:
+    $ref: './paths/auth.path.yaml'
+
+
+
+components:
+  securitySchemas:
+    bearerAuth:
+      $ref: './security.yaml#/BearerAuth'

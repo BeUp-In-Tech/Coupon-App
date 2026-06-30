@@ -1,0 +1,81 @@
+post: 
+      tags: 
+        - Auth
+      summary: "User login to the apps/website"
+      description: "Login to application using email and password. If authenticated user, you will get a Access token to navigate and access all private routes"
+      requestBody:
+        required: true 
+        content:
+          application/json:
+            schema: 
+              type: object
+              required: 
+                - email
+                - password
+              properties: 
+                email: 
+                  type: string
+                  example: "example@gmail.com"
+                password: 
+                  type: string
+                  example: "dfR234@Dkk"
+      responses:
+        '200': 
+          description: Success response example
+          content: 
+            'application/json':
+              schema: 
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  statusCode: 
+                    type: integer
+                    example: 200
+                  message: 
+                    type: string
+                    example: "Login success"
+                  data: 
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        example: 'access token'
+                      refreshToken:
+                        type: string
+                        example: 'refresh token'
+                  trace_id: 
+                    type: string
+                    example: 'your request trace id'
+        '401':
+          description: Unauthorize response example
+          content:
+            'application/json':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  statusCode: 
+                    type: integer
+                    example: 401
+                  message: 
+                    type: string
+                    example: 'Incorrect password'
+                  trace_id: 
+                    type: string
+                    example: "Your request tracing id"
+                  err:
+                    type: object
+                    properties:
+                      statusCode:
+                        type: integer
+                        example: 401
+                      module: 
+                        type: string
+                        example: "auth"
+                  stack: 
+                    type: string
+                    example: 'Error stack'
