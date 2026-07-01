@@ -1,17 +1,19 @@
 import { Router } from 'express';
 import { validateRequest } from '../../middlewares/validateRequest';
-import {
-  CreateDealZodSchema,
-  UpdateDealZodSchema,
-} from './deal.validate';
 import { uploadMulter } from '../../config/multer.config';
 import { checkAuth } from '../../middlewares/auth.middleware';
 import { Role } from '../user/user.interface';
 import { dealsControllers } from './deal.controller';
-import { validateImageDimensions } from '../../middlewares/imageRatioValidation';
 import { uploadToCloudinary } from '../../middlewares/uploadCloudinary';
 import { preParseMiddleware } from '../../middlewares/helper.middleware';
+import { dealV2Controllers } from './v2/deal.controller';
+import { CreateDealV2ZodSchema, UpdateDealV2ZodSchema } from './v2/deal.validate';
 
+const dealUploads = uploadMulter.fields([
+  { name: 'files', maxCount: 10 },
+  { name: 'qr', maxCount: 1 },
+  { name: 'upc', maxCount: 1 },
+]);
 
 const router = Router();
 
@@ -19,16 +21,11 @@ const router = Router();
 router.post(
   '/',
   checkAuth(Role.VENDOR),
-   uploadMulter.fields([
-    { name: 'files', maxCount: 10 },
-    { name: 'qr', maxCount: 1 },
-    { name: 'upc', maxCount: 1 },
-  ]),
-  // validateImageDimensions,
+  dealUploads,
   uploadToCloudinary,
   preParseMiddleware,
-  validateRequest(CreateDealZodSchema),
-  dealsControllers.createDeals
+  validateRequest(CreateDealV2ZodSchema),
+  dealV2Controllers.createDeal
 );
 
 // SEARCH DEALS BY CURRENT OR SELECTED LOCATION
@@ -72,16 +69,11 @@ router.delete(
 router.patch(
   '/:dealId',
   checkAuth(Role.VENDOR),
-  uploadMulter.fields([
-    { name: 'files', maxCount: 10 },
-    { name: 'qr', maxCount: 1 },
-    { name: 'upc', maxCount: 1 },
-  ]),
-  validateImageDimensions,
+  dealUploads,
   uploadToCloudinary,
   preParseMiddleware,
-  validateRequest(UpdateDealZodSchema),
-  dealsControllers.updateSingleDeals
+  validateRequest(UpdateDealV2ZodSchema),
+  dealV2Controllers.updateDeal
 );
 
 // GET TOP VIEWED DEALS

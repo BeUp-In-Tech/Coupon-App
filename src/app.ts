@@ -16,7 +16,6 @@ import { redisClient } from './app/config/redis.config';
 import helmet from 'helmet';
 import { httpLogger } from './app/middlewares/httpLogger.middleware';
 import { requestId } from './app/middlewares/requestId.middleware';
-import { v2Router } from './app/routes/v2.index';
 import { swaggerUiServer, swaggerUiSetup } from './app/config/swagger.config';
 
 const app = express();
@@ -118,7 +117,6 @@ app.use(
   );
 
 app.use('/api/v1', router);
-app.use('/api/v2', v2Router);
 
 app.use(globalErrorHandler);
 app.use(NotFound);

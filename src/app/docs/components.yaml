@@ -1,51 +1,56 @@
 components:
+  schemas:
+    success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message: "Something is success"
+        trace_id: "Your request tracing id"
+        data: 
+          type: array
+          example: []
+    unauthorized:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: <Request error message>
+        trace_id:
+          type: string
+          example: Your request tracing id
+        err:
+          type: object
+          properties:
+            statusCode:
+              type: integer
+              example: 401
+            module:
+              type: string
+              example: auth
+        stack:
+          type: string
+          example: Error stack
   responses:
     successResponse:
       description: "This is a success response example"
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-                example: true
-              statusCode:
-                type: integer
-                example: 200
-              message: "Something is success"
-              trace_id: "Your request tracing id"
-              data: 
-                type: array
-                example: []
+            $ref: '#/components/schemas/success'
     unauthorizeResponse:
       description: "This is a unauthorize response example"
       content: 
         application/json:
           schema:
-            type: object
-            properties:
-              success:
-                type: boolean
-                example: false
-              statusCode:
-                type: integer
-                example: 401
-              message:
-                type: string
-                example: <Request error message>
-              trace_id:
-                type: string
-                example: Your request tracing id
-              err:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                    example: 401
-                  module:
-                    type: string
-                    example: auth
-              stack:
-                type: string
-                example: Error stack
+            $ref: '#/components/schemas/unauthorized'
