@@ -29,7 +29,9 @@ servers:
 
 paths: 
   /auth/login:
-    $ref: './paths/auth.path.yaml'
+    $ref: './paths/auth.path.yaml#/AuthApi'
+  /auth/change-password:
+    $ref: './paths/auth.path.yaml#/ChangePasswordApi'
 
 
 

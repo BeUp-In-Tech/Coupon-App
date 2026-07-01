@@ -1,0 +1,84 @@
+components:
+  schemas:
+    AuthLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          example: example@gmail.com
+        password:
+          type: string
+          example: dfR234@Dkk
+
+    AuthChangePassword:
+      type: object
+      required:
+        - oldPassword
+        - newPassword
+      properties: 
+        oldPassword:
+          type: string
+          example: thisIs@oldPassword
+        newPassword:
+          type: string
+          example: thisIs@newPassword
+
+    AuthLoginSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Login success
+        trace_id:
+          type: string
+          example: your request trace id
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+              example: access token
+            refreshToken:
+              type: string
+              example: refresh token
+
+    AuthChangePasswordSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Login success
+        trace_id:
+          type: string
+          example: your request trace id
+        data:
+          type: "null"
+
+  responses:
+    LoginSuccess:
+      description: Success response example
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthLoginSuccessResponse'
+    ChangePasswordSuccess:
+      description: Success response example
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthChangePasswordSuccessResponse'
