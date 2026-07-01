@@ -65,6 +65,10 @@ const changePasswordService = async (
 
 // FORGET PASSWORD
 const forgetPasswordService = async (email: string) => {
+  if (!email) {
+    throw new AppError(StatusCodes.BAD_REQUEST, "Email required");
+  }
+
   const user = await User.findOne({ email });
   if (!user) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found!', LoggerModule.AUTH);

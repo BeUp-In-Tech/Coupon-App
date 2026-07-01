@@ -32,6 +32,8 @@ paths:
     $ref: './paths/auth.path.yaml#/AuthApi'
   /auth/change-password:
     $ref: './paths/auth.path.yaml#/ChangePasswordApi'
+  /auth/forget_password:
+    $ref: './paths/auth.path.yaml#/ForgetPasswordApi'
 
 
 

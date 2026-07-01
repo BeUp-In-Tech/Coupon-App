@@ -32,7 +32,28 @@ ChangePasswordApi:
             $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthChangePassword'
     responses:
       '200':
-        $ref: '../schemas/auth.schema.yaml#/components/responses/ChangePasswordSuccess'
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
+      '401': 
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '400': 
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+
+ForgetPasswordApi:
+  get:
+    tags:
+      - Auth
+    summary: Forget password
+    description: User can change password by forget password api by sending otp verification code
+    parameters:
+      - in: path
+        name: email
+        schema:
+          type: integer
+        required: true
+        description: Email for sending otp to verification 
+    responses:
+      '200':
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
       '401': 
         $ref: '../components.yaml#/components/responses/unauthorizeResponse'
       '400': 
