@@ -38,6 +38,7 @@ ChangePasswordApi:
       '400': 
         $ref: '../components.yaml#/components/responses/badRequestResponse'
 
+
 ForgetPasswordApi:
   get:
     tags:
@@ -54,8 +55,33 @@ ForgetPasswordApi:
     responses:
       '200':
         $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
-      '401': 
-        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '400': 
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+
+VerifyOTP:
+  post:
+    tags:
+      - Auth
+    security:
+      - bearerAuth: []
+    summary: Password change
+    description: Authenticated user can change password by this route
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+             type: object
+             properties:
+              email:
+                type: string
+                example: example@gmail.com
+              otp: 
+                type: string
+                example: 491739
+    responses:
+      '200':
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
       '400': 
         $ref: '../components.yaml#/components/responses/badRequestResponse'
 
