@@ -77,13 +77,19 @@ components:
             $ref: '#/components/schemas/success'
     unauthorizeResponse:
       description: "This is a unauthorize request example"
-      content: 
+      content:
         application/json:
           schema:
             $ref: '#/components/schemas/unauthorized'
     badRequestResponse:
       description: "This is a bad request example"
-      content: 
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/badRequest'
+    notFoundResponse:
+      description: "This is a not found example"
+      content:
         application/json:
           schema:
             $ref: '#/components/schemas/badRequest'

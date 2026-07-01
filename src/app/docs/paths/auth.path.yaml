@@ -2,8 +2,8 @@ AuthApi:
   post:
     tags:
       - Auth
-    summary: "User login to the apps/website"
-    description: "Login to application using email and password. If authenticated user, you will get an access token to navigate and access all private routes"
+    summary: User login
+    description: Login to the application using email and password.
     requestBody:
       required: true
       content:
@@ -22,8 +22,8 @@ ChangePasswordApi:
       - Auth
     security:
       - bearerAuth: []
-    summary: Password change
-    description: Authenticated user can change password by this route
+    summary: Change password
+    description: Authenticated user can change password.
     requestBody:
       required: true
       content:
@@ -33,57 +33,186 @@ ChangePasswordApi:
     responses:
       '200':
         $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
-      '401': 
-        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
-      '400': 
+      '400':
         $ref: '../components.yaml#/components/responses/badRequestResponse'
-
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
 
 ForgetPasswordApi:
   get:
     tags:
       - Auth
     summary: Forget password
-    description: User can change password by forget password api by sending otp verification code
+    description: Send a password reset OTP to the provided email address.
     parameters:
       - in: path
         name: email
         schema:
-          type: integer
+          type: string
         required: true
-        description: Email for sending otp to verification 
+        description: Email address for receiving the OTP.
     responses:
       '200':
         $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
-      '400': 
+      '400':
         $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
 
 VerifyOTP:
   post:
     tags:
       - Auth
-    security:
-      - bearerAuth: []
-    summary: Password change
-    description: Authenticated user can change password by this route
+    summary: Verify forgot password OTP
+    description: Verify the OTP sent to the user's email.
     requestBody:
       required: true
       content:
         application/json:
           schema:
-             type: object
-             properties:
-              email:
-                type: string
-                example: example@gmail.com
-              otp: 
-                type: string
-                example: 491739
+            $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthVerifyOtpRequest'
     responses:
       '200':
         $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
-      '400': 
+      '400':
         $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+ResetPasswordApi:
+  post:
+    tags:
+      - Auth
+    summary: Reset password
+    description: Reset the password using the OTP verification token.
+    parameters:
+      - in: header
+        name: token
+        schema:
+          type: string
+        required: true
+        description: Verification token received after OTP confirmation.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthResetPasswordRequest'
+    responses:
+      '200':
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithNull'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+GenerateTokenApi:
+  post:
+    tags:
+      - Auth
+    summary: Generate new access token
+    description: Generate a new access token using a refresh token.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthRefreshTokenRequest'
+    responses:
+      '200':
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithData'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+GoogleAuthApi:
+  get:
+    tags:
+      - Auth
+    summary: Google login
+    description: Start Google OAuth login flow.
+    parameters:
+      - in: query
+        name: redirectTo
+        schema:
+          type: string
+        description: Optional redirect URL after login.
+    responses:
+      '200':
+        description: Redirect to Google OAuth consent screen.
+
+GoogleCallbackApi:
+  get:
+    tags:
+      - Auth
+    summary: Google callback
+    description: Callback route for Google OAuth login.
+    parameters:
+      - in: query
+        name: state
+        schema:
+          type: string
+        description: State value passed from the initial Google login request.
+    responses:
+      '200':
+        description: Redirects the user after authentication.
+
+GoogleAuthSystemApi:
+  post:
+    tags:
+      - Auth
+    summary: Google auth for Apple devices
+    description: Authenticate the user using Google auth payload for Apple devices.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthSocialLoginRequest'
+    responses:
+      '200':
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithData'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+AppleLoginApi:
+  post:
+    tags:
+      - Auth
+    summary: Apple login
+    description: Authenticate the user using Apple login.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthSocialLoginRequest'
+    responses:
+      '200':
+        $ref: '../schemas/auth.schema.yaml#/components/responses/SuccessWithData'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+AppleCallbackApi:
+  post:
+    tags:
+      - Auth
+    summary: Apple callback
+    description: Callback route for Apple authentication.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/auth.schema.yaml#/components/schemas/AuthSocialLoginRequest'
+    responses:
+      '200':
+        description: Redirects the user after authentication.
 
 
 

@@ -27,15 +27,29 @@ servers:
 
 
 
-paths: 
+paths:
   /auth/login:
     $ref: './paths/auth.path.yaml#/AuthApi'
-  /auth/change-password:
+  /auth/change_password:
     $ref: './paths/auth.path.yaml#/ChangePasswordApi'
-  /auth/forget_password:
+  /auth/forget_password/{email}:
     $ref: './paths/auth.path.yaml#/ForgetPasswordApi'
   /auth/verify_otp:
     $ref: './paths/auth.path.yaml#/VerifyOTP'
+  /auth/reset_password:
+    $ref: './paths/auth.path.yaml#/ResetPasswordApi'
+  /auth/generate_token:
+    $ref: './paths/auth.path.yaml#/GenerateTokenApi'
+  /auth/google:
+    $ref: './paths/auth.path.yaml#/GoogleAuthApi'
+  /auth/google/callback:
+    $ref: './paths/auth.path.yaml#/GoogleCallbackApi'
+  /auth/google/auth:
+    $ref: './paths/auth.path.yaml#/GoogleAuthSystemApi'
+  /auth/apple:
+    $ref: './paths/auth.path.yaml#/AppleLoginApi'
+  /auth/apple/callback:
+    $ref: './paths/auth.path.yaml#/AppleCallbackApi'
 
 
 

@@ -18,13 +18,60 @@ components:
       required:
         - oldPassword
         - newPassword
-      properties: 
+      properties:
         oldPassword:
           type: string
           example: thisIs@oldPassword
         newPassword:
           type: string
           example: thisIs@newPassword
+
+    AuthVerifyOtpRequest:
+      type: object
+      required:
+        - email
+        - otp
+      properties:
+        email:
+          type: string
+          example: example@gmail.com
+        otp:
+          type: string
+          example: 491739
+
+    AuthResetPasswordRequest:
+      type: object
+      required:
+        - newPassword
+      properties:
+        newPassword:
+          type: string
+          example: NewStrongPassword@123
+
+    AuthRefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: your_refresh_token_here
+
+    AuthSocialLoginRequest:
+      type: object
+      properties:
+        id_token:
+          type: string
+          example: google_id_token
+        code:
+          type: string
+          example: apple_authorization_code
+        user_name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          example: example@gmail.com
 
     AuthLoginSuccessResponse:
       type: object
@@ -51,7 +98,7 @@ components:
               type: string
               example: refresh token
 
-    AuthChangePasswordSuccessResponse:
+    AuthGenericSuccessResponse:
       type: object
       properties:
         success:
@@ -62,13 +109,13 @@ components:
           example: 200
         message:
           type: string
-          example: <Your success message>
+          example: Success
         trace_id:
           type: string
           example: your request trace id
         data:
           type: string
-          example: 'null'  
+          example: null
 
   responses:
     LoginSuccess:
@@ -82,4 +129,10 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/AuthChangePasswordSuccessResponse'
+            $ref: '#/components/schemas/AuthGenericSuccessResponse'
+    SuccessWithData:
+      description: Success response example
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthLoginSuccessResponse'
