@@ -41,16 +41,49 @@ components:
         stack:
           type: string
           example: Error stack
+    badRequest:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: <Request error message>
+        trace_id:
+          type: string
+          example: Your request tracing id
+        err:
+          type: object
+          properties:
+            statusCode:
+              type: integer
+              example: 400
+            module:
+              type: string
+              example: auth
+        stack:
+          type: string
+          example: Error stack
   responses:
     successResponse:
-      description: "This is a success response example"
+      description: "This is a success request example"
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/success'
     unauthorizeResponse:
-      description: "This is a unauthorize response example"
+      description: "This is a unauthorize request example"
       content: 
         application/json:
           schema:
             $ref: '#/components/schemas/unauthorized'
+    badRequestResponse:
+      description: "This is a bad request example"
+      content: 
+        application/json:
+          schema:
+            $ref: '#/components/schemas/badRequest'

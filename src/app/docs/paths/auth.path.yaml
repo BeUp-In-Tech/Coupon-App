@@ -35,6 +35,8 @@ ChangePasswordApi:
         $ref: '../schemas/auth.schema.yaml#/components/responses/ChangePasswordSuccess'
       '401': 
         $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '400': 
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
 
 
 
