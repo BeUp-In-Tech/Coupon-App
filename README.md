@@ -208,6 +208,72 @@ Common request conventions:
 - Some multipart endpoints expect structured fields in a `data` form field as a JSON string.
 - List endpoints may support `searchTerm`, `sort`, `page`, `limit`, `fields`, and `join`.
 
+## Vendor List Export Endpoints
+
+Admin-only vendor list export is available through the dashboard routes.
+
+### 1) Queue vendor export
+
+- Method: `POST`
+- Path: `/api/v1/dashboard/export_vendors`
+- Auth: `ADMIN`
+
+Example response:
+
+```json
+{
+  "success": true,
+  "statusCode": 202,
+  "message": "Vendor XLSX export queued successfully",
+  "data": {
+    "jobId": "64f8d2d9b2d4d9c2f1a0b1c2",
+    "status": "waiting",
+    "progress": 0
+  }
+}
+```
+
+### 2) Check export status
+
+- Method: `GET`
+- Path: `/api/v1/dashboard/export_vendors/:jobId/status`
+- Auth: `ADMIN`
+
+Example response:
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Vendor export status fetched successfully",
+  "data": {
+    "jobId": "64f8d2d9b2d4d9c2f1a0b1c2",
+    "status": "completed",
+    "progress": 100,
+    "rowCount": 1250,
+    "expiresAt": "2026-07-02T10:30:00.000Z",
+    "downloadUrl": "/api/v1/dashboard/export_vendors/64f8d2d9b2d4d9c2f1a0b1c2/download"
+  }
+}
+```
+
+### 3) Download exported XLSX file
+
+- Method: `GET`
+- Path: `/api/v1/dashboard/export_vendors/:jobId/download`
+- Auth: `ADMIN`
+- Response: binary Excel file (`.xlsx`)
+
+Example response headers:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="vendors-64f8d2d9b2d4d9c2f1a0b1c2.xlsx"
+```
+
+> The export file is available for about 1 hour after generation, then it expires and must be regenerated.
+
 ## Payments and Webhooks
 
 Stripe promotion flow:
