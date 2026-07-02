@@ -1,0 +1,116 @@
+components:
+  schemas:
+    DealCreateRequest:
+      type: object
+      required:
+        - title
+        - regular_price
+        - discount
+        - description
+      properties:
+        title:
+          type: string
+          example: Weekend Offer
+        regular_price:
+          type: number
+          example: 100
+        discount:
+          type: number
+          example: 20
+        discount_type:
+          type: string
+          example: percent
+        minimum_purchase:
+          type: number
+          example: 50
+        highlight:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          example: Limited festival discount
+        files:
+          type: array
+          items:
+            type: string
+            format: binary
+        qr:
+          type: string
+          format: binary
+        upc:
+          type: string
+          format: binary
+        coupon:
+          type: string
+          example: SAVE20
+        coupon_required:
+          type: boolean
+          example: true
+        coupon_option:
+          type: object
+          properties:
+            qr:
+              type: string
+            upc:
+              type: string
+        nationwide:
+          type: boolean
+          example: false
+        available_in_location:
+          type: array
+          items:
+            type: string
+            example: 6507c9f2a4b3c12d5e6f7890
+
+    DealUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        files:
+          type: array
+          items:
+            type: string
+            format: binary
+        qr:
+          type: string
+          format: binary
+        upc:
+          type: string
+          format: binary
+        coupon_required:
+          type: boolean
+
+    DealAnalyticsResponse:
+      type: object
+      properties:
+        dealId:
+          type: string
+          example: 6507c9f2a4b3c12d5e6f7890
+        views:
+          type: integer
+          example: 150
+
+  responses:
+    DealListResponse:
+      description: List of deals
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  example: 6507c9f2a4b3c12d5e6f7890
+                title:
+                  type: string
+                  example: Weekend Offer

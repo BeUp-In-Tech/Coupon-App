@@ -1,0 +1,9 @@
+HealthApi:
+  get:
+    tags:
+      - Health
+    summary: Check server health
+    description: Returns the current health status of the server.
+    responses:
+      '200':
+        $ref: '../schemas/health.schema.yaml#/components/responses/HealthSuccessResponse'

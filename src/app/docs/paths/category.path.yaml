@@ -1,0 +1,81 @@
+CategoryCreateApi:
+  post:
+    tags:
+      - Category
+    security:
+      - bearerAuth: []
+    summary: Create a new category
+    description: Creates a category with an optional image.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../schemas/category.schema.yaml#/components/schemas/CategoryCreateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+CategoryListApi:
+  get:
+    tags:
+      - Category
+    summary: List all categories
+    description: Returns all available categories.
+    responses:
+      '200':
+        $ref: '../schemas/category.schema.yaml#/components/responses/CategoryListResponse'
+
+CategoryUpdateApi:
+  patch:
+    tags:
+      - Category
+    security:
+      - bearerAuth: []
+    summary: Update a category
+    description: Updates an existing category by ID.
+    parameters:
+      - in: path
+        name: categoryId
+        required: true
+        schema:
+          type: string
+        description: Category ID.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../schemas/category.schema.yaml#/components/schemas/CategoryUpdateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+CategoryDeleteApi:
+  delete:
+    tags:
+      - Category
+    security:
+      - bearerAuth: []
+    summary: Delete a category
+    description: Deletes a category by ID.
+    parameters:
+      - in: path
+        name: categoryId
+        required: true
+        schema:
+          type: string
+        description: Category ID.
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'

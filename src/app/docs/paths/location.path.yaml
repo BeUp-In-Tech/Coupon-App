@@ -1,0 +1,108 @@
+LocationSuggestionsApi:
+  get:
+    tags:
+      - Location
+    summary: Get location suggestions
+    description: Returns autocomplete suggestions for a location query.
+    parameters:
+      - in: query
+        name: query
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../schemas/location.schema.yaml#/components/responses/LocationListResponse'
+
+LocationBulkTemplateApi:
+  get:
+    tags:
+      - Location
+    security:
+      - bearerAuth: []
+    summary: Download bulk location template
+    description: Returns a CSV/XLSX template for bulk location upload.
+    responses:
+      '200':
+        description: Template file download.
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+LocationBulkPreviewApi:
+  post:
+    tags:
+      - Location
+    security:
+      - bearerAuth: []
+    summary: Preview bulk location upload
+    description: Uploads a file and returns a parsed preview of locations.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../schemas/location.schema.yaml#/components/schemas/BulkLocationPreviewRequest'
+    responses:
+      '200':
+        $ref: '../schemas/location.schema.yaml#/components/responses/LocationListResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+LocationBulkConfirmApi:
+  post:
+    tags:
+      - Location
+    security:
+      - bearerAuth: []
+    summary: Confirm bulk location upload
+    description: Confirms and saves a previously previewed bulk location batch.
+    parameters:
+      - in: path
+        name: batchId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+LocationCreateApi:
+  post:
+    tags:
+      - Location
+    security:
+      - bearerAuth: []
+    summary: Create a single location
+    description: Creates a new location for the authenticated vendor.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/location.schema.yaml#/components/schemas/LocationCreateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+LocationUpdateApi:
+  patch:
+    tags:
+      - Location
+    security:
+      - bearerAuth: []
+    summary: Update the authenticated vendor location
+    description: Updates the location of the authenticated vendor.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/location.schema.yaml#/components/schemas/LocationUpdateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'

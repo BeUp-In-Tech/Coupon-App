@@ -75,6 +75,11 @@ components:
 
     AuthLoginSuccessResponse:
       type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - trace_id
       properties:
         success:
           type: boolean
@@ -87,19 +92,24 @@ components:
           example: Login success
         trace_id:
           type: string
-          example: your request trace id
+          example: req-trace-id
         data:
           type: object
           properties:
             accessToken:
               type: string
-              example: access token
+              example: access-token
             refreshToken:
               type: string
-              example: refresh token
+              example: refresh-token
 
     AuthGenericSuccessResponse:
       type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - trace_id
       properties:
         success:
           type: boolean
@@ -109,29 +119,29 @@ components:
           example: 200
         message:
           type: string
-          example: Success
+          example: Operation completed successfully
         trace_id:
           type: string
-          example: your request trace id
+          example: req-trace-id
         data:
-          type: string
+          nullable: true
           example: null
 
   responses:
     LoginSuccess:
-      description: Success response example
+      description: Login completed successfully.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/AuthLoginSuccessResponse'
     SuccessWithNull:
-      description: Success response example
+      description: Operation completed successfully and returned no payload.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/AuthGenericSuccessResponse'
     SuccessWithData:
-      description: Success response example
+      description: Authentication response with access and refresh tokens.
       content:
         application/json:
           schema:

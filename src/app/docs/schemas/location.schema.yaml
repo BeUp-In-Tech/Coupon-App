@@ -1,0 +1,58 @@
+components:
+  schemas:
+    LocationSuggestionQuery:
+      type: object
+      properties:
+        query:
+          type: string
+          example: Dhaka
+
+    BulkLocationPreviewRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+
+    LocationCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Main Outlet
+        address:
+          type: string
+          example: 10 Downtown Street
+        latitude:
+          type: number
+          example: 23.8103
+        longitude:
+          type: number
+          example: 90.4125
+
+    LocationUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+
+  responses:
+    LocationListResponse:
+      description: List of locations
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  example: 6507c9f2a4b3c12d5e6f7890
+                name:
+                  type: string
+                  example: Main Outlet

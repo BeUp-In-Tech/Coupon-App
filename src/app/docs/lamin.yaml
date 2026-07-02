@@ -50,10 +50,74 @@ paths:
     $ref: './paths/auth.path.yaml#/AppleLoginApi'
   /auth/apple/callback:
     $ref: './paths/auth.path.yaml#/AppleCallbackApi'
+  /user/register:
+    $ref: './paths/user.path.yaml#/UserRegisterApi'
+  /user/:
+    $ref: './paths/user.path.yaml#/UserUpdateApi'
+  /user/get_me:
+    $ref: './paths/user.path.yaml#/UserGetMeApi'
+  /user/verification_otp:
+    $ref: './paths/user.path.yaml#/UserVerificationOtpApi'
+  /user/verify_profile:
+    $ref: './paths/user.path.yaml#/UserVerifyProfileApi'
+  /user/delete_account:
+    $ref: './paths/user.path.yaml#/UserDeleteAccountApi'
+  /user/register_fcm:
+    $ref: './paths/user.path.yaml#/UserRegisterFcmApi'
+  /user/unregister_fcm:
+    $ref: './paths/user.path.yaml#/UserUnregisterFcmApi'
+  /user/get_device:
+    $ref: './paths/user.path.yaml#/UserGetDeviceApi'
+  /category/:
+    $ref: './paths/category.path.yaml#/CategoryCreateApi'
+  /category:
+    $ref: './paths/category.path.yaml#/CategoryListApi'
+  /category/{categoryId}:
+    $ref: './paths/category.path.yaml#/CategoryUpdateApi'
+  /category/{categoryId}/delete:
+    $ref: './paths/category.path.yaml#/CategoryDeleteApi'
+  /service/:
+    $ref: './paths/deal.path.yaml#/DealCreateApi'
+  /service/deals/location:
+    $ref: './paths/deal.path.yaml#/DealSearchByLocationApi'
+  /service/deals/all_deals/{lng}/{lat}:
+    $ref: './paths/deal.path.yaml#/DealAllDealsApi'
+  /service/deals/analytic/{dealId}:
+    $ref: './paths/deal.path.yaml#/DealAnalyticsApi'
+  /service/deals/{lng}/{lat}:
+    $ref: './paths/deal.path.yaml#/DealNearestApi'
+  /service/my_deals:
+    $ref: './paths/deal.path.yaml#/MyDealsApi'
+  /service/saved:
+    $ref: './paths/deal.path.yaml#/SavedDealsApi'
+  /service/{dealId}/{lng}/{lat}:
+    $ref: './paths/deal.path.yaml#/DealByIdApi'
+  /service/c/{categoryId}:
+    $ref: './paths/deal.path.yaml#/DealsByCategoryApi'
+  /service/{dealId}:
+    $ref: './paths/deal.path.yaml#/DeleteDealApi'
+  /service/{dealId}/update:
+    $ref: './paths/deal.path.yaml#/UpdateDealApi'
+  /service/top_viewed_deals:
+    $ref: './paths/deal.path.yaml#/TopViewedDealsApi'
+  /health/:
+    $ref: './paths/health.path.yaml#/HealthApi'
+  /locations/suggestions:
+    $ref: './paths/location.path.yaml#/LocationSuggestionsApi'
+  /locations/bulk/template:
+    $ref: './paths/location.path.yaml#/LocationBulkTemplateApi'
+  /locations/bulk/preview:
+    $ref: './paths/location.path.yaml#/LocationBulkPreviewApi'
+  /locations/bulk/{batchId}/confirm:
+    $ref: './paths/location.path.yaml#/LocationBulkConfirmApi'
+  /locations/:
+    $ref: './paths/location.path.yaml#/LocationCreateApi'
+  /locations:
+    $ref: './paths/location.path.yaml#/LocationUpdateApi'
 
 
 
 components:
-  securitySchemas:
+  securitySchemes:
     bearerAuth:
       $ref: './security.yaml#/BearerAuth'

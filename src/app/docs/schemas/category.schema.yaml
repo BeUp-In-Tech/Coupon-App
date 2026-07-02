@@ -1,0 +1,55 @@
+components:
+  schemas:
+    CategoryCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Food
+        description:
+          type: string
+          example: Deals for food and restaurants
+        file:
+          type: string
+          format: binary
+
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Updated Food
+        description:
+          type: string
+          example: Updated description
+        file:
+          type: string
+          format: binary
+
+    CategoryResponse:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 6507c9f2a4b3c12d5e6f7890
+        name:
+          type: string
+          example: Food
+        description:
+          type: string
+          example: Deals for food and restaurants
+        image:
+          type: string
+          example: https://example.com/category.jpg
+
+  responses:
+    CategoryListResponse:
+      description: List of categories
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/CategoryResponse'

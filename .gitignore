@@ -10,4 +10,5 @@ test
 export
 .agents
 .codex
+.kiro
 location-set-system-codex-plan.md

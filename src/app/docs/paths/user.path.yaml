@@ -1,0 +1,159 @@
+UserRegisterApi:
+  post:
+    tags:
+      - User
+    summary: Register a new user
+    description: Register a new user account.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.schema.yaml#/components/schemas/UserRegisterRequest'
+    responses:
+      '201':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserRegisterSuccessResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+
+UserUpdateApi:
+  patch:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Update authenticated user profile
+    description: Updates the authenticated user profile with a partial payload.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.schema.yaml#/components/schemas/UserUpdateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UserGetMeApi:
+  get:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Get authenticated user profile
+    description: Returns the profile of the logged-in user.
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserSuccessResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UserVerificationOtpApi:
+  post:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Send profile verification OTP
+    description: Sends a verification OTP to the user's email.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.schema.yaml#/components/schemas/UserVerificationOtpRequest'
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserGenericSuccessResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UserVerifyProfileApi:
+  post:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Verify user profile with OTP
+    description: Confirms the user's email using the provided OTP.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.schema.yaml#/components/schemas/UserVerifyProfileRequest'
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserGenericSuccessResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+
+UserDeleteAccountApi:
+  delete:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Delete authenticated user account
+    description: Permanently deletes the authenticated user account.
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserDeleteResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UserRegisterFcmApi:
+  post:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Register FCM token
+    description: Registers a device FCM push token for the authenticated user.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.schema.yaml#/components/schemas/UserFcmTokenRequest'
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserGenericSuccessResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UserUnregisterFcmApi:
+  patch:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Unregister FCM token
+    description: Deactivates a previously registered device FCM token.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.schema.yaml#/components/schemas/UserFcmTokenRequest'
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserGenericSuccessResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UserGetDeviceApi:
+  get:
+    tags:
+      - User
+    security:
+      - bearerAuth: []
+    summary: Get registered devices
+    description: Returns the list of devices registered for the authenticated user.
+    responses:
+      '200':
+        $ref: '../schemas/user.schema.yaml#/components/responses/UserDeviceListSuccessResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'

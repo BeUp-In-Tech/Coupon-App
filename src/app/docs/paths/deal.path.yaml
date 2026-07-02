@@ -1,0 +1,240 @@
+DealCreateApi:
+  post:
+    tags:
+      - Deal
+    security:
+      - bearerAuth: []
+    summary: Create a new deal
+    description: Creates a promotional deal with optional coupon and media assets.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../schemas/deal.schema.yaml#/components/schemas/DealCreateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+DealSearchByLocationApi:
+  get:
+    tags:
+      - Deal
+    summary: Search deals by location
+    description: Returns deals near a requested location.
+    parameters:
+      - in: query
+        name: location
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+      - in: query
+        name: limit
+        schema:
+          type: integer
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+
+DealAllDealsApi:
+  get:
+    tags:
+      - Deal
+    summary: Get all deals near coordinates
+    description: Returns all deals around the given coordinates.
+    parameters:
+      - in: path
+        name: lng
+        required: true
+        schema:
+          type: number
+      - in: path
+        name: lat
+        required: true
+        schema:
+          type: number
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+
+DealAnalyticsApi:
+  get:
+    tags:
+      - Deal
+    security:
+      - bearerAuth: []
+    summary: Get deal analytics
+    description: Returns analytics for a specific deal.
+    parameters:
+      - in: path
+        name: dealId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+DealNearestApi:
+  get:
+    tags:
+      - Deal
+    summary: Get nearest deals
+    description: Returns nearest deals for the supplied coordinates.
+    parameters:
+      - in: path
+        name: lng
+        required: true
+        schema:
+          type: number
+      - in: path
+        name: lat
+        required: true
+        schema:
+          type: number
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+
+MyDealsApi:
+  get:
+    tags:
+      - Deal
+    security:
+      - bearerAuth: []
+    summary: Get my deals
+    description: Returns all deals belonging to the authenticated vendor.
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+SavedDealsApi:
+  get:
+    tags:
+      - Deal
+    summary: Get saved deals
+    description: Returns deals for the supplied comma-separated IDs.
+    parameters:
+      - in: query
+        name: ids
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+
+DealByIdApi:
+  get:
+    tags:
+      - Deal
+    summary: Get deal by ID
+    description: Returns a single deal with distance context.
+    parameters:
+      - in: path
+        name: dealId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: lng
+        required: true
+        schema:
+          type: number
+      - in: path
+        name: lat
+        required: true
+        schema:
+          type: number
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+
+DealsByCategoryApi:
+  get:
+    tags:
+      - Deal
+    summary: Get deals by category
+    description: Returns deals filtered by category ID.
+    parameters:
+      - in: path
+        name: categoryId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+
+DeleteDealApi:
+  delete:
+    tags:
+      - Deal
+    security:
+      - bearerAuth: []
+    summary: Delete a deal
+    description: Deletes a deal by ID.
+    parameters:
+      - in: path
+        name: dealId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+UpdateDealApi:
+  patch:
+    tags:
+      - Deal
+    security:
+      - bearerAuth: []
+    summary: Update a deal
+    description: Updates an existing deal using multipart form data.
+    parameters:
+      - in: path
+        name: dealId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../schemas/deal.schema.yaml#/components/schemas/DealUpdateRequest'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+TopViewedDealsApi:
+  get:
+    tags:
+      - Deal
+    security:
+      - bearerAuth: []
+    summary: Get top viewed deals
+    description: Returns the vendor's top viewed deals.
+    responses:
+      '200':
+        $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'

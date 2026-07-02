@@ -1,0 +1,24 @@
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Server is healthy
+        trace_id:
+          type: string
+          example: request-trace-id
+  responses:
+    HealthSuccessResponse:
+      description: Server health check completed successfully.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HealthResponse'

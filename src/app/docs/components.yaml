@@ -1,7 +1,12 @@
 components:
   schemas:
-    success:
+    successEnvelope:
       type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - trace_id
       properties:
         success:
           type: boolean
@@ -9,13 +14,22 @@ components:
         statusCode:
           type: integer
           example: 200
-        message: "Something is success"
-        trace_id: "Your request tracing id"
-        data: 
-          type: array
-          example: []
-    unauthorized:
+        message:
+          type: string
+          example: Operation completed successfully
+        trace_id:
+          type: string
+          example: req-trace-id
+        data:
+          nullable: true
+          example: null
+    unauthorizedError:
       type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - trace_id
       properties:
         success:
           type: boolean
@@ -25,24 +39,28 @@ components:
           example: 401
         message:
           type: string
-          example: <Request error message>
+          example: Unauthorized access
         trace_id:
           type: string
-          example: Your request tracing id
+          example: req-trace-id
+        errorSources:
+          type: array
+          items:
+            type: object
+          example: []
         err:
-          type: object
-          properties:
-            statusCode:
-              type: integer
-              example: 401
-            module:
-              type: string
-              example: auth
+          nullable: true
+          example: null
         stack:
-          type: string
-          example: Error stack
-    badRequest:
+          nullable: true
+          example: null
+    badRequestError:
       type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - trace_id
       properties:
         success:
           type: boolean
@@ -52,44 +70,80 @@ components:
           example: 400
         message:
           type: string
-          example: <Request error message>
+          example: Invalid request payload
         trace_id:
           type: string
-          example: Your request tracing id
+          example: req-trace-id
+        errorSources:
+          type: array
+          items:
+            type: object
+          example: []
         err:
-          type: object
-          properties:
-            statusCode:
-              type: integer
-              example: 400
-            module:
-              type: string
-              example: auth
+          nullable: true
+          example: null
         stack:
+          nullable: true
+          example: null
+    notFoundError:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - trace_id
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 404
+        message:
           type: string
-          example: Error stack
+          example: Resource not found
+        trace_id:
+          type: string
+          example: req-trace-id
+        errorSources:
+          type: array
+          items:
+            type: object
+          example: []
+        err:
+          nullable: true
+          example: null
+        stack:
+          nullable: true
+          example: null
   responses:
     successResponse:
-      description: "This is a success request example"
+      description: Standard success envelope returned by the API.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/success'
+            $ref: '#/components/schemas/successEnvelope'
+    createdResponse:
+      description: Resource created successfully.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/successEnvelope'
     unauthorizeResponse:
-      description: "This is a unauthorize request example"
+      description: Authentication failed or token missing/invalid.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/unauthorized'
+            $ref: '#/components/schemas/unauthorizedError'
     badRequestResponse:
-      description: "This is a bad request example"
+      description: Validation or business-rule error.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/badRequest'
+            $ref: '#/components/schemas/badRequestError'
     notFoundResponse:
-      description: "This is a not found example"
+      description: Requested resource was not found.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/badRequest'
+            $ref: '#/components/schemas/notFoundError'
