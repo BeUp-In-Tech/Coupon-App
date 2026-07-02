@@ -33,13 +33,13 @@ router.patch(
 router.get(
   '/analytics',
   checkAuth(Role.VENDOR),
-  shopController.getDealAnalytics
+  shopController.getShopAnalytics
 );
 // SHOP MONTHLY ANALYTICS
 router.get(
   '/yearly_analytics',
   checkAuth(Role.VENDOR),
-  shopController.getPrevious3YearsMonthlyAnalytics
+  shopController.last30DaysStats
 );
 
 export const shopRouter = router;

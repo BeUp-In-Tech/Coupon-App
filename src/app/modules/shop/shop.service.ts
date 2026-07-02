@@ -428,7 +428,7 @@ const updateShopService = async (
 };
 
 // SHOP ANALYTICS
-const getDealAnalyticsService = async (user: JwtPayload) => {
+const getShopAnalyticsService = async (user: JwtPayload) => {
   const userObjectId = new mongoose.Types.ObjectId(user.userId);
 
   if (user.role !== Role.VENDOR) {
@@ -509,8 +509,8 @@ const getDealAnalyticsService = async (user: JwtPayload) => {
   };
 };
 
-// YEARLY ANALYTICS - 3 YEARS PERIODIC
-const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
+// LAST 30 DAYS DAILY ANALYTICS
+const last30DaysStats = async (user: JwtPayload) => {
   const userObjectId = new mongoose.Types.ObjectId(user.userId);
 
   if (user.role !== Role.VENDOR) {
@@ -527,11 +527,12 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
 
   const dealIds = deals.map((d) => d._id);
 
-  const currentYear = new Date().getFullYear();
-  const startYear = currentYear - 2;
+  const endDate = new Date();
+  endDate.setHours(23, 59, 59, 999);
 
-  const startDate = new Date(`${startYear}-01-01`);
-  const endDate = new Date(`${currentYear}-12-31`);
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 29);
+  startDate.setHours(0, 0, 0, 0);
 
   const stats = await Views_Impressions.aggregate([
     {
@@ -542,17 +543,15 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
     },
     {
       $project: {
-        year: { $year: '$createdAt' },
-        month: { $month: '$createdAt' },
+        date: {
+          $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+        },
         type: 1,
       },
     },
     {
       $group: {
-        _id: {
-          year: '$year',
-          month: '$month',
-        },
+        _id: '$date',
         views: {
           $sum: {
             $cond: [{ $eq: ['$type', 'view'] }, 1, 0],
@@ -567,29 +566,38 @@ const getPrevious3YearsMonthlyAnalytics = async (user: JwtPayload) => {
     },
     {
       $sort: {
-        '_id.year': 1,
-        '_id.month': 1,
+        _id: 1,
       },
     },
   ]);
 
-  const result: Record<
-    string,
-    { month: number; views: number; impressions: number }[]
-  > = {};
+  const statsMap = new Map(
+    stats.map((item) => [
+      item._id,
+      {
+        views: item.views,
+        impressions: item.impressions,
+      },
+    ])
+  );
 
-  for (let y = startYear; y <= currentYear; y++) {
-    result[y] = [];
+  const result: { date: string; views: number; impressions: number }[] = [];
 
-    for (let m = 1; m <= 12; m++) {
-      const data = stats.find((s) => s._id.year === y && s._id.month === m);
+  for (let i = 29; i >= 0; i--) {
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + i);
 
-      result[y].push({
-        month: m,
-        views: data?.views || 0,
-        impressions: data?.impressions || 0,
-      });
-    }
+    const dateKey = currentDate.toISOString().split('T')[0];
+    const dayStats = statsMap.get(dateKey) || {
+      views: 0,
+      impressions: 0,
+    };
+
+    result.push({
+      date: dateKey,
+      views: dayStats.views,
+      impressions: dayStats.impressions,
+    });
   }
 
   return result;
@@ -599,6 +607,6 @@ export const shopServices = {
   createShopService,
   getShopDetailsService,
   updateShopService,
-  getDealAnalyticsService,
-  getPrevious3YearsMonthlyAnalytics,
+  getShopAnalyticsService,
+  last30DaysStats,
 };

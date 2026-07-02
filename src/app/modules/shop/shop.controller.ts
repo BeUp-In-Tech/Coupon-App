@@ -61,10 +61,10 @@ const updateShop = CatchAsync(async (req: Request, res: Response, next: NextFunc
 });
 
 
-const getDealAnalytics = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const getShopAnalytics = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
  
-    const result = await shopServices.getDealAnalyticsService(user);
+    const result = await shopServices.getShopAnalyticsService(user);
     SendResponse(res, {
         success: true,
         statusCode: StatusCodes.OK,
@@ -75,11 +75,11 @@ const getDealAnalytics = CatchAsync(async (req: Request, res: Response, next: Ne
 });
 
 
-const getPrevious3YearsMonthlyAnalytics = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
+const last30DaysStats = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as JwtPayload;
     // const year = Number(req.query.year);
    
-    const result = await shopServices.getPrevious3YearsMonthlyAnalytics(user);
+    const result = await shopServices.last30DaysStats(user);
 
      SendResponse(res, {
         success: true,
@@ -97,6 +97,6 @@ export const shopController = {
     createShop,
     getShopDetails,
     updateShop,
-    getDealAnalytics,
-    getPrevious3YearsMonthlyAnalytics
+    getShopAnalytics,
+    last30DaysStats
 }
