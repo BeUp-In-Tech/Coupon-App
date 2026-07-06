@@ -6,6 +6,7 @@ import { StatusCodes } from "http-status-codes";
 import { dealsServices } from "./deal.service";
 import { JwtPayload } from "jsonwebtoken";
 import { SearchDealsByLocationQuerySchema } from "./deal.validate";
+import { dealLogger } from "../../utils/logger/logger.child";
 
 
 export interface MulterRequest extends Request {

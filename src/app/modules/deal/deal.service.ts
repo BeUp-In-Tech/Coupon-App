@@ -1999,11 +1999,23 @@ const dealAnalyticsService = async (authUserId: string, dealId: string) => {
       },
     },
   ]);
+  
+  
+  const meta: {impression: number, views: number} = { impression: 0, views: 0};
+  
+    stats.map((m: {_id: string, total: number}) => {
+      if (m._id === 'impression') {
+        meta.impression = m.total;
+      } else {
+        meta.views = m.total;
+      }
+    })
+
 
   return {
     ...isDealExist.toObject(),
-    totalViews: stats[0]?.total,
-    totalImpression: stats[1]?.total,
+    totalViews: meta.views,
+    totalImpression: meta.impression
   };
 };
 
