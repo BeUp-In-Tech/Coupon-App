@@ -125,7 +125,6 @@ const getMeService = async (userId: string) => {
     isVerified: _user.isVerified,
     role: _user.role,
     isActive: _user.isActive,
-    deviceTokens: _user.deviceTokens,
     isShopCreated: isShopExist ? true : false
   }
 
