@@ -594,7 +594,37 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
         zip_code: 1,
         location: 1,
         label: {
-          $concat: ['$_id.city', ', ', '$_id.state'],
+          $let: {
+            vars: {
+              city: { $ifNull: ['$_id.city', ''] },
+              state: { $ifNull: ['$_id.state', ''] },
+            },
+            in: {
+              $cond: [
+                {
+                  $and: [
+                    { $gt: [{ $strLenCP: '$$city' }, 0] },
+                    { $gt: [{ $strLenCP: '$$state' }, 0] },
+                  ],
+                },
+                { $concat: ['$$city', ', ', '$$state'] },
+                {
+                  $cond: [
+                    { $gt: [{ $strLenCP: '$$city' }, 0] },
+                    '$$city',
+                    '$$state',
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $gte: [{ $strLenCP: '$label' }, 3],
         },
       },
     },
