@@ -208,43 +208,6 @@ const getSingleDealsService = async (
 ) => {
   const dealId = new mongoose.Types.ObjectId(_dealId);
 
-  const getNearestShopLocation = async (
-    shopId: Types.ObjectId,
-    maxDistance?: number
-  ) => {
-    const pipeline: PipelineStage[] = [
-      {
-        $geoNear: {
-          near: {
-            type: 'Point',
-            coordinates: [lng, lat],
-          },
-          distanceField: 'distance',
-          spherical: true,
-          key: 'location',
-          query: {
-            shop: shopId,
-            isActive: true,
-          },
-          ...(maxDistance ? { maxDistance } : {}),
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          name: '$location_name',
-          address: 1,
-          location: 1,
-          distance: 1,
-        },
-      },
-      { $limit: 1 },
-    ];
-
-    const [nearestLocation] = await Location.aggregate(pipeline);
-    return nearestLocation;
-  };
-
   // IF DEAL NOT FOUND
   const deal = await DealModel.findOne({
     _id: dealId,
@@ -260,71 +223,6 @@ const getSingleDealsService = async (
     deal: dealId,
     type: 'view',
   });
-
-  if (deal.nationwide) {
-    const nearestLocationWithinRadius = await getNearestShopLocation(
-      deal.shop,
-      200 * 1000
-    );
-    const nearestLocation =
-      nearestLocationWithinRadius ?? (await getNearestShopLocation(deal.shop));
-
-    const nationwideDeal = await DealModel.aggregate([
-      {
-        $match: {
-          _id: dealId,
-          nationwide: true,
-          ...visibleDealFilter,
-        },
-      },
-      {
-        $addFields: {
-          available_location: {
-            $literal: nearestLocation ? [nearestLocation] : [],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'category',
-        },
-      },
-      { $unwind: '$category' },
-      {
-        $lookup: {
-          from: 'shops',
-          localField: 'shop',
-          foreignField: '_id',
-          as: 'shop',
-        },
-      },
-      { $unwind: '$shop' },
-      {
-        $project: {
-          available_in_location: 0,
-          activePromotion: 0,
-          'category.createdAt': 0,
-          'category.updatedAt': 0,
-          'shop.vendor': 0,
-          'shop.description': 0,
-          'shop.business_phone': 0,
-          'shop.business_email': 0,
-          'shop.updatedAt': 0,
-          'shop.createdAt': 0,
-          'shop.__v': 0,
-        },
-      },
-    ]);
-
-    if (nationwideDeal[0]) {
-      return nationwideDeal[0];
-    }
-
-    throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
-  }
 
   const deals = await Location.aggregate([
     // FIND OUTLETS NEAR USER

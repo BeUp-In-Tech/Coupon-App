@@ -17,8 +17,7 @@ import {
   createLocationFingerprint,
   parseBulkLocationFile,
 } from './locationBulkUpload.utility';
-import { JwtPayload } from 'jsonwebtoken';
-import { LoggerModule } from '../../utils/logger/logger.child';
+import { locationLogger, LoggerModule } from '../../utils/logger/logger.child';
 import { DealModel } from '../deal/deal.model';
 
 interface ILocationPayload extends ILocation {
@@ -144,21 +143,46 @@ const updateLocationService = async (
 };
 
 // DELETE LOCATION
-const deleteLocation = async (user: JwtPayload, locationId: string, shopId: string) => {
+const deleteLocation = async (userId: string, locationId: string, shopId: string) => {
   const locationObjectId = new Types.ObjectId(locationId);
-  const shop = await Shop.findOne({_id: shopId, vendor: user.userId });
+  const shop = await Shop.findOne({ _id: shopId, vendor: userId });
+
+  locationLogger.debug(shop);
   if (!shop) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.LOCATION);
   }
-  
+
   const filter = { _id: locationObjectId, shop: shop._id };
   const location = await Location.findOne(filter);
   if (!location) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Location not found', LoggerModule.LOCATION);
   }
 
-  const deleteLocation = await Location.deleteOne(filter);
-  if (deleteLocation) {
+  const dealsUsingLocation = await DealModel.find({
+    available_in_location: locationObjectId,
+    nationwide: { $ne: true },
+  })
+    .select('_id available_in_location')
+    .lean();
+
+  const blockingDeals = dealsUsingLocation.filter((deal) => {
+    const remainingLocations = (deal.available_in_location ?? []).filter(
+      (id) => id.toString() !== locationId
+    );
+
+    return remainingLocations.length === 0;
+  });
+
+  if (blockingDeals.length > 0) {
+    throw new AppError(
+      StatusCodes.CONFLICT,
+      'Cannot delete this location because it is the only available location for one or more deals. Add another location to the deal first.',
+      LoggerModule.LOCATION
+    );
+  }
+
+  const deleteLocationResult = await Location.deleteOne(filter);
+  if (deleteLocationResult.deletedCount > 0) {
     const removeFromDeal = await DealModel.updateMany(
       {
         available_in_location: locationObjectId,
@@ -169,14 +193,25 @@ const deleteLocation = async (user: JwtPayload, locationId: string, shopId: stri
         },
       }
     );
+
+    await redisClient.del(`shop:${shop._id.toString()}`);
+    await redisClient.del(`shop:${userId}`);
+    await redisClient.del('deals_by_category_stats');
+    await invalidateAllMachineryCache('machinery:*');
+    await invalidateAllMachineryCache('location_deals:*');
+    await invalidateAllMachineryCache('recent_deals:*');
+    await invalidateAllMachineryCache('deals_stats:*');
+    await invalidateAllMachineryCache('saved:*');
+    await invalidateAllMachineryCache(`my_deals-userId:${userId}:*`);
+
     return {
-      deleteLocation,
+      deleteLocation: deleteLocationResult,
       removeFromDeal,
-    }
-  } else {
-    return deleteLocation;
+    };
   }
-} 
+
+  return deleteLocationResult;
+};
 
 // VALIDATE THE ENTIRE FILE STAGE VALID ROWS WITHOUT WRITING LOCATIONS.
 const previewBulkLocationsService = async (
