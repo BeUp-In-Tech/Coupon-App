@@ -106,9 +106,9 @@ const updateUserService = async (user: JwtPayload, payload: Partial<IUser>) => {
 // 3. GET ME
 const getMeService = async (userId: string) => {
   const getRedisData = await redisClient.get(`user_me:${userId}`);
-  // if (getRedisData) {   
-  //   return JSON.parse(getRedisData);
-  // }
+  if (getRedisData) {   
+    return JSON.parse(getRedisData);
+  }
   
   const _user = await User.findById(userId).select('-password, -deviceTokens').lean();
   if (!_user) {

@@ -8,6 +8,7 @@ import {
   IStagedBulkLocationBatch,
 } from './location.interface';
 import { Location, Location as OutletModel } from './location.model';
+import { Types } from 'mongoose';
 import { redisClient } from '../../config/redis.config';
 import { randomUUID } from 'crypto';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
@@ -16,6 +17,9 @@ import {
   createLocationFingerprint,
   parseBulkLocationFile,
 } from './locationBulkUpload.utility';
+import { JwtPayload } from 'jsonwebtoken';
+import { LoggerModule } from '../../utils/logger/logger.child';
+import { DealModel } from '../deal/deal.model';
 
 interface ILocationPayload extends ILocation {
   coordinates?: [number, number];
@@ -138,6 +142,41 @@ const updateLocationService = async (
 
   return updateOutlet;
 };
+
+// DELETE LOCATION
+const deleteLocation = async (user: JwtPayload, locationId: string, shopId: string) => {
+  const locationObjectId = new Types.ObjectId(locationId);
+  const shop = await Shop.findOne({_id: shopId, vendor: user.userId });
+  if (!shop) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Shop not found', LoggerModule.LOCATION);
+  }
+  
+  const filter = { _id: locationObjectId, shop: shop._id };
+  const location = await Location.findOne(filter);
+  if (!location) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'Location not found', LoggerModule.LOCATION);
+  }
+
+  const deleteLocation = await Location.deleteOne(filter);
+  if (deleteLocation) {
+    const removeFromDeal = await DealModel.updateMany(
+      {
+        available_in_location: locationObjectId,
+      },
+      {
+        $pull: {
+          available_in_location: locationObjectId,
+        },
+      }
+    );
+    return {
+      deleteLocation,
+      removeFromDeal,
+    }
+  } else {
+    return deleteLocation;
+  }
+} 
 
 // VALIDATE THE ENTIRE FILE STAGE VALID ROWS WITHOUT WRITING LOCATIONS.
 const previewBulkLocationsService = async (
@@ -538,5 +577,6 @@ export const locationServices = {
   previewBulkLocationsService,
   confirmBulkLocationsService,
   generateBulkLocationTemplate,
-  getLocationSuggestions
+  getLocationSuggestions,
+  deleteLocation
 };

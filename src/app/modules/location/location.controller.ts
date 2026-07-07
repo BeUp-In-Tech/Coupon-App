@@ -96,6 +96,23 @@ const updateLocation = CatchAsync(
   }
 );
 
+const deleteLocation = CatchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const { userId } = req.user as JwtPayload;
+    const {locationId, shopId } = req.body;
+
+    const result = await locationServices.deleteLocation(userId, locationId, shopId);
+
+    SendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Location deleted',
+      trace_id: req.id as string,
+      data: result,
+    });
+  }
+);
+
 
 const getLocationSuggestions = CatchAsync(
   async (req: Request, res: Response, _next: NextFunction) => {
@@ -119,5 +136,6 @@ export const locationControllers = {
   confirmBulkLocations,
   createLocation,
   updateLocation,
-  getLocationSuggestions
+  getLocationSuggestions,
+  deleteLocation
 };

@@ -33,7 +33,7 @@ router.post(
   locationControllers.confirmBulkLocations
 );
 
-// CREATE Location
+// CREATE LOCATION
 router.post(
   '/',
   checkAuth(Role.VENDOR),
@@ -41,12 +41,19 @@ router.post(
   locationControllers.createLocation
 );
 
-// UPDATE Location
+// UPDATE LOCATION
 router.patch(
   '/',
   checkAuth(...Object.keys(Role)),
   validateRequest(locationUpdateZodSchema),
   locationControllers.updateLocation
+);
+
+// DELETE LOCATION
+router.delete(
+  '/',
+  checkAuth(...Object.keys(Role)),
+  locationControllers.deleteLocation
 );
 
 export const locationRouter = router;
