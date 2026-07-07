@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose, { Schema } from 'mongoose';
 import { IDeal } from './deal.interface';
-import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
+import { addImageDeleteJob } from '../../../utils/imageDeleteJobAdd';
 import { DealDiscountType } from './deal.constant';
 
 const dealSchema = new Schema<IDeal>(
@@ -41,6 +41,7 @@ const dealSchema = new Schema<IDeal>(
       default: DealDiscountType.PERCENT_OFF_PRICE,
     },
     minimum_purchase: { type: Number, min: 0 },
+    custom_discount: { type: String },
 
     highlight: {
       type: [String],

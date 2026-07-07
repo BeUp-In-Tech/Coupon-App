@@ -11,7 +11,7 @@ import { PaymentModel } from "./payment.model";
 import { PaymentFailureFilter, PaymentStatus } from "./payment.interface";
 import { addInvoiceGenerationJob, IInvoiceGenerationJobData } from "../../queue/job/invoice.job";
 import mongoose from "mongoose";
-import { DealModel } from "../deal/deal.model";
+import { DealModel } from "../deal/v1/deal.model";
 import { scheduleDealJobs } from "../../queue/job/deal.job";
 import { Voucher } from "../voucher/voucher.model";
 import { Shop } from "../shop/shop.model";

@@ -16,7 +16,7 @@ import { PaymentProvider, PaymentStatus } from './payment.interface';
 import env from '../../config/env';
 import Stripe from 'stripe';
 import { Request } from 'express'; 
-import { DealModel } from '../deal/deal.model';
+import { DealModel } from '../deal/v1/deal.model';
 import { dealHandleQueue } from '../../queue/index.queue';
 import { JobName } from '../../queue/worker/deal.worker';
 import { scheduleDealJobs } from '../../queue/job/deal.job';

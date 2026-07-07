@@ -8,7 +8,7 @@ import { ShopApproval } from '../../modules/shop/shop.interface';
 import { Shop } from '../../modules/shop/shop.model';
 import User from '../../modules/user/user.model';
 import { IUser } from '../../modules/user/user.interface';
-import { DealModel } from '../../modules/deal/deal.model';
+import { DealModel } from '../../modules/deal/v1/deal.model';
 import { PaymentModel } from '../../modules/payment/payment.model';
 
 // Keep database and workbook memory bounded while processing large exports.

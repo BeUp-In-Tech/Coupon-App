@@ -1,6 +1,6 @@
 import { JwtPayload } from 'jsonwebtoken';
-import { IDeal } from '../deal.interface';
-import { dealsServices } from '../deal.service';
+import { IDeal } from '../v1/deal.interface';
+import { dealsServices } from '../v1/deal.service';
 
 const createDealV2Service = async (params: {
   user: JwtPayload;

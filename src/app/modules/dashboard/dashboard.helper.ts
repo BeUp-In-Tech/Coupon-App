@@ -7,7 +7,7 @@ import { vendorExportQueue } from '../../queue/index.queue';
 import { redisClient } from "../../config/redis.config";
 import { invalidateAllMachineryCache } from "../../utils/deleteCachedData";
 import { isVendorExportPathSafe } from '../../utils/export/vendorExportWorkbook.utility';
-import { IDeal } from "../deal/deal.interface";
+import { IDeal } from "../deal/v1/deal.interface";
 
 // CACHE INVALIDATION HELPER
 export const invalidateDealVisibilityCache = async (deal: IDeal) => {

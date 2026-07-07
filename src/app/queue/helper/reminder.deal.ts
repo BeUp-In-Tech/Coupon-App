@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Types } from 'mongoose';
-import { DealModel } from './../../modules/deal/deal.model';
+import { DealModel } from '../../modules/deal/v1/deal.model';
 import { notifyUser } from '../../utils/notification/push.notification';
 import { NotificationType } from '../../modules/notification/notification.interface';
 import env from '../../config/env';

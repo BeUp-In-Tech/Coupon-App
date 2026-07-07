@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DealDiscountType } from '../deal.constant';
+import { DealDiscountType } from '../v1/deal.constant';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');
 const discountTypeSchema = z.nativeEnum(DealDiscountType);
@@ -16,6 +16,7 @@ const validatePricingAndRedemption = (
     discount?: number;
     discount_type?: DealDiscountType;
     minimum_purchase?: number;
+    custom_discount?: string;
     coupon_required?: boolean;
     coupon?: string;
     coupon_option?: { qr?: string; upc?: string };
@@ -89,6 +90,16 @@ const validatePricingAndRedemption = (
     });
   }
 
+  if (type === DealDiscountType.CUSTOM_DISCOUNT) {
+    if (!payload.custom_discount || !payload.custom_discount.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'custom_discount is required for custom discount deals',
+        path: ['custom_discount'],
+      });
+    }
+  }
+
   if (
     payload.coupon_required &&
     !payload.coupon &&
@@ -126,6 +137,7 @@ export const CreateDealV2ZodSchema = z
       DealDiscountType.PERCENT_OFF_PRICE
     ),
     minimum_purchase: z.number().positive().optional(),
+    custom_discount: z.string("Custom discount must be string").optional(),
     highlight: z.array(z.string().min(1).max(120)).max(20).default([]),
     tags: z.array(z.string().min(1).max(50)).max(20).default([]),
     description: z.string().trim().min(10).max(5000),
@@ -154,6 +166,7 @@ export const UpdateDealV2ZodSchema = z.object({
   discount: z.number().nonnegative().optional(),
   discount_type: discountTypeSchema.optional(),
   minimum_purchase: z.number().positive().optional(),
+  custom_discount: z.string("Custom discount must be string").optional(),
   highlight: z.array(z.string().min(1).max(120)).max(20).optional(),
   deletedHighlights: z.array(z.string().min(1).max(120)).max(20).optional(),
   tags: z.array(z.string().min(1).max(50)).max(20).optional(),

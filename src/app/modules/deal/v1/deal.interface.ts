@@ -8,10 +8,13 @@ export interface IDeal {
     user: Types.ObjectId;
     activePromotion?: Types.ObjectId;
     title: string;
+
     regular_price: number;
     discount: number;
     discount_type?: DealDiscountType;
     minimum_purchase?: number;
+    custom_discount?: string;
+
     highlight: string[];
     deletedHighlights?: [];
     tags: string[];
@@ -21,14 +24,17 @@ export interface IDeal {
     deletedImages: string[];
     isPromoted?: boolean;
     promotedUntil?: Date;
+
     coupon: string;
     coupon_required?: boolean;
     coupon_option: {
         qr?: string;
         upc?: string;
     }
+
     nationwide?: true | false;
     available_in_location?: [Types.ObjectId];
+
     isBanned?: boolean;
     ban_reason?: string;
     bannedAt?: Date;

@@ -2,8 +2,8 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { Location } from '../location/location.model';
 import { SendResponse } from '../../utils/SendResponse';
 import mongoose from 'mongoose';
-import { DealModel } from '../deal/deal.model';
-import { DealDiscountType } from '../deal/deal.constant';
+import { DealModel } from '../deal/v1/deal.model';
+import { DealDiscountType } from '../deal/v1/deal.constant';
 
 export const router = Router();
 

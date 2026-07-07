@@ -1,7 +1,7 @@
 import { PipelineStage } from "mongoose";
-import { SearchDealsByLocationQuery } from "./deal.validate";
-import { Views_Impressions } from "../views_impression/vi.model";
-import { dealLogger } from "../../utils/logger/logger.child";
+import { SearchDealsByLocationQuery } from "../deal.validate";
+import { Views_Impressions } from "../../views_impression/vi.model";
+import { dealLogger } from "../../../utils/logger/logger.child";
 import { Types } from "mongoose";
 
 

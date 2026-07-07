@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Types } from 'mongoose';
-import { DealModel } from '../../modules/deal/deal.model';
+import { DealModel } from '../../modules/deal/v1/deal.model';
 import { Promotion } from '../../modules/promotion/promotion.model';
 import { PromotionStatus } from '../../modules/promotion/promotion.interface';
 import { connectRedis, redisClient } from '../../config/redis.config';

@@ -12,7 +12,7 @@ import { Shop } from '../shop/shop.model';
 import { createUserTokens } from '../../utils/user.tokens';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
 import { Location as OutletModel } from '../location/location.model';
-import { DealModel } from '../deal/deal.model';
+import { DealModel } from '../deal/v1/deal.model';
 import { Promotion } from '../promotion/promotion.model';
 import { PaymentModel } from '../payment/payment.model';
 import { PaymentStatus } from '../payment/payment.interface';

@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextFunction, Request, Response } from "express";
-import { CatchAsync } from "../../utils/CatchAsync";
-import { SendResponse } from "../../utils/SendResponse";
+import { CatchAsync } from "../../../utils/CatchAsync";
+import { SendResponse } from "../../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
 import { dealsServices } from "./deal.service";
 import { JwtPayload } from "jsonwebtoken";
-import { SearchDealsByLocationQuerySchema } from "./deal.validate";
-import { dealLogger } from "../../utils/logger/logger.child";
+import { SearchDealsByLocationQuerySchema } from "../deal.validate";
+import { dealLogger } from "../../../utils/logger/logger.child";
 
 
 export interface MulterRequest extends Request {

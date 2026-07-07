@@ -1,26 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose, { Types, PipelineStage } from 'mongoose';
 import { JwtPayload } from 'jsonwebtoken';
-import { Shop } from '../shop/shop.model';
-import { Role } from '../user/user.interface';
-import AppError from '../../errorHelpers/AppError';
+import { Shop } from '../../shop/shop.model';
+import { Role } from '../../user/user.interface';
+import AppError from '../../../errorHelpers/AppError';
 import StatusCodes from 'http-status-codes';
 import { IDeal } from './deal.interface';
 import { DealModel } from './deal.model';
-import { Category } from '../categories/categories.model';
-import { QueryBuilder } from '../../utils/QueryBuilder';
-import { Location } from '../location/location.model';
-import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
-import { ShopApproval } from '../shop/shop.interface';
-import { redisClient } from '../../config/redis.config';
-import { Views_Impressions } from '../views_impression/vi.model';
-import { generateCacheKey } from '../../utils/cacheKeyGen';
-import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';
+import { Category } from '../../categories/categories.model';
+import { QueryBuilder } from '../../../utils/QueryBuilder';
+import { Location } from '../../location/location.model';
+import { addImageDeleteJob } from '../../../utils/imageDeleteJobAdd';
+import { ShopApproval } from '../../shop/shop.interface';
+import { redisClient } from '../../../config/redis.config';
+import { Views_Impressions } from '../../views_impression/vi.model';
+import { generateCacheKey } from '../../../utils/cacheKeyGen';
+import { invalidateAllMachineryCache } from '../../../utils/deleteCachedData';
 import crypto from 'crypto';
-import { sortObject } from '../../utils/sortObject';
-import { dealLogger, LoggerModule } from '../../utils/logger/logger.child';
-import { SearchDealsByLocationQuery } from './deal.validate';
-import { buildLocationDealsCacheKey, buildLocationEqualityCondition, buildLocationLabel, getDealListFacet, getDealLookupStage, getNationwideDealsUnionStage, recordDealImpressions, visibleDealFilter } from './deal.helper';
+import { sortObject } from '../../../utils/sortObject';
+import { dealLogger, LoggerModule } from '../../../utils/logger/logger.child';
+import { SearchDealsByLocationQuery } from '../deal.validate';
+import { 
+  buildLocationDealsCacheKey, 
+  buildLocationEqualityCondition, 
+  buildLocationLabel, 
+  getDealListFacet, 
+  getDealLookupStage, 
+  getNationwideDealsUnionStage, 
+  recordDealImpressions,
+  visibleDealFilter, 
+} from './deal.helper';
 import { DealDiscountType } from './deal.constant';
 
 
@@ -177,6 +186,7 @@ const createDealsService = async (params: {
       payload.discount_type === DealDiscountType.AMOUNT_OFF_PURCHASE
         ? payload.minimum_purchase
         : undefined,
+    custom_discount: payload.custom_discount,
 
     highlight,
     tags: payload.tags,
@@ -622,6 +632,8 @@ const updateDealsService = async (
   if (payload.regular_price !== undefined)
     updateData.regular_price = payload.regular_price;
   if (payload.discount !== undefined) updateData.discount = payload.discount;
+  if (payload.custom_discount !== undefined)
+    updateData.custom_discount = payload.custom_discount;
   if (options.v2 && payload.discount_type !== undefined)
     updateData.discount_type = payload.discount_type;
   if (options.v2 && payload.minimum_purchase !== undefined)

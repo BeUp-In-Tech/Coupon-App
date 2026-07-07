@@ -1,4 +1,4 @@
-import { IDeal } from "../../modules/deal/deal.interface";
+import { IDeal } from "../../modules/deal/v1/deal.interface";
 import { workerLogger } from "../../utils/logger/logger.child";
 import { dealHandleQueue } from "../index.queue";
 import { JobName } from "../worker/deal.worker";

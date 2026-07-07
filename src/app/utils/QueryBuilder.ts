@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete */
 import { Query } from 'mongoose';
-import { excludeField } from '../modules/deal/deal.constant';
+import { excludeField } from '../modules/deal/v1/deal.constant';
 
 export class QueryBuilder<T> {
   public queryModel: Query<T[], T>;

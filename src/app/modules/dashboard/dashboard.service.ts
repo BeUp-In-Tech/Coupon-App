@@ -6,7 +6,7 @@ import { redisClient } from '../../config/redis.config';
 import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { sendBulkEmails } from '../../queue/helper/multipleEmailSendJob';
 import { QueryBuilder } from '../../utils/QueryBuilder';
-import { DealModel } from '../deal/deal.model';
+import { DealModel } from '../deal/v1/deal.model';
 import { NotificationType } from '../notification/notification.interface';
 import { NotificationModel } from '../notification/notification.model';
 import { PaymentStatus } from '../payment/payment.interface';

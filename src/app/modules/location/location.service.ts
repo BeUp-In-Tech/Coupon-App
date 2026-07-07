@@ -18,7 +18,7 @@ import {
   parseBulkLocationFile,
 } from './locationBulkUpload.utility';
 import { locationLogger, LoggerModule } from '../../utils/logger/logger.child';
-import { DealModel } from '../deal/deal.model';
+import { DealModel } from '../deal/v1/deal.model';
 
 interface ILocationPayload extends ILocation {
   coordinates?: [number, number];

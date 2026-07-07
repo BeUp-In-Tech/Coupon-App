@@ -11,7 +11,7 @@ import { addImageDeleteJob } from '../../utils/imageDeleteJobAdd';
 import { redisClient } from '../../config/redis.config';
 import { NotificationType } from '../notification/notification.interface';
 import env from '../../config/env';
-import { DealModel } from '../deal/deal.model';
+import { DealModel } from '../deal/v1/deal.model';
 import { mailQueue, notificationQueue } from '../../queue/index.queue';
 import { Views_Impressions } from '../views_impression/vi.model';
 import { invalidateAllMachineryCache } from '../../utils/deleteCachedData';

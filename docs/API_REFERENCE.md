@@ -157,6 +157,8 @@ Create deal `data` example:
   "title": "50% Off Pasta",
   "regular_price": 20,
   "discount": 50,
+  "discount_type": "PERCENT_OFF_PRICE",
+  "custom_discount": "Special member pricing",
   "highlight": ["Dine in", "Dinner"],
   "tags": ["italian", "pasta"],
   "description": "Valid for all pasta items.",
@@ -189,9 +191,12 @@ Supported `discount_type` values:
   `minimum_purchase` is required.
 - `NO_DISCOUNT`: `discount` must be `0`.
 - `FREE`: `regular_price` and `discount` must be `0`.
+- `CUSTOM_DISCOUNT`: use `custom_discount` text to describe the discount.
 
 When `coupon_required` is `true`, provide at least one coupon code, QR, or UPC.
 When it is `false`, omit all coupon values.
+
+The optional `custom_discount` field may also be provided to store custom discount text or metadata for a deal.
 
 Legacy records can be backfilled once with:
 

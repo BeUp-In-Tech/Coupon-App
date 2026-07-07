@@ -4,7 +4,7 @@ import { vendorRoutes } from '../modules/user/user.routes';
 import { shopRouter } from '../modules/shop/shop.routes';
 import { categoryRouter } from '../modules/categories/categories.routes';
 import { locationRouter } from '../modules/location/location.routes';
-import { serviceRouter } from '../modules/deal/deal.routes';
+import { serviceRouter } from '../modules/deal/v1/deal.routes';
 import { planRouter } from '../modules/plan/plan.routes';
 import { voucherRouter } from '../modules/voucher/voucher.routes';
 import { paymentRouter } from '../modules/payment/payment.routes';

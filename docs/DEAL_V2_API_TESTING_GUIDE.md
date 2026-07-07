@@ -123,6 +123,7 @@ location ID.
 | Dollar Amount Off Purchase | `AMOUNT_OFF_PURCHASE` | Regular price, amount off, and minimum purchase | `$10` off a purchase of `$75` or more |
 | No Discount | `NO_DISCOUNT` | Regular price only | Price `$40`, customer pays `$40` |
 | Free | `FREE` | No editable price or discount input | Regular price `0`, customer pays `$0` |
+| Custom Discount | `CUSTOM_DISCOUNT` | Custom discount description text | Use custom discount messaging such as "Buy one, get one free" or "Exclusive member offer" |
 
 ### `PERCENT_OFF_PRICE`
 
@@ -220,6 +221,23 @@ Use this when the advertised product or service is completely free.
 
 The frontend should display **Free** instead of `$0` and hide or disable price
 and discount inputs.
+
+### `CUSTOM_DISCOUNT`
+
+Use this when the promotion requires custom text or messaging and does not fit
+standard percentage or fixed amount discount rules.
+
+```json
+{
+  "regular_price": 100,
+  "discount_type": "CUSTOM_DISCOUNT",
+  "discount": 0,
+  "custom_discount": "Exclusive member price: save $15 at checkout"
+}
+```
+
+The frontend should display the `custom_discount` text as the deal description
+or badge instead of a calculated percentage or fixed discount amount.
 
 ## 7. Create Tests
 
@@ -328,7 +346,26 @@ Do not attach `qr` or `upc`, and do not send `coupon` for this test.
 }
 ```
 
-### F. Multiple Coupon Methods
+### F. Custom Discount Deal
+
+```json
+{
+  "category": "<CATEGORY_ID>",
+  "title": "Exclusive Member Offer",
+  "regular_price": 100,
+  "discount_type": "CUSTOM_DISCOUNT",
+  "discount": 0,
+  "custom_discount": "Exclusive member price: save $15 at checkout",
+  "coupon_required": false,
+  "highlight": ["Member exclusive"],
+  "tags": ["custom"],
+  "description": "A custom discount offer with a special member-only message.",
+  "nationwide": true,
+  "available_in_location": []
+}
+```
+
+### G. Multiple Coupon Methods
 
 Use the percentage-off-price payload, keep `coupon_required: true`, include a
 coupon code, and attach both `qr` and `upc` files in Postman.
@@ -593,5 +630,6 @@ curl.exe -X POST "http://localhost:3002/api/v2/service" `
 - [ ] Invalid conditional values are rejected.
 - [ ] V2 update clears incompatible pricing fields.
 - [ ] V2 update clears coupon values when redemption is not required.
-- [ ] V1 read APIs return the new pricing and coupon fields.
+- [ ] V1 read APIs return the new pricing, coupon, and `custom_discount` fields.
+- [ ] V2 create/update supports `CUSTOM_DISCOUNT` and requires `custom_discount` text for that type.
 - [ ] Migration can be called twice without changing migrated records again.

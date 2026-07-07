@@ -3,7 +3,7 @@ import { JwtPayload } from 'jsonwebtoken';
 import { StatusCodes } from 'http-status-codes';
 import { CatchAsync } from '../../../utils/CatchAsync';
 import { SendResponse } from '../../../utils/SendResponse';
-import { IDeal } from '../deal.interface';
+import { IDeal } from '../v1/deal.interface';
 import { dealV2Services } from './deal.service';
 
 const createDeal = CatchAsync(async (req: Request, res: Response) => {
