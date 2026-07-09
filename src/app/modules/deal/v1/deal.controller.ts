@@ -130,6 +130,41 @@ const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
     })
 })
 
+/**
+ * Assembles HATEOAS hypermedia links for paginated deal search responses.
+ *
+ * - `self`  — always present; mirrors the current request URL exactly.
+ * - `next`  — present only when more pages follow (meta.page < meta.totalPages).
+ * - `prev`  — present only when not on the first page (meta.page > 1).
+ *
+ * Link construction delegates to the Node.js URL API so that existing query
+ * parameters are preserved and only `page` is overridden (REQ 3.4).
+ */
+function buildHateoasLinks(
+    req: Request,
+    meta: { page: number; totalPages: number }
+): { self: string; next?: string; prev?: string } {
+    const base = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+    const links: { self: string; next?: string; prev?: string } = {
+        self: base,
+    };
+
+    if (meta.page < meta.totalPages) {
+        const nextUrl = new URL(base);
+        nextUrl.searchParams.set('page', String(meta.page + 1));
+        links.next = nextUrl.toString();
+    }
+
+    if (meta.page > 1) {
+        const prevUrl = new URL(base);
+        prevUrl.searchParams.set('page', String(meta.page - 1));
+        links.prev = prevUrl.toString();
+    }
+
+    return links;
+}
+
 // SEARCH DEALS BY ACTIVE LOCATION MODE
 const searchDealsByLocation = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const query = await SearchDealsByLocationQuerySchema.parseAsync(req.query);

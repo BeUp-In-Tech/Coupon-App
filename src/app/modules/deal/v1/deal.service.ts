@@ -22,12 +22,12 @@ import { dealLogger, LoggerModule } from '../../../utils/logger/logger.child';
 import { SearchDealsByLocationQuery } from '../deal.validate';
 import { 
   buildLocationDealsCacheKey, 
-  buildLocationEqualityCondition, 
   buildLocationLabel, 
   getDealListFacet, 
   getDealLookupStage, 
   getNationwideDealsUnionStage, 
   recordDealImpressions,
+  resolveSelectedLocationDocs,
   visibleDealFilter, 
 } from './deal.helper';
 import { DealDiscountType } from './deal.constant';
@@ -222,18 +222,46 @@ const getSingleDealsService = async (
   const deal = await DealModel.findOne({
     _id: dealId,
     ...visibleDealFilter,
-  });
+  })
+  .populate({
+    path: "shop",
+    select: "business_name business_logo shop_approval website"
+  })
+  .populate({
+    path: "category",
+    select: "category_name category_image isDeleted"
+  })
+  .populate('available_in_location')
+  .lean() as IDeal | null;
 
+  
   if (!deal) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Ads not found', LoggerModule.DEAL);
   }
 
+  // IF THE DEAL IS NATIONWIDE, RETURN THIS RESPONSE
+  if (deal.nationwide) {
   // ADD VIEW
   Views_Impressions.create({
     deal: dealId,
     type: 'view',
   });
 
+  
+    return deal;
+  }
+
+  if ((deal?.available_in_location?.length ?? 0) < 1) {
+    throw new AppError(StatusCodes.NOT_FOUND, "No location found or not a nationwide ads. To get this ads please add a location or make nationwide available")
+  }
+  
+  // ADD VIEW
+  Views_Impressions.create({
+    deal: dealId,
+    type: 'view',
+  });
+
+   // IF THE DEAL IS NOT NATIONWIDE, RETURN THIS RESPONSE
   const deals = await Location.aggregate([
     // FIND OUTLETS NEAR USER
     {
@@ -1642,35 +1670,68 @@ const searchSelectedLocationDeals = async (
   query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>
 ) => {
   const now = new Date();
-  const locationConditions = [
-    buildLocationEqualityCondition('country', query.country),
-  ];
 
-  if (query.city) {
-    locationConditions.push(buildLocationEqualityCondition('city', query.city));
-  }
+  // ── Step 1 + 2: Resolve location documents (exact match → radius fallback) ──
+  // resolveSelectedLocationDocs encapsulates the two-step location resolution
+  // strategy: exact equality match first, 25-mile radius fallback if empty.
+  const { locationIds, fallbackUsed, fallbackReason } =
+    await resolveSelectedLocationDocs(query);
 
-  if (query.state) {
-    locationConditions.push(
-      buildLocationEqualityCondition('state', query.state)
-    );
-  }
-
-  if (query.zip_code) {
-    locationConditions.push(
-      buildLocationEqualityCondition('zip_code', query.zip_code)
-    );
-  }
-
-  const pipeline: PipelineStage[] = [
-    {
-      $match: {
-        isActive: true,
-        $and: locationConditions,
+  // ── Step 2a: Special case — no locations exist at all in this region ──
+  // When no Location documents exist for the country/state we cannot produce
+  // any local deals.  Return only nationwide deals so the user still sees
+  // relevant content (REQ 2.5).
+  if (fallbackReason === 'NO_LOCATIONS_IN_REGION') {
+    const [nationwideResult] = await DealModel.aggregate([
+      // Seed the pipeline with nationwide deals directly on DealModel because
+      // $unionWith requires a base collection — we use the deals collection
+      // itself rather than Location (which has no matching docs).
+      {
+        $match: {
+          nationwide: true,
+          isPromoted: true,
+          promotedUntil: { $gte: now },
+          ...visibleDealFilter,
+        },
       },
-    },
+      { $addFields: { locationSort: 1, nearest_location: null, matched_location: null } },
+      getDealListFacet(query.page, query.limit, {
+        locationSort: 1,
+        promotedUntil: -1,
+        createdAt: -1,
+      }),
+    ]);
+
+    const deals = nationwideResult?.deals ?? [];
+    const total = nationwideResult?.total?.[0]?.count ?? 0;
+
+    recordDealImpressions(deals);
+
+    // Write to cache now that we know fallbackUsed — key includes fallback:true
+    const cacheKey = buildLocationDealsCacheKey(query, true);
+    await redisClient.set(cacheKey, JSON.stringify({ meta: buildSelectedMeta(query, total, true, 'NO_LOCATIONS_IN_REGION'), deals }), { EX: 180 });
+
+    return {
+      meta: buildSelectedMeta(query, total, true, 'NO_LOCATIONS_IN_REGION'),
+      deals,
+    };
+  }
+
+  // ── Steps 3–7: Normal / radius-fallback path ─────────────────────────────
+  // At this point locationIds contains either exact-match IDs (fallbackUsed=false)
+  // or nearby radius IDs (fallbackUsed=true, fallbackReason='NO_DEALS_IN_EXACT_LOCATION').
+
+  const [result] = await Location.aggregate([
+    // ── Step 3: Match the resolved location documents ──
+    { $match: { _id: { $in: locationIds } } },
+
+    // ── Step 3 (cont.): Join promoted deals for each location ──
     getDealLookupStage(now),
+
+    // Unwind so each deal becomes its own root document
     { $unwind: '$deal' },
+
+    // Annotate each deal with its source location for later use by the UI
     {
       $addFields: {
         'deal.nearest_location': '$_id',
@@ -1681,10 +1742,22 @@ const searchSelectedLocationDeals = async (
         },
       },
     },
+
+    // Promote deal to root so subsequent stages operate on the deal document
     { $replaceRoot: { newRoot: '$deal' } },
+
+    // Mark as local — locationSort=0 ensures local deals sort before nationwide
     { $addFields: { locationSort: 0 } },
+
+    // ── Step 5: Merge nationwide deals into the pipeline ──
     getNationwideDealsUnionStage(now),
+
+    // Primary sort before dedup so $group keeps the best document per deal
     { $sort: { locationSort: 1, promotedUntil: -1, createdAt: -1 } },
+
+    // ── Step 6: Deduplicate — a deal may match both local and nationwide filters ──
+    // Keep the local copy (locationSort=0) over the nationwide copy (locationSort=1)
+    // because the earlier sort guarantees the local doc comes first.
     {
       $group: {
         _id: '$_id',
@@ -1692,54 +1765,100 @@ const searchSelectedLocationDeals = async (
       },
     },
     { $replaceRoot: { newRoot: '$doc' } },
+
+    // ── Step 7: Final sort + paginate via shared facet helper ──
     getDealListFacet(query.page, query.limit, {
       locationSort: 1,
       promotedUntil: -1,
       createdAt: -1,
     }),
-  ];
+  ]);
 
-  const [result] = await Location.aggregate(pipeline);
   const deals = result?.deals ?? [];
   const total = result?.total?.[0]?.count ?? 0;
 
   recordDealImpressions(deals);
 
+  // Write to cache using the actual fallbackUsed value so that exact-match
+  // and radius-fallback results are stored under different keys (REQ 2.15).
+  const cacheKey = buildLocationDealsCacheKey(query, fallbackUsed);
+  await redisClient.set(
+    cacheKey,
+    JSON.stringify({ meta: buildSelectedMeta(query, total, fallbackUsed, fallbackReason), deals }),
+    { EX: 180 }
+  );
+
   return {
-    meta: {
-      locationMode: query.locationMode,
-      locationLabel: buildLocationLabel(query),
-      page: query.page,
-      limit: query.limit,
-      total,
-      totalPages: Math.ceil(total / query.limit),
-    },
+    meta: buildSelectedMeta(query, total, fallbackUsed, fallbackReason),
     deals,
   };
 };
+
+/**
+ * Builds the `meta` object for a SELECTED_LOCATION response.
+ *
+ * Extracted into a small helper to avoid duplicating the object shape across
+ * the two return paths inside `searchSelectedLocationDeals`.
+ */
+const buildSelectedMeta = (
+  query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>,
+  total: number,
+  fallbackUsed: boolean,
+  fallbackReason: 'NO_DEALS_IN_EXACT_LOCATION' | 'NO_LOCATIONS_IN_REGION' | null
+) => ({
+  locationMode: 'SELECTED_LOCATION' as const,
+  locationLabel: buildLocationLabel(query),
+  page: query.page,
+  limit: query.limit,
+  total,
+  totalPages: Math.ceil(total / query.limit),
+  fallbackUsed,
+  fallbackReason,
+});
 
 // [GET]
 const searchDealsByLocationService = async (
   query: SearchDealsByLocationQuery
 ) => {
-  const cacheKey = buildLocationDealsCacheKey(query);
-  const cachedData = await redisClient.get(cacheKey);
+  // ── CURRENT_LOCATION: simple single-key cache read → call → write ──
+  // The key is fully determined before the call, so the standard pattern works.
+  if (query.locationMode === 'CURRENT_LOCATION') {
+    const cacheKey = buildLocationDealsCacheKey(query);
+    const cachedData = await redisClient.get(cacheKey);
 
-  // return cached
-  if (cachedData) {
-    dealLogger.debug("Cached returned");
-    return JSON.parse(cachedData);
-  }
-  
-  // Cache data
-  const data =
-    query.locationMode === 'CURRENT_LOCATION'
-    ? await searchCurrentLocationDeals(query)
-    : await searchSelectedLocationDeals(query);
-    
+    if (cachedData) {
+      dealLogger.debug('Cache hit: CURRENT_LOCATION');
+      return JSON.parse(cachedData);
+    }
+
+    const data = await searchCurrentLocationDeals(query);
+
     await redisClient.set(cacheKey, JSON.stringify(data), { EX: 180 });
+    return data;
+  }
 
-  return data;
+  // ── SELECTED_LOCATION: cache key depends on fallbackUsed (unknown up front) ──
+  // We check both possible keys (fallback=false is the common case, try first).
+  // The actual cache write is handled inside searchSelectedLocationDeals once
+  // fallbackUsed is resolved, so we avoid any key-prediction problem (REQ 2.15).
+  const cacheKeyNoFallback  = buildLocationDealsCacheKey(query, false);
+  const cacheKeyWithFallback = buildLocationDealsCacheKey(query, true);
+
+  const cachedNoFallback  = await redisClient.get(cacheKeyNoFallback);
+  if (cachedNoFallback) {
+    dealLogger.debug('Cache hit: SELECTED_LOCATION fallback=false');
+    return JSON.parse(cachedNoFallback);
+  }
+
+  const cachedWithFallback = await redisClient.get(cacheKeyWithFallback);
+  if (cachedWithFallback) {
+    dealLogger.debug('Cache hit: SELECTED_LOCATION fallback=true');
+    return JSON.parse(cachedWithFallback);
+  }
+
+  // Cache miss — delegate to the sub-function which resolves the location,
+  // builds the pipeline, and writes the correctly-keyed cache entry.
+  return searchSelectedLocationDeals(query);
 };
 
 // 9. GET USERS SAVED DEALS BY IDS
