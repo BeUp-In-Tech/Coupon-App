@@ -245,8 +245,8 @@ export type LocationResolutionResult =
  */
 const EARTH_RADIUS_METERS = 6_378_137;
 
-/** 50 miles expressed in metres (the fallback search radius). */
-const FALLBACK_RADIUS_METERS = 80_467;
+/** 200 miles expressed in metres (the fallback search radius). */
+const FALLBACK_RADIUS_METERS = 321_869;
 
 /**
  * Resolves Location documents for a SELECTED_LOCATION query following the
@@ -263,31 +263,37 @@ const FALLBACK_RADIUS_METERS = 80_467;
  * correct `meta.fallbackUsed` / `meta.fallbackReason` values.
  */
 export async function resolveSelectedLocationDocs(
-  query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>
+  query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>,
+  forceRadiusFallback = false
 ): Promise<LocationResolutionResult> {
   const { city, state, country, zip_code } = query;
 
-  // ── Step 1: Build equality conditions for every provided location field ──
-  const conditions: ReturnType<typeof buildLocationEqualityCondition>[] = [];
+  // ── Step 1: Exact match (skipped when forceRadiusFallback=true) ──────────
+  // When the caller already knows the exact-match city has no deals (Step 2a
+  // in the service), it passes forceRadiusFallback=true to skip straight to
+  // the 200-mile radius search without re-running the equality query.
+  if (!forceRadiusFallback) {
+    const conditions: ReturnType<typeof buildLocationEqualityCondition>[] = [];
 
-  if (city)     conditions.push(buildLocationEqualityCondition('city',     city));
-  if (state)    conditions.push(buildLocationEqualityCondition('state',    state));
-  if (country)  conditions.push(buildLocationEqualityCondition('country',  country));
-  if (zip_code) conditions.push(buildLocationEqualityCondition('zip_code', zip_code));
+    if (city)     conditions.push(buildLocationEqualityCondition('city',     city));
+    if (state)    conditions.push(buildLocationEqualityCondition('state',    state));
+    if (country)  conditions.push(buildLocationEqualityCondition('country',  country));
+    if (zip_code) conditions.push(buildLocationEqualityCondition('zip_code', zip_code));
 
-  // Only retrieve _id and location — we don't need the full document
-  const exactMatches = await Location.find(
-    { isActive: true, $and: conditions },
-    { _id: 1, location: 1 }
-  ).lean();
+    // Only retrieve _id and location — we don't need the full document
+    const exactMatches = await Location.find(
+      { isActive: true, $and: conditions },
+      { _id: 1, location: 1 }
+    ).lean();
 
-  if (exactMatches.length > 0) {
-    // Exact match found — no fallback needed (REQ 2.4)
-    return {
-      locationIds: exactMatches.map((doc) => doc._id as Types.ObjectId),
-      fallbackUsed: false,
-      fallbackReason: null,
-    };
+    if (exactMatches.length > 0) {
+      // Exact match found — no fallback needed (REQ 2.4)
+      return {
+        locationIds: exactMatches.map((doc) => doc._id as Types.ObjectId),
+        fallbackUsed: false,
+        fallbackReason: null,
+      };
+    }
   }
 
   // ── Step 2: No exact match — attempt radius fallback (REQ 2.3) ──

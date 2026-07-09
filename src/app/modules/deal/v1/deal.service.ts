@@ -1721,9 +1721,42 @@ const searchSelectedLocationDeals = async (
   // At this point locationIds contains either exact-match IDs (fallbackUsed=false)
   // or nearby radius IDs (fallbackUsed=true, fallbackReason='NO_DEALS_IN_EXACT_LOCATION').
 
+  // Track the actual fallback state — may be upgraded below if the city exists
+  // but has no deals (the "zero-deals" fallback case).
+  let actualFallbackUsed = fallbackUsed;
+  let actualFallbackReason: 'NO_DEALS_IN_EXACT_LOCATION' | 'NO_LOCATIONS_IN_REGION' | null = fallbackReason;
+  let resolvedLocationIds = locationIds;
+
+  // ── Step 3a: Pre-check — do any local deals exist for the resolved locations? ──
+  // We check this BEFORE running the expensive full pipeline so we can trigger
+  // the 200-mile radius fallback early when the city exists but has no deals.
+  //
+  // $unwind in the main pipeline silently drops Location docs with no deals,
+  // so `deals.length` after the facet reflects local+nationwide combined —
+  // not a reliable signal for "zero local deals". A cheap count avoids this.
+  if (!fallbackUsed) {
+    const localDealCount = await DealModel.countDocuments({
+      available_in_location: { $in: locationIds },
+      isPromoted: true,
+      promotedUntil: { $gte: now },
+      ...visibleDealFilter,
+    });
+
+    if (localDealCount === 0) {
+      // City found but has no promoted deals — trigger 200-mile radius fallback
+      const radiusResolution = await resolveSelectedLocationDocs(query, true);
+
+      actualFallbackUsed = true;
+      actualFallbackReason = radiusResolution.fallbackReason === 'NO_LOCATIONS_IN_REGION'
+        ? 'NO_LOCATIONS_IN_REGION'
+        : 'NO_DEALS_IN_EXACT_LOCATION';
+      resolvedLocationIds = radiusResolution.locationIds;
+    }
+  }
+
   const [result] = await Location.aggregate([
     // ── Step 3: Match the resolved location documents ──
-    { $match: { _id: { $in: locationIds } } },
+    { $match: { _id: { $in: resolvedLocationIds } } },
 
     // ── Step 3 (cont.): Join promoted deals for each location ──
     getDealLookupStage(now),
@@ -1779,17 +1812,17 @@ const searchSelectedLocationDeals = async (
 
   recordDealImpressions(deals);
 
-  // Write to cache using the actual fallbackUsed value so that exact-match
-  // and radius-fallback results are stored under different keys (REQ 2.15).
-  const cacheKey = buildLocationDealsCacheKey(query, fallbackUsed);
+  // Write to cache using the actual fallback state so that exact-match and
+  // radius-fallback results are stored under separate keys (REQ 2.15).
+  const cacheKey = buildLocationDealsCacheKey(query, actualFallbackUsed);
   await redisClient.set(
     cacheKey,
-    JSON.stringify({ meta: buildSelectedMeta(query, total, fallbackUsed, fallbackReason), deals }),
+    JSON.stringify({ meta: buildSelectedMeta(query, total, actualFallbackUsed, actualFallbackReason), deals }),
     { EX: 180 }
   );
 
   return {
-    meta: buildSelectedMeta(query, total, fallbackUsed, fallbackReason),
+    meta: buildSelectedMeta(query, total, actualFallbackUsed, actualFallbackReason),
     deals,
   };
 };
