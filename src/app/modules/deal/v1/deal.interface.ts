@@ -12,7 +12,6 @@ export interface IDeal {
     regular_price: number;
     discount: number;
     discount_type?: DealDiscountType;
-    minimum_purchase?: number;
     custom_discount?: string;
 
     highlight: string[];

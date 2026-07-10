@@ -206,28 +206,7 @@ router.get(
               discount_type: {
                 $ifNull: [
                   '$discount_type',
-                  {
-                    $switch: {
-                      branches: [
-                        {
-                          case: {
-                            $and: [
-                              { $eq: [{ $ifNull: ['$discount', 0] }, 0] },
-                              { $eq: [{ $ifNull: ['$regular_price', 0] }, 0] },
-                            ],
-                          },
-                          then: DealDiscountType.FREE,
-                        },
-                        {
-                          case: {
-                            $eq: [{ $ifNull: ['$discount', 0] }, 0],
-                          },
-                          then: DealDiscountType.NO_DISCOUNT,
-                        },
-                      ],
-                      default: DealDiscountType.PERCENT_OFF_PRICE,
-                    },
-                  },
+                  DealDiscountType.PERCENT_OFF_PRICE,
                 ],
               },
               coupon_required: {

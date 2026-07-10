@@ -152,6 +152,96 @@ const createDealsService = async (params: {
     throw new AppError(StatusCodes.FORBIDDEN, 'Forbidden', LoggerModule.DEAL);
   }
 
+  const discountType = payload.discount_type ?? DealDiscountType.PERCENT_OFF_PRICE;
+  const resolvedDiscount = payload.discount ?? 0;
+  const shouldAllowNoRegularPrice = discountType === DealDiscountType.PERCENT_OFF_TOTAL;
+
+  if (
+    [DealDiscountType.PERCENT_OFF_PRICE, DealDiscountType.PERCENT_OFF_TOTAL].includes(
+      discountType
+    ) &&
+    (resolvedDiscount < 1 || resolvedDiscount > 100)
+  ) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Percentage discount must be between 1 and 100',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (
+    [DealDiscountType.NO_DISCOUNT, DealDiscountType.FIXED_PRICE].includes(
+      discountType
+    ) &&
+    resolvedDiscount !== 0
+  ) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Discount must be 0 when no discount is selected',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (discountType === DealDiscountType.FREE) {
+    if (payload.regular_price !== 0 || resolvedDiscount !== 0) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        'Regular price and discount must both be 0 for a free deal',
+        LoggerModule.DEAL
+      );
+    }
+  }
+
+  if (discountType === DealDiscountType.PERCENT_OFF_TOTAL && payload.regular_price !== undefined && payload.regular_price !== 0) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Regular price is not required for percentage-off-total deals',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (discountType === DealDiscountType.CUSTOM_DISCOUNT) {
+    if (!payload.custom_discount || !payload.custom_discount.trim()) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        'custom_discount is required for custom discount deals',
+        LoggerModule.DEAL
+      );
+    }
+  }
+
+  if (
+    (payload.coupon_required ?? true) &&
+    !payload.coupon &&
+    !payload.coupon_option?.qr &&
+    !payload.coupon_option?.upc
+  ) {
+    if (payload.images) {
+      await addImageDeleteJob(payload.images);
+    }
+
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'At least one of these required: Coupon code, Qr and Bar code',
+      LoggerModule.DEAL
+    );
+  }
+
+  if (
+    payload.coupon_required === false &&
+    (payload.coupon || payload.coupon_option?.qr || payload.coupon_option?.upc)
+  ) {
+    if (payload.images) {
+      await addImageDeleteJob(payload.images);
+    }
+
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      'Coupon values are not allowed when coupon is not required',
+      LoggerModule.DEAL
+    );
+  }
+
   // NORMALIZE INPUTS O(n) BOUNDED
   const highlight = (payload.highlight || [])
     .map((h) => h.trim())
@@ -178,15 +268,14 @@ const createDealsService = async (params: {
     category: isCategoryExist._id,
 
     title: payload.title,
-    regular_price: payload.regular_price,
-    discount: payload.discount,
-    discount_type:
-      payload.discount_type ?? DealDiscountType.PERCENT_OFF_PRICE,
-    minimum_purchase:
-      payload.discount_type === DealDiscountType.AMOUNT_OFF_PURCHASE
-        ? payload.minimum_purchase
+    regular_price:
+      discountType === DealDiscountType.FREE ? 0 : payload.regular_price ?? 0,
+    discount: discountType === DealDiscountType.FREE ? 0 : payload.discount,
+    discount_type: discountType,
+    custom_discount:
+      discountType === DealDiscountType.CUSTOM_DISCOUNT
+        ? payload.custom_discount
         : undefined,
-    custom_discount: payload.custom_discount,
 
     highlight,
     tags: payload.tags,
@@ -436,9 +525,9 @@ const validateV2PricingState = (params: {
   discountType: DealDiscountType;
   regularPrice: number;
   discount: number;
-  minimumPurchase?: number;
+  customDiscount?: string;
 }) => {
-  const { discountType, regularPrice, discount, minimumPurchase } = params;
+  const { discountType, regularPrice, discount, customDiscount } = params;
 
   if (
     [DealDiscountType.PERCENT_OFF_PRICE, DealDiscountType.PERCENT_OFF_TOTAL].includes(
@@ -453,20 +542,6 @@ const validateV2PricingState = (params: {
     );
   }
 
-  if (
-    discountType === DealDiscountType.AMOUNT_OFF_PURCHASE &&
-    (discount <= 0 ||
-      minimumPurchase === undefined ||
-      minimumPurchase <= 0 ||
-      minimumPurchase < discount)
-  ) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      'Dollar-off deals require a positive minimum purchase that is not less than the discount',
-      LoggerModule.DEAL
-    );
-  }
-
   if (discountType === DealDiscountType.NO_DISCOUNT && discount !== 0) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
@@ -475,15 +550,32 @@ const validateV2PricingState = (params: {
     );
   }
 
-  if (
-    discountType === DealDiscountType.FREE &&
-    (regularPrice !== 0 || discount !== 0)
-  ) {
+  if (discountType === DealDiscountType.FREE) {
+    if (regularPrice !== 0 || discount !== 0) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        'Regular price and discount must both be 0 for a free deal',
+        LoggerModule.DEAL
+      );
+    }
+  }
+
+  if (discountType === DealDiscountType.PERCENT_OFF_TOTAL && regularPrice !== 0) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Regular price and discount must both be 0 for a free deal',
+      'Regular price is not required for percentage-off-total deals',
       LoggerModule.DEAL
     );
+  }
+
+  if (discountType === DealDiscountType.CUSTOM_DISCOUNT) {
+    if (!customDiscount || !customDiscount.trim()) {
+      throw new AppError(
+        StatusCodes.BAD_REQUEST,
+        'custom_discount is required for custom discount deals',
+        LoggerModule.DEAL
+      );
+    }
   }
 };
 
@@ -553,21 +645,18 @@ const updateDealsService = async (
       DealDiscountType.PERCENT_OFF_PRICE;
     const regularPrice = payload.regular_price ?? deal.regular_price;
     const discount = payload.discount ?? deal.discount;
-    const minimumPurchase =
-      payload.minimum_purchase ?? deal.minimum_purchase;
-
     validateV2PricingState({
       discountType,
       regularPrice,
       discount,
-      minimumPurchase,
+      customDiscount: payload.custom_discount ?? deal.custom_discount,
     });
 
     if (
       payload.discount_type !== undefined &&
-      discountType !== DealDiscountType.AMOUNT_OFF_PURCHASE
+      discountType !== DealDiscountType.CUSTOM_DISCOUNT
     ) {
-      fieldsToUnset.minimum_purchase = 1;
+      fieldsToUnset.custom_discount = 1;
     }
 
     const couponRequired =
@@ -664,8 +753,18 @@ const updateDealsService = async (
     updateData.custom_discount = payload.custom_discount;
   if (options.v2 && payload.discount_type !== undefined)
     updateData.discount_type = payload.discount_type;
-  if (options.v2 && payload.minimum_purchase !== undefined)
-    updateData.minimum_purchase = payload.minimum_purchase;
+  if (options.v2 && updateData.discount_type === DealDiscountType.FREE) {
+    updateData.regular_price = 0;
+    updateData.discount = 0;
+  }
+
+  if (options.v2 && updateData.discount_type === DealDiscountType.PERCENT_OFF_TOTAL) {
+    updateData.regular_price = 0;
+  }
+
+  if (options.v2 && updateData.discount_type === DealDiscountType.NO_DISCOUNT) {
+    updateData.discount = 0;
+  }
 
   const nextNationwide = payload.nationwide ?? deal.nationwide ?? false;
   const nextLocationIds =
@@ -1055,7 +1154,6 @@ const getDealsByCategoryService = async (
         'deal.regular_price': 1,
         'deal.discount': 1,
         'deal.discount_type': 1,
-        'deal.minimum_purchase': 1,
         'deal.coupon_required': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
@@ -1105,7 +1203,6 @@ const getDealsByCategoryService = async (
                 regular_price: '$regular_price',
                 discount: '$discount',
                 discount_type: '$discount_type',
-                minimum_purchase: '$minimum_purchase',
                 coupon_required: '$coupon_required',
                 isPromoted: '$isPromoted',
                 promotedUntil: '$promotedUntil',
@@ -1292,7 +1389,6 @@ const getNearestDealsService = async (
         regular_price: 1,
         discount: 1,
         discount_type: 1,
-        minimum_purchase: 1,
         coupon_required: 1,
         images: { $slice: ['$images', 1] },
         distance: 1,
@@ -1468,7 +1564,6 @@ const getAllDealsService = async (
         'deal.regular_price': 1,
         'deal.discount': 1,
         'deal.discount_type': 1,
-        'deal.minimum_purchase': 1,
         'deal.coupon_required': 1,
         'deal.isPromoted': 1,
         'deal.promotedUntil': 1,
@@ -1528,7 +1623,6 @@ const getAllDealsService = async (
                 regular_price: '$regular_price',
                 discount: '$discount',
                 discount_type: '$discount_type',
-                minimum_purchase: '$minimum_purchase',
                 coupon_required: '$coupon_required',
                 isPromoted: '$isPromoted',
                 promotedUntil: '$promotedUntil',

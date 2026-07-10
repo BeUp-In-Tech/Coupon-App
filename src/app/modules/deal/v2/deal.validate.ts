@@ -15,7 +15,6 @@ const validatePricingAndRedemption = (
     regular_price?: number;
     discount?: number;
     discount_type?: DealDiscountType;
-    minimum_purchase?: number;
     custom_discount?: string;
     coupon_required?: boolean;
     coupon?: string;
@@ -38,54 +37,67 @@ const validatePricingAndRedemption = (
     });
   }
 
-  if (type === DealDiscountType.AMOUNT_OFF_PURCHASE) {
-    if (discount === undefined || discount <= 0) {
+  if (type === DealDiscountType.NO_DISCOUNT) {
+    if (discount !== undefined && discount !== 0) {
       ctx.addIssue({
         code: 'custom',
-        message: 'Discount amount must be greater than 0',
+        message: 'Discount must be 0 when no discount is selected',
         path: ['discount'],
       });
     }
+  }
 
-    if (
-      payload.minimum_purchase === undefined ||
-      payload.minimum_purchase <= 0
-    ) {
+  // FIXED_PRICE has no percentage discount — the discount field is irrelevant.
+  // The backend normalises it to 0 automatically, so this is just a guard
+  // against a client that accidentally sends a non-zero value.
+  if (type === DealDiscountType.FIXED_PRICE) {
+    if (discount !== undefined && discount !== 0) {
       ctx.addIssue({
         code: 'custom',
-        message: 'Minimum purchase is required and must be greater than 0',
-        path: ['minimum_purchase'],
-      });
-    } else if (
-      discount !== undefined &&
-      payload.minimum_purchase < discount
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Minimum purchase cannot be less than the discount amount',
-        path: ['minimum_purchase'],
+        message: 'Discount must be 0 for a fixed-price deal — the price itself is the offer',
+        path: ['discount'],
       });
     }
   }
 
-  if (
-    type === DealDiscountType.NO_DISCOUNT &&
-    discount !== 0
-  ) {
-    ctx.addIssue({
-      code: 'custom',
-      message: 'Discount must be 0 when no discount is selected',
-      path: ['discount'],
-    });
+  if (type === DealDiscountType.FREE) {
+    if (payload.regular_price !== undefined && payload.regular_price !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Regular price and discount must both be 0 for a free deal',
+        path: ['regular_price'],
+      });
+    }
+
+    if (discount !== undefined && discount !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Regular price and discount must both be 0 for a free deal',
+        path: ['discount'],
+      });
+    }
   }
 
-  if (
-    type === DealDiscountType.FREE &&
-    (payload.regular_price !== 0 || discount !== 0)
-  ) {
+  if (type === DealDiscountType.PERCENT_OFF_TOTAL) {
+    if (payload.regular_price !== undefined && payload.regular_price !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Regular price is not required for percentage-off-total deals',
+        path: ['regular_price'],
+      });
+    }
+  }
+
+  // Types that need a regular price must have it present and > 0
+  const requiresRegularPrice =
+    type === DealDiscountType.PERCENT_OFF_PRICE ||
+    type === DealDiscountType.FIXED_PRICE ||
+    type === DealDiscountType.NO_DISCOUNT ||
+    type === DealDiscountType.CUSTOM_DISCOUNT;
+  if (requiresRegularPrice && (payload.regular_price === undefined || payload.regular_price < 0)) {
     ctx.addIssue({
       code: 'custom',
-      message: 'Regular price and discount must both be 0 for a free deal',
+      message: 'regular_price is required for this discount type',
       path: ['regular_price'],
     });
   }
@@ -96,6 +108,25 @@ const validatePricingAndRedemption = (
         code: 'custom',
         message: 'custom_discount is required for custom discount deals',
         path: ['custom_discount'],
+      });
+    }
+  }
+
+  // NO_PRICE: vendor posts a deal with no price information at all.
+  // Both regular_price and discount must be absent or 0.
+  if (type === DealDiscountType.NO_PRICE) {
+    if (payload.regular_price !== undefined && payload.regular_price !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'regular_price must be 0 or omitted for a no-price deal',
+        path: ['regular_price'],
+      });
+    }
+    if (payload.discount !== undefined && payload.discount !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'discount must be 0 or omitted for a no-price deal',
+        path: ['discount'],
       });
     }
   }
@@ -131,12 +162,11 @@ export const CreateDealV2ZodSchema = z
   .object({
     category: objectId,
     title: z.string().trim().min(5).max(120),
-    regular_price: z.number().nonnegative(),
-    discount: z.number().nonnegative(),
+    regular_price: z.number().nonnegative().optional(),
+    discount: z.number().nonnegative().optional(),
     discount_type: discountTypeSchema.default(
       DealDiscountType.PERCENT_OFF_PRICE
     ),
-    minimum_purchase: z.number().positive().optional(),
     custom_discount: z.string("Custom discount must be string").optional(),
     highlight: z.array(z.string().min(1).max(120)).max(20).default([]),
     tags: z.array(z.string().min(1).max(50)).max(20).default([]),
@@ -158,27 +188,58 @@ export const CreateDealV2ZodSchema = z
         path: ['available_in_location'],
       });
     }
-  });
+  })
+  .transform((data) => ({
+    ...data,
+    // Normalise discount to 0 for types where it is irrelevant.
+    // Frontend can omit the field for FIXED_PRICE, NO_DISCOUNT, FREE, NO_PRICE.
+    discount: (
+      data.discount_type === DealDiscountType.FIXED_PRICE ||
+      data.discount_type === DealDiscountType.NO_DISCOUNT ||
+      data.discount_type === DealDiscountType.FREE ||
+      data.discount_type === DealDiscountType.NO_PRICE
+    ) ? 0 : (data.discount ?? 0),
+    // NO_PRICE: no price information — normalise regular_price to 0.
+    regular_price: (
+      data.discount_type === DealDiscountType.NO_PRICE
+    ) ? 0 : (data.regular_price ?? 0),
+  }));
 
-export const UpdateDealV2ZodSchema = z.object({
-  title: z.string().trim().min(2).max(120).optional(),
-  regular_price: z.number().nonnegative().optional(),
-  discount: z.number().nonnegative().optional(),
-  discount_type: discountTypeSchema.optional(),
-  minimum_purchase: z.number().positive().optional(),
-  custom_discount: z.string("Custom discount must be string").optional(),
-  highlight: z.array(z.string().min(1).max(120)).max(20).optional(),
-  deletedHighlights: z.array(z.string().min(1).max(120)).max(20).optional(),
-  tags: z.array(z.string().min(1).max(50)).max(20).optional(),
-  deletedTags: z.array(z.string().min(1).max(120)).max(20).optional(),
-  images: z.array(z.string().url()).optional(),
-  deletedImages: z.array(z.string().url()).optional(),
-  description: z.string().trim().min(10).max(5000).optional(),
-  coupon: z.string().trim().min(1).optional(),
-  coupon_required: z.boolean().optional(),
-  coupon_option: couponOptionSchema,
-  nationwide: z.boolean().optional(),
-  available_in_location: z.array(objectId).optional(),
-});
+export const UpdateDealV2ZodSchema = z
+  .object({
+    title: z.string().trim().min(2).max(120).optional(),
+    regular_price: z.number().nonnegative().optional(),
+    discount: z.number().nonnegative().optional(),
+    discount_type: discountTypeSchema.optional(),
+    custom_discount: z.string("Custom discount must be string").optional(),
+    highlight: z.array(z.string().min(1).max(120)).max(20).optional(),
+    deletedHighlights: z.array(z.string().min(1).max(120)).max(20).optional(),
+    tags: z.array(z.string().min(1).max(50)).max(20).optional(),
+    deletedTags: z.array(z.string().min(1).max(120)).max(20).optional(),
+    images: z.array(z.string().url()).optional(),
+    deletedImages: z.array(z.string().url()).optional(),
+    description: z.string().trim().min(10).max(5000).optional(),
+    coupon: z.string().trim().min(1).optional(),
+    coupon_required: z.boolean().optional(),
+    coupon_option: couponOptionSchema,
+    nationwide: z.boolean().optional(),
+    available_in_location: z.array(objectId).optional(),
+  })
+  .superRefine((payload, ctx) => {
+    validatePricingAndRedemption(payload, ctx);
+  })
+  .transform((data) => ({
+    ...data,
+    // Normalise discount/price to 0 for types where they are irrelevant.
+    discount: (
+      data.discount_type === DealDiscountType.FIXED_PRICE ||
+      data.discount_type === DealDiscountType.NO_DISCOUNT ||
+      data.discount_type === DealDiscountType.FREE ||
+      data.discount_type === DealDiscountType.NO_PRICE
+    ) ? 0 : data.discount,
+    regular_price: (
+      data.discount_type === DealDiscountType.NO_PRICE
+    ) ? 0 : data.regular_price,
+  }));
 
 export { validatePricingAndRedemption };

@@ -80,7 +80,6 @@ export const getDealListFacet = (
             regular_price: 1,
             discount: 1,
             discount_type: 1,
-            minimum_purchase: 1,
             coupon_required: 1,
             images: { $slice: ['$images', 1] },
             distance: 1,

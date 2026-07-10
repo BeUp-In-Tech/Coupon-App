@@ -40,7 +40,6 @@ const dealSchema = new Schema<IDeal>(
       enum: Object.values(DealDiscountType),
       default: DealDiscountType.PERCENT_OFF_PRICE,
     },
-    minimum_purchase: { type: Number, min: 0 },
     custom_discount: { type: String },
 
     highlight: {
