@@ -1138,6 +1138,13 @@ const GEOCODING_API_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const GEOCODING_DELAY   = 60; // ms between Google API calls
 const COUNTRY           = 'United States';
 
+/** Capitalise the first letter of each word: "new york" → "New York" */
+const toTitleCase = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 /** Pause for `ms` milliseconds */
 const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -1233,8 +1240,8 @@ const seedCitiesFromFile = async (
 
       toInsert.push({
         shop: shopId,
-        location_name: `${row.city} City Center`,
-        address: { street: 'City Center', zip_code: zip, city: row.city, state: row.state, country: COUNTRY },
+        location_name: `${toTitleCase(row.city)} City Center`,
+        address: { street: 'City Center', zip_code: zip, city: toTitleCase(row.city), state: toTitleCase(row.state), country: COUNTRY },
         normalized: {
           city: row.city.trim().toLowerCase(),
           state: row.state.trim().toLowerCase(),

@@ -31,6 +31,13 @@ const bulkCompletedKey = (batchId: string) => `bulk-location-done:${batchId}`;
 
 const normalizeLocationText = (value?: string) => value?.trim().toLowerCase();
 
+/** Capitalise the first letter of each word: "new york" → "New York" */
+const toTitleCase = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 // CREATE LOCATION
 const createLocationService = async (
   userId: string,
@@ -341,9 +348,9 @@ const confirmBulkLocationsService = async (userId: string, batchId: string) => {
       address: {
         street: row.street,
         zip_code: row.zip_code,
-        city: row.city,
-        state: row.state,
-        country: row.country,
+        city: toTitleCase(row.city),
+        state: toTitleCase(row.state),
+        country: toTitleCase(row.country),
       },
       normalized: {
         city: normalizeLocationText(row.city),
@@ -355,7 +362,7 @@ const confirmBulkLocationsService = async (userId: string, batchId: string) => {
         type: 'Point' as const,
         coordinates: [row.longitude, row.latitude] as [number, number],
       },
-      isActive: row.isActive,
+      isActive: true, // all bulk-uploaded locations are active by default
     }));
 
     await Location.insertMany(locations, { ordered: true });
@@ -402,7 +409,6 @@ const generateBulkLocationTemplate = async () => {
     'Bangladesh',
     90.4125,
     23.8103,
-    true,
   ]);
   locations.columns = [
     { width: 24 },
@@ -413,7 +419,6 @@ const generateBulkLocationTemplate = async () => {
     { width: 20 },
     { width: 14 },
     { width: 14 },
-    { width: 12 },
   ];
   locations.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   locations.getRow(1).fill = {
@@ -448,9 +453,6 @@ const generateBulkLocationTemplate = async () => {
       'Coordinates',
       'Longitude must be -180 to 180. Latitude must be -90 to 90.',
     ],
-    ['Is active', 'Use true, false, 1, 0, or leave blank for true.'],
-    ['Zip code', 'Keep Zip code formatted as text to preserve leading zeros.'],
-    ['Duplicates', 'Identical name, address, and coordinates are rejected.'],
     ['Limits', 'Maximum 5,000 non-empty rows and 10 MB per file.'],
   ]);
   instructions.getRow(1).font = { bold: true };

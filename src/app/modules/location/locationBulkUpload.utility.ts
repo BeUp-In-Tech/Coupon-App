@@ -18,7 +18,6 @@ export const BULK_LOCATION_HEADERS = [
   { label: 'Country', key: 'country' },
   { label: 'Longitude', key: 'longitude' },
   { label: 'Latitude', key: 'latitude' },
-  { label: 'Is active', key: 'isActive' },
 ] as const;
 
 type BulkLocationField = typeof BULK_LOCATION_HEADERS[number]['key'];
@@ -50,15 +49,6 @@ const coordinate = (field: string, min: number, max: number) =>
       .max(max, `${field} must be at most ${max}`)
   );
 
-const activeStatus = z.preprocess((value) => {
-  if (value === undefined || value === null || value === '') return true;
-  if (typeof value === 'boolean') return value;
-  const normalizedValue = String(value).trim().toLowerCase();
-  if (normalizedValue === '1' || normalizedValue === 'true') return true;
-  if (normalizedValue === '0' || normalizedValue === 'false') return false;
-  return value;
-}, z.boolean({ message: 'isActive must be true, false, 1, 0, or blank' }));
-
 const bulkLocationRowSchema = z.object({
   location_name: requiredText('location_name'),
   street: requiredText('street'),
@@ -68,7 +58,6 @@ const bulkLocationRowSchema = z.object({
   country: requiredText('country'),
   longitude: coordinate('longitude', -180, 180),
   latitude: coordinate('latitude', -90, 90),
-  isActive: activeStatus,
 });
 
 const getCellValue = (cell: ExcelJS.Cell) => {

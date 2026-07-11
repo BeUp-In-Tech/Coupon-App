@@ -32,7 +32,6 @@ export interface IBulkLocationRow {
   country: string;
   longitude: number;
   latitude: number;
-  isActive: boolean;
 }
 
 export interface IBulkLocationRowError {
