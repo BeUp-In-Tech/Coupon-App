@@ -162,7 +162,7 @@ export const getNationwideDealsUnionStage = (
           distance: null,
           nearest_location: null,
           matched_location: null,
-          locationSort: 1,
+          locationSort: 0,  // 0 = nationwide sorts first
         },
       },
     ],

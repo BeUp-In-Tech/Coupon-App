@@ -1724,7 +1724,7 @@ const searchCurrentLocationDeals = async (
       },
     },
     { $replaceRoot: { newRoot: '$deal' } },
-    { $addFields: { locationSort: 0 } },
+    { $addFields: { locationSort: 1 } },  // 1 = local, sorts after nationwide
     getNationwideDealsUnionStage(now),
     { $sort: { locationSort: 1, distance: 1 } },
     {
@@ -1788,7 +1788,7 @@ const searchSelectedLocationDeals = async (
           ...visibleDealFilter,
         },
       },
-      { $addFields: { locationSort: 1, nearest_location: null, matched_location: null } },
+      { $addFields: { locationSort: 0, nearest_location: null, matched_location: null } },
       getDealListFacet(query.page, query.limit, {
         locationSort: 1,
         promotedUntil: -1,
@@ -1873,18 +1873,19 @@ const searchSelectedLocationDeals = async (
     // Promote deal to root so subsequent stages operate on the deal document
     { $replaceRoot: { newRoot: '$deal' } },
 
-    // Mark as local — locationSort=0 ensures local deals sort before nationwide
-    { $addFields: { locationSort: 0 } },
+    // Mark as local — locationSort=1 means local deals sort after nationwide
+    { $addFields: { locationSort: 1 } },
 
     // ── Step 5: Merge nationwide deals into the pipeline ──
     getNationwideDealsUnionStage(now),
 
-    // Primary sort before dedup so $group keeps the best document per deal
+    // Primary sort before dedup so $group keeps the best document per deal.
+    // Nationwide (0) sorts before local (1); within each group sort by promotedUntil.
     { $sort: { locationSort: 1, promotedUntil: -1, createdAt: -1 } },
 
     // ── Step 6: Deduplicate — a deal may match both local and nationwide filters ──
-    // Keep the local copy (locationSort=0) over the nationwide copy (locationSort=1)
-    // because the earlier sort guarantees the local doc comes first.
+    // Keep the nationwide copy (locationSort=0) over the local copy (locationSort=1)
+    // because the earlier sort guarantees the nationwide doc comes first.
     {
       $group: {
         _id: '$_id',
