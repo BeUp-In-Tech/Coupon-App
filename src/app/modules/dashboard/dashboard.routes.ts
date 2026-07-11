@@ -4,6 +4,7 @@ import { checkAuth } from "../../middlewares/auth.middleware";
 import { Role } from "../user/user.interface";
 import { validateRequest } from "../../middlewares/validateRequest";
 import { adminBanDealZodSchema, adminNotificationAndEmailZodSchema } from "./dashboard.validate";
+import { bulkLocationUpload } from "../../config/multer.config";
 
 
 const router = Router();
@@ -21,5 +22,9 @@ router.get('/latest_transactions', checkAuth(Role.ADMIN), dashboardControllers.g
 router.post('/send_notification_and_email', checkAuth(Role.ADMIN), validateRequest(adminNotificationAndEmailZodSchema), dashboardControllers.sendNotificationAndEmail);
 router.patch('/admin/deals/:dealId/ban', checkAuth(Role.ADMIN), validateRequest(adminBanDealZodSchema), dashboardControllers.banDealByAdmin);
 router.patch('/admin/deals/:dealId/unban', checkAuth(Role.ADMIN), dashboardControllers.unbanDealByAdmin);
+
+// City seeding — admin uploads CSV/XLSX to bulk-create system Location records
+router.get('/seed_cities/template', checkAuth(Role.ADMIN), dashboardControllers.downloadCitySeedTemplate);
+router.post('/seed_cities', checkAuth(Role.ADMIN), bulkLocationUpload.single('file'), dashboardControllers.seedCitiesFromFile);
 
 export const dashboardRouter = router;

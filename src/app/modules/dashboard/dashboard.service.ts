@@ -29,6 +29,8 @@ import {
 } from '../../queue/job/vendorExport.job';
 import { VENDOR_EXPORT_TTL_MS } from '../../utils/export/vendorExportWorkbook.utility';
 import { logger } from '../../utils/logger/logger.config';
+import { Location } from '../location/location.model';
+import { parseCitySeedFile } from '../location/adminCitySeeding.utility';
 
 
 // 1. CATEGORY BY DEAL COUNT
@@ -1127,6 +1129,145 @@ const unbanDealByAdmin = async (adminUser: JwtPayload, dealId: string) => {
   return deal;
 };
 
+// 14. ADMIN CITY SEEDING
+// Resolves or creates the system seed shop, then geocodes and inserts Location docs.
+
+const SEED_SHOP_NAME    = 'Yepp System Seed';
+const SEED_SHOP_EMAIL   = 'system-seed@yepp.internal';
+const GEOCODING_API_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
+const GEOCODING_DELAY   = 60; // ms between Google API calls
+const COUNTRY           = 'United States';
+
+/** Pause for `ms` milliseconds */
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Generate a random 5-digit zip code as a placeholder */
+const randomZip = () => String(Math.floor(10000 + Math.random() * 90000));
+
+/**
+ * Get-or-create the system seed Shop.
+ * The shop is identified by its fixed `business_name`.
+ * If it doesn't exist yet we create it with the admin user as vendor.
+ */
+const getOrCreateSeedShop = async (adminUserId: string): Promise<Types.ObjectId> => {
+  const existing = await Shop.findOne({ business_name: SEED_SHOP_NAME }).select('_id').lean();
+  if (existing) return existing._id as Types.ObjectId;
+
+  const adminUser = await User.findById(adminUserId).select('_id').lean();
+  if (!adminUser) throw new AppError(StatusCodes.NOT_FOUND, 'Admin user not found');
+
+  const created = await Shop.create({
+    vendor: new Types.ObjectId(adminUserId),
+    business_name: SEED_SHOP_NAME,
+    business_email: SEED_SHOP_EMAIL,
+    business_phone: { country_code: '+1', phone_number: '0000000000' },
+    business_logo: 'https://placehold.co/200x200?text=System',
+    description: 'Auto-created system shop for admin city seeding',
+    shop_approval: ShopApproval.APPROVED,
+  });
+
+  logger.info({ shopId: created._id }, 'System seed shop created');
+  return created._id as Types.ObjectId;
+};
+
+/** Call Google Geocoding API for "{city}, {state}, United States" */
+const geocodeCity = async (city: string, state: string) => {
+  const apiKey = env.GOOGLE_GEOCODING_API_KEY;
+  if (!apiKey) throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, 'GOOGLE_GEOCODING_API_KEY is not configured');
+
+  const address  = encodeURIComponent(`${city}, ${state}, ${COUNTRY}`);
+  const response = await fetch(`${GEOCODING_API_URL}?address=${address}&key=${apiKey}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status} from Google Geocoding API`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (await response.json()) as any;
+  if (data.status !== 'OK' || !data.results?.length) {
+    throw new Error(`Geocoding status: ${data.status}`);
+  }
+
+  const result                 = data.results[0];
+  const { lat, lng }           = result.geometry.location;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const postalComp             = result.address_components?.find((c: any) => c.types.includes('postal_code'));
+  const zipCode: string | null = postalComp?.long_name ?? null;
+
+  return { lat, lng, zipCode };
+};
+
+const seedCitiesFromFile = async (
+  file: Express.Multer.File,
+  adminUserId: string,
+  dryRun = false
+) => {
+  // ── Step 1: Parse file ──────────────────────────────────────────────────
+  const { totalRows, rows, errors: parseErrors } = await parseCitySeedFile(file);
+
+  // ── Step 2: Get/create system seed shop ────────────────────────────────
+  const shopId = await getOrCreateSeedShop(adminUserId);
+
+  // ── Step 3: Filter out already-seeded cities ───────────────────────────
+  const existingDocs = await Location.find(
+    { 'normalized.country': COUNTRY.toLowerCase() },
+    { 'normalized.city': 1, 'normalized.state': 1 }
+  ).lean();
+
+  const existingKeys = new Set(
+    existingDocs.map((d) => `${d.normalized?.city ?? ''}|${d.normalized?.state ?? ''}`)
+  );
+
+  let skippedDuplicates = 0;
+  const newRows = rows.filter((row) => {
+    const key = `${row.city.trim().toLowerCase()}|${row.state.trim().toLowerCase()}`;
+    if (existingKeys.has(key)) { skippedDuplicates++; return false; }
+    return true;
+  });
+
+  // ── Step 4: Geocode and build documents ────────────────────────────────
+  const geocodingErrors: { city: string; state: string; reason: string }[] = [];
+  const toInsert: object[] = [];
+
+  for (const row of newRows) {
+    try {
+      const { lat, lng, zipCode } = await geocodeCity(row.city, row.state);
+      const zip = zipCode ?? randomZip();
+
+      toInsert.push({
+        shop: shopId,
+        location_name: `${row.city} City Center`,
+        address: { street: 'City Center', zip_code: zip, city: row.city, state: row.state, country: COUNTRY },
+        normalized: {
+          city: row.city.trim().toLowerCase(),
+          state: row.state.trim().toLowerCase(),
+          country: COUNTRY.toLowerCase(),
+          zip_code: zip.toLowerCase(),
+        },
+        location: { type: 'Point', coordinates: [lng, lat] },
+        isActive: true,
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Unknown error';
+      geocodingErrors.push({ city: row.city, state: row.state, reason });
+      logger.warn({ city: row.city, state: row.state, reason }, 'City geocoding failed');
+    }
+
+    await pause(GEOCODING_DELAY);
+  }
+
+  // ── Step 5: Insert ─────────────────────────────────────────────────────
+  if (!dryRun && toInsert.length > 0) {
+    await Location.insertMany(toInsert, { ordered: false });
+  }
+
+  return {
+    totalRows,
+    inserted: dryRun ? 0 : toInsert.length,
+    skippedDuplicates,
+    skippedGeocodingErrors: geocodingErrors.length,
+    parseErrors,
+    geocodingErrors,
+  };
+};
+
 // EXPORT ALL THE SERVICE LAYER
 export const dashboardServices = {
   dealsByCategoryStats,
@@ -1142,4 +1283,5 @@ export const dashboardServices = {
   exportVendorsList,
   getVendorExportStatus,
   downloadVendorExport,
+  seedCitiesFromFile,
 };

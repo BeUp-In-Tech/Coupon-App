@@ -72,6 +72,8 @@ interface EnvInterfaces {
 
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
+
+  GOOGLE_GEOCODING_API_KEY: string;
 }
 
 const loadEnvVariables = (): EnvInterfaces => {
@@ -146,6 +148,8 @@ const loadEnvVariables = (): EnvInterfaces => {
 
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
+
+    'GOOGLE_GEOCODING_API_KEY',
   ];
 
   requireEnvVariables.forEach((KEY) => {
@@ -230,6 +234,8 @@ const loadEnvVariables = (): EnvInterfaces => {
 
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY as string,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET as string,
+
+    GOOGLE_GEOCODING_API_KEY: process.env.GOOGLE_GEOCODING_API_KEY as string,
   };
 };
 
