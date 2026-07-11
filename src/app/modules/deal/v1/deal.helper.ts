@@ -244,8 +244,8 @@ export type LocationResolutionResult =
  */
 const EARTH_RADIUS_METERS = 6_378_137;
 
-/** 200 miles expressed in metres (the fallback search radius). */
-const FALLBACK_RADIUS_METERS = 321_869;
+/** 25 miles expressed in metres (the fallback search radius). */
+const FALLBACK_RADIUS_METERS = 40_233;
 
 /**
  * Resolves Location documents for a SELECTED_LOCATION query following the

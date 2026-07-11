@@ -154,8 +154,6 @@ const createDealsService = async (params: {
 
   const discountType = payload.discount_type ?? DealDiscountType.PERCENT_OFF_PRICE;
   const resolvedDiscount = payload.discount ?? 0;
-  const shouldAllowNoRegularPrice = discountType === DealDiscountType.PERCENT_OFF_TOTAL;
-
   if (
     [DealDiscountType.PERCENT_OFF_PRICE, DealDiscountType.PERCENT_OFF_TOTAL].includes(
       discountType
