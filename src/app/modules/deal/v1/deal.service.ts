@@ -168,26 +168,16 @@ const createDealsService = async (params: {
   }
 
   if (
-    [DealDiscountType.NO_DISCOUNT, DealDiscountType.FIXED_PRICE].includes(
+    [DealDiscountType.FIXED_PRICE].includes(
       discountType
     ) &&
     resolvedDiscount !== 0
   ) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
-      'Discount must be 0 when no discount is selected',
+      'Discount must be 0 for a fixed-price deal',
       LoggerModule.DEAL
     );
-  }
-
-  if (discountType === DealDiscountType.FREE) {
-    if (payload.regular_price !== 0 || resolvedDiscount !== 0) {
-      throw new AppError(
-        StatusCodes.BAD_REQUEST,
-        'Regular price and discount must both be 0 for a free deal',
-        LoggerModule.DEAL
-      );
-    }
   }
 
   if (discountType === DealDiscountType.PERCENT_OFF_TOTAL && payload.regular_price !== undefined && payload.regular_price !== 0) {
@@ -266,9 +256,8 @@ const createDealsService = async (params: {
     category: isCategoryExist._id,
 
     title: payload.title,
-    regular_price:
-      discountType === DealDiscountType.FREE ? 0 : payload.regular_price ?? 0,
-    discount: discountType === DealDiscountType.FREE ? 0 : payload.discount,
+    regular_price: payload.regular_price ?? 0,
+    discount: payload.discount,
     discount_type: discountType,
     custom_discount:
       discountType === DealDiscountType.CUSTOM_DISCOUNT
@@ -540,24 +529,6 @@ const validateV2PricingState = (params: {
     );
   }
 
-  if (discountType === DealDiscountType.NO_DISCOUNT && discount !== 0) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      'Discount must be 0 when no discount is selected',
-      LoggerModule.DEAL
-    );
-  }
-
-  if (discountType === DealDiscountType.FREE) {
-    if (regularPrice !== 0 || discount !== 0) {
-      throw new AppError(
-        StatusCodes.BAD_REQUEST,
-        'Regular price and discount must both be 0 for a free deal',
-        LoggerModule.DEAL
-      );
-    }
-  }
-
   if (discountType === DealDiscountType.PERCENT_OFF_TOTAL && regularPrice !== 0) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
@@ -751,17 +722,9 @@ const updateDealsService = async (
     updateData.custom_discount = payload.custom_discount;
   if (options.v2 && payload.discount_type !== undefined)
     updateData.discount_type = payload.discount_type;
-  if (options.v2 && updateData.discount_type === DealDiscountType.FREE) {
-    updateData.regular_price = 0;
-    updateData.discount = 0;
-  }
 
   if (options.v2 && updateData.discount_type === DealDiscountType.PERCENT_OFF_TOTAL) {
     updateData.regular_price = 0;
-  }
-
-  if (options.v2 && updateData.discount_type === DealDiscountType.NO_DISCOUNT) {
-    updateData.discount = 0;
   }
 
   const nextNationwide = payload.nationwide ?? deal.nationwide ?? false;
