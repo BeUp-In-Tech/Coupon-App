@@ -460,9 +460,7 @@ const generateBulkLocationTemplate = async () => {
 
 // GET LOCATION SUGGESTION FROM SEARCHBAR
 const getLocationSuggestions = async (query: Record<string, string>) => {
-   const search = String(query.search || '')
-    .trim()
-    .toLowerCase();
+  const search = String(query.search || '').trim().toLowerCase();
 
   if (!search) {
     throw new AppError(StatusCodes.BAD_REQUEST, 'Empty search');
@@ -472,32 +470,40 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
   const regex = { $regex: escapedSearch, $options: 'i' };
 
   const suggestions = await Location.aggregate([
+    // ── Stage 1: Filter active locations matching the search term ──────────
     {
       $match: {
         isActive: true,
         $or: [
           { 'address.city': regex },
-          { 'address.state': regex },
+          // { 'address.state': regex },
           { 'address.zip_code': regex },
-          { 'address.country': regex },
+          // { 'address.country': regex },
           { location_name: regex },
         ],
       },
     },
+
+    // ── Stage 2: Add computed fields for grouping and ranking ───────────────
+    // We derive normalized keys directly from address fields using $toLower
+    // so the grouping works even on older docs that have no normalized field.
     {
       $addFields: {
+        // Normalized keys used as group keys — guarantees case-insensitive dedup
+        _cityKey:    { $toLower: { $ifNull: ['$address.city',    ''] } },
+        _stateKey:   { $toLower: { $ifNull: ['$address.state',   ''] } },
+        _countryKey: { $toLower: { $ifNull: ['$address.country', ''] } },
+
+        // Rank so that exact city matches sort before partial matches
         searchRank: {
           $switch: {
             branches: [
+              // Exact city match
               {
-                case: {
-                  $eq: [
-                    { $toLower: { $ifNull: ['$address.city', ''] } },
-                    search,
-                  ],
-                },
+                case: { $eq: [{ $toLower: { $ifNull: ['$address.city', ''] } }, search] },
                 then: 1,
               },
+              // City starts with search term
               {
                 case: {
                   $regexMatch: {
@@ -508,6 +514,7 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
                 },
                 then: 2,
               },
+              // City contains search term
               {
                 case: {
                   $regexMatch: {
@@ -518,24 +525,17 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
                 },
                 then: 3,
               },
+              // State match
               {
-                case: {
-                  $eq: [
-                    { $toLower: { $ifNull: ['$address.state', ''] } },
-                    search,
-                  ],
-                },
+                case: { $eq: [{ $toLower: { $ifNull: ['$address.state', ''] } }, search] },
                 then: 4,
               },
+              // Zip code match
               {
-                case: {
-                  $eq: [
-                    { $toLower: { $ifNull: ['$address.zip_code', ''] } },
-                    search,
-                  ],
-                },
+                case: { $eq: [{ $toLower: { $ifNull: ['$address.zip_code', ''] } }, search] },
                 then: 5,
               },
+              // Location name match
               {
                 case: {
                   $regexMatch: {
@@ -552,85 +552,61 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
         },
       },
     },
+
+    // ── Stage 3: Sort before group so $first picks the best-ranked doc ─────
+    { $sort: { searchRank: 1, 'address.city': 1, 'address.state': 1 } },
+
+    // ── Stage 4: Deduplicate by city only ─────────────────────────────────
+    // Group on normalized city key alone so the same city name never appears
+    // twice in results regardless of how vendors entered state or country.
     {
-      $sort: {
-        searchRank: 1,
-        'address.city': 1,
-        'address.state': 1,
+      $group: {
+        _id: '$_cityKey',
+        city:     { $first: '$address.city' },
+        state:    { $first: '$address.state' },
+        country:  { $first: '$address.country' },
+        location: { $first: '$location' },
+        searchRank: { $first: '$searchRank' },
       },
     },
 
-    {
-      $group: {
-        _id: {
-          city: '$address.city',
-          state: '$address.state',
-          country: '$address.country',
-        },
-        zip_code: {
-          $first: '$address.zip_code',
-        },
-        location: {
-          $first: '$location',
-        },
-        searchRank: {
-          $first: '$searchRank',
-        },
-      },
-    },
-    {
-      $sort: {
-        searchRank: 1,
-        '_id.city': 1,
-        '_id.state': 1,
-      },
-    },
+    // ── Stage 5: Final sort after dedup ────────────────────────────────────
+    { $sort: { searchRank: 1, '_id': 1 } },
+
+    // ── Stage 6: Shape the response ────────────────────────────────────────
     {
       $project: {
         _id: 0,
-        city: '$_id.city',
-        state: '$_id.state',
-        country: '$_id.country',
-        zip_code: 1,
+        city: 1,
+        state: 1,
+        country: 1,
         location: 1,
+        // Human-readable label: "Dhaka, Dhaka Division" or just "Dhaka"
         label: {
-          $let: {
-            vars: {
-              city: { $ifNull: ['$_id.city', ''] },
-              state: { $ifNull: ['$_id.state', ''] },
-            },
-            in: {
-              $cond: [
-                {
-                  $and: [
-                    { $gt: [{ $strLenCP: '$$city' }, 0] },
-                    { $gt: [{ $strLenCP: '$$state' }, 0] },
-                  ],
-                },
-                { $concat: ['$$city', ', ', '$$state'] },
-                {
-                  $cond: [
-                    { $gt: [{ $strLenCP: '$$city' }, 0] },
-                    '$$city',
-                    '$$state',
-                  ],
-                },
+          $cond: [
+            {
+              $and: [
+                { $gt: [{ $strLenCP: { $ifNull: ['$city',  ''] } }, 0] },
+                { $gt: [{ $strLenCP: { $ifNull: ['$state', ''] } }, 0] },
               ],
             },
-          },
+            { $concat: [{ $ifNull: ['$city', ''] }, ', ', { $ifNull: ['$state', ''] }] },
+            {
+              $cond: [
+                { $gt: [{ $strLenCP: { $ifNull: ['$city', ''] } }, 0] },
+                { $ifNull: ['$city', ''] },
+                { $ifNull: ['$state', ''] },
+              ],
+            },
+          ],
         },
       },
     },
-    {
-      $match: {
-        $expr: {
-          $gte: [{ $strLenCP: '$label' }, 3],
-        },
-      },
-    },
-    {
-      $limit: 30,
-    },
+
+    // Drop results with a label shorter than 3 characters (noise)
+    { $match: { $expr: { $gte: [{ $strLenCP: '$label' }, 3] } } },
+
+    { $limit: 30 },
   ]);
 
   return suggestions;
