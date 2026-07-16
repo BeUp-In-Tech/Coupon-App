@@ -203,11 +203,7 @@ const getDealsByIds = CatchAsync(async (req: Request, res: Response, next: NextF
 // GET DEALS BY CATEGORY
 const getDealsByCategory = CatchAsync(async  (req: Request, res: Response, next: NextFunction) => {
     const categoryId = req.params.categoryId as string;
-    const lat = Number(req.query.lat);
-    const lng = Number(req.query.lng);
-    const query = req.query as Record<string, string>;
-
-    const result = await dealsServices.getDealsByCategoryService(lng, lat, categoryId, query);
+    const result = await dealsServices.getDealsByCategoryService(categoryId, req.query as Record<string, string>);
 
     SendResponse(res, {
         success: true,
