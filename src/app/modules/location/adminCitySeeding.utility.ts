@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Readable } from 'stream';
 import ExcelJS from 'exceljs';
 import { StatusCodes } from 'http-status-codes';
@@ -24,7 +25,7 @@ export interface IParsedCitySeedFile {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const MAX_ROWS = 1_000;
+const MAX_ROWS = 35_000;
 const EXPECTED_HEADERS = ['City', 'State'] as const;
 
 // ── File loader ──────────────────────────────────────────────────────────────

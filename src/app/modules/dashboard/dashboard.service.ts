@@ -30,7 +30,10 @@ import {
 import { VENDOR_EXPORT_TTL_MS } from '../../utils/export/vendorExportWorkbook.utility';
 import { logger } from '../../utils/logger/logger.config';
 import { Location } from '../location/location.model';
-import { parseCitySeedFile } from '../location/adminCitySeeding.utility';
+import {
+  parseCitySeedFile,
+  type ICitySeedRow,
+} from '../location/adminCitySeeding.utility';
 
 
 // 1. CATEGORY BY DEAL COUNT
@@ -1138,7 +1141,11 @@ const GEOCODING_API_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const GEOCODING_DELAY   = 60; // ms between Google API calls
 const COUNTRY           = 'United States';
 
-/** Capitalise the first letter of each word: "new york" → "New York" */
+// ── Admin city seeding batch tuning (35k rows) ────────────────────────────────
+const SEED_GEOCODE_CONCURRENCY = 10; // parallel geocode requests in flight
+const SEED_INSERT_BATCH_SIZE   = 1000; // rows per insertMany call
+
+/** Capitalism the first letter of each word: "new york" → "New York" */
 const toTitleCase = (value: string) =>
   value
     .trim()
@@ -1180,13 +1187,11 @@ const getOrCreateSeedShop = async (adminUserId: string): Promise<Types.ObjectId>
 /** Call Google Geocoding API for "{city}, {state}, United States" */
 const geocodeCity = async (city: string, state: string) => {
   const apiKey = env.GOOGLE_GEOCODING_API_KEY;
-  if (!apiKey) throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, 'GOOGLE_GEOCODING_API_KEY is not configured');
 
   const address  = encodeURIComponent(`${city}, ${state}, ${COUNTRY}`);
   const response = await fetch(`${GEOCODING_API_URL}?address=${address}&key=${apiKey}`);
   if (!response.ok) throw new Error(`HTTP ${response.status} from Google Geocoding API`);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (await response.json()) as any;
   if (data.status !== 'OK' || !data.results?.length) {
     throw new Error(`Geocoding status: ${data.status}`);
@@ -1194,7 +1199,6 @@ const geocodeCity = async (city: string, state: string) => {
 
   const result                 = data.results[0];
   const { lat, lng }           = result.geometry.location;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const postalComp             = result.address_components?.find((c: any) => c.types.includes('postal_code'));
   const zipCode: string | null = postalComp?.long_name ?? null;
 
@@ -1229,11 +1233,13 @@ const seedCitiesFromFile = async (
     return true;
   });
 
-  // ── Step 4: Geocode and build documents ────────────────────────────────
+  // ── Step 4: Geocode with limited concurrency, then insert in batches ───
   const geocodingErrors: { city: string; state: string; reason: string }[] = [];
   const toInsert: object[] = [];
 
-  for (const row of newRows) {
+  let cursor = 0;
+
+  const geocode = async (row: ICitySeedRow): Promise<void> => {
     try {
       const { lat, lng, zipCode } = await geocodeCity(row.city, row.state);
       const zip = zipCode ?? randomZip();
@@ -1256,13 +1262,29 @@ const seedCitiesFromFile = async (
       geocodingErrors.push({ city: row.city, state: row.state, reason });
       logger.warn({ city: row.city, state: row.state, reason }, 'City geocoding failed');
     }
+  };
 
-    await pause(GEOCODING_DELAY);
-  }
+  // Run geocode requests with a bounded number in flight; stagger API calls
+  // via GEOCODING_DELAY so we stay within Google rate limits.
+  const workers: Promise<void>[] = Array.from(
+    { length: Math.min(SEED_GEOCODE_CONCURRENCY, newRows.length) },
+    async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= newRows.length) break;
+        await geocode(newRows[index]);
+        await pause(GEOCODING_DELAY);
+      }
+    }
+  );
+  await Promise.all(workers);
 
-  // ── Step 5: Insert ─────────────────────────────────────────────────────
+  // ── Step 5: Insert in batches ──────────────────────────────────────────
   if (!dryRun && toInsert.length > 0) {
-    await Location.insertMany(toInsert, { ordered: false });
+    for (let i = 0; i < toInsert.length; i += SEED_INSERT_BATCH_SIZE) {
+      const chunk = toInsert.slice(i, i + SEED_INSERT_BATCH_SIZE);
+      await Location.insertMany(chunk, { ordered: false });
+    }
   }
 
   return {
