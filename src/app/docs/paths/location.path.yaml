@@ -106,3 +106,40 @@ LocationUpdateApi:
         $ref: '../components.yaml#/components/responses/successResponse'
       '401':
         $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+
+  delete:
+    tags:
+      - Location
+    security:
+      - bearerAuth: []
+    summary: Delete a location
+    description: Deletes a shop location owned by the authenticated account.
+    parameters:
+      - in: query
+        name: l_id
+        required: true
+        schema:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+LocationDefaultApi:
+  get:
+    tags:
+      - Location
+    summary: Get the default location
+    description: Returns the application's configured default active location.
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'

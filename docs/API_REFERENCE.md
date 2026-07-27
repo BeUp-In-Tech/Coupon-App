@@ -2,6 +2,11 @@
 
 Base prefix: `/api/v1` unless noted.
 
+Interactive Swagger UI:
+
+- Local: `http://localhost:5000/api-docs` (replace `5000` with `PORT`)
+- Production: `https://api.yeppads.com/api-docs`
+
 ## Request Conventions
 
 - Protected routes require `Authorization: Bearer <accessToken>`.
@@ -114,8 +119,11 @@ Create shop `data` example:
 
 | Method | Endpoint | Auth | Request |
 | --- | --- | --- | --- |
+| GET | `/locations/default` | Public | None |
+| GET | `/locations/suggestions` | Public | Query: `query?` |
 | POST | `/locations/` | `VENDOR` | Single location JSON payload |
 | PATCH | `/locations/?l_id=<id>` | Logged user with shop ownership | Partial location JSON payload |
+| DELETE | `/locations/?l_id=<id>` | Logged user with shop ownership | Query: `l_id` |
 | GET | `/locations/bulk/template` | `VENDOR` | Download the XLSX upload template |
 | POST | `/locations/bulk/preview` | `VENDOR` | Multipart `file`: `.xlsx` or `.csv`, maximum 10 MB / 5,000 rows |
 | POST | `/locations/bulk/:batchId/confirm` | `VENDOR` | Import valid rows from a previewed batch |
@@ -132,7 +140,8 @@ batch remains confirmable for 30 minutes.
 | Method | Endpoint | Auth | Request |
 | --- | --- | --- | --- |
 | POST | `/service/` | `VENDOR` | Multipart: `files[]`, `qr?`, `upc?`, `data` JSON |
-| GET | `/service/deals/all_deals/:lng/:lat` | Public | Query: `searchTerm?`, `page?`, `limit?` |
+| GET | `/service/deals/all_deals` | Public | Query: `searchTerm?`, `category?`, `page?`, `limit?`; no coordinates or distance |
+| GET | `/service/deals/location` | Public | Location-mode query; retained as the separate location-aware search API |
 | GET | `/service/deals/analytic/:dealId` | `VENDOR` | Path param `dealId` |
 | GET | `/service/deals/:lng/:lat` | Public | Query: `page?`, `limit?` |
 | GET | `/service/my_deals` | `VENDOR` | QueryBuilder params plus `deal_filter` |
@@ -173,15 +182,9 @@ Media constraints:
 - `upc` image must be exactly `800x400`.
 - `files` upload limit is 10.
 
-### Deal V2 Pricing and Redemption (`/api/v2/service`)
+### Deal Pricing and Redemption
 
-The V1 create and update routes remain available. V2 adds conditional pricing
-and optional coupon redemption:
-
-| Method | Endpoint | Auth | Request |
-| --- | --- | --- | --- |
-| POST | `/api/v2/service` | `VENDOR` | Multipart: `files[]`, `qr?`, `upc?`, `data` JSON |
-| PATCH | `/api/v2/service/:dealId` | `VENDOR` | Multipart partial update |
+The currently mounted deal create and update routes are under `/api/v1/service`.
 
 Supported `discount_type` values:
 
@@ -197,12 +200,6 @@ When `coupon_required` is `true`, provide at least one coupon code, QR, or UPC.
 When it is `false`, omit all coupon values.
 
 The optional `custom_discount` field may also be provided to store custom discount text or metadata for a deal.
-
-Legacy records can be backfilled once with:
-
-```http
-GET /api/v1/migrations/deals/pricing-redemption
-```
 
 ```json
 {
@@ -247,6 +244,7 @@ GET /api/v1/migrations/deals/pricing-redemption
 | POST | `/payment/api/apple_in_app_purchase` | Public | Receipt payload with `serverVerificationData`, `dealId`, and related fields |
 | POST | `/payment/api/google_in_app_purchase` | Public | `{ "productId", "serverVerificationData", "dealId", "price", "currency" }` |
 | POST | `/payment/stripe_pay` | Logged user; service enforces `VENDOR` | `{ "dealId", "planId", "voucher?" }` |
+| GET | `/payment/transaction_history` | Logged user | QueryBuilder pagination/filter parameters |
 | POST | `/webhook` | Stripe signature | Stripe signed webhook event |
 
 Stripe flow:
@@ -260,8 +258,9 @@ Stripe flow:
 
 | Method | Endpoint | Auth | Request |
 | --- | --- | --- | --- |
-| GET | `/notification/` | Public | Query: `userId?`, `page?`, `limit?` |
-| PATCH | `/notification/:id` | Public | Path param `id` |
+| GET | `/notification/` | Optional auth | Query: `userId?`, `page?`, `limit?` |
+| PATCH | `/notification/panel/open` | Optional auth | Marks the notification panel as opened |
+| GET | `/notification/:id` | Optional auth | Path param `id` |
 
 ## Dashboard Module (`/dashboard`)
 
@@ -320,7 +319,7 @@ Allowed slugs:
 ### Credentials Login
 
 ```bash
-curl -X POST http://localhost:3002/api/v1/auth/login \
+curl -X POST http://localhost:5000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"vendor@example.com","password":"Password@123"}'
 ```
@@ -328,14 +327,14 @@ curl -X POST http://localhost:3002/api/v1/auth/login \
 ### Get My Profile
 
 ```bash
-curl http://localhost:3002/api/v1/user/get_me \
+curl http://localhost:5000/api/v1/user/get_me \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
 ### Create Deal
 
 ```bash
-curl -X POST http://localhost:3002/api/v1/service \
+curl -X POST http://localhost:5000/api/v1/service \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -F 'files=@/path/deal-1.jpg' \
   -F 'files=@/path/deal-2.jpg' \
@@ -344,19 +343,16 @@ curl -X POST http://localhost:3002/api/v1/service \
   -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"Promo","regular_price":20,"discount":50,"highlight":["A"],"tags":["t"],"description":"Long enough description","coupon":"PROMO50","available_in_location":["6800d0b0f9f4e50bc1a22222"]}'
 ```
 
-### Create V2 Deal Without Coupon
+### Search Deals
 
 ```bash
-curl -X POST http://localhost:3002/api/v2/service \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -F 'files=@/path/deal.jpg' \
-  -F 'data={"category":"6800d0b0f9f4e50bc1a11111","title":"$10 Off a $75 Purchase","regular_price":75,"discount_type":"AMOUNT_OFF_PURCHASE","discount":10,"minimum_purchase":75,"coupon_required":false,"highlight":["Minimum purchase applies"],"tags":["dining"],"description":"Get ten dollars off when spending at least seventy-five.","available_in_location":["6800d0b0f9f4e50bc1a22222"]}'
+curl "http://localhost:5000/api/v1/service/deals/all_deals?searchTerm=coffee&page=1&limit=20"
 ```
 
 ### Create Stripe Checkout Session
 
 ```bash
-curl -X POST http://localhost:3002/api/v1/payment/stripe_pay \
+curl -X POST http://localhost:5000/api/v1/payment/stripe_pay \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"dealId":"<DEAL_ID>","planId":"<PLAN_ID>","voucher":"WELCOME10"}'

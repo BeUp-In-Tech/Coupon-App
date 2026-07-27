@@ -47,22 +47,42 @@ DealAllDealsApi:
   get:
     tags:
       - Deal
-    summary: Get all deals near coordinates
-    description: Returns all deals around the given coordinates.
+    summary: Search all promoted deals
+    description: Searches visible, active promoted deals without location or distance filtering.
     parameters:
-      - in: path
-        name: lng
-        required: true
+      - in: query
+        name: searchTerm
         schema:
-          type: number
-      - in: path
-        name: lat
-        required: true
+          type: string
+        description: Case-insensitive search across deal and shop text.
+      - in: query
+        name: category
         schema:
-          type: number
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        description: Optional MongoDB category ID.
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
     responses:
       '200':
         $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+      '500':
+        $ref: '../components.yaml#/components/responses/serverErrorResponse'
 
 DealAnalyticsApi:
   get:

@@ -19,15 +19,16 @@ The service provides JWT-based authentication, vendor shop management, deal publ
   - [Background Workers](#background-workers)
   - [Operational Notes](#operational-notes)
   - [Security Notes](#security-notes)
-  - [Documentation Roadmap](#documentation-roadmap)
+  - [API Documentation](#api-documentation)
 
 ## Overview
 
 | Item | Value |
 | --- | --- |
 | API prefix | `/api/v1` |
-| Local API URL | `http://localhost:3002/api/v1` |
-| Health endpoint | `GET /` |
+| Local API URL | `http://localhost:5000/api/v1` (or your configured `PORT`) |
+| Health endpoint | `GET /api/v1/health/` |
+| Swagger UI | `http://localhost:5000/api-docs` |
 | Stripe webhook | `POST /webhook` |
 | Main process | Express API server |
 | Worker process | BullMQ notification/background worker |
@@ -81,6 +82,10 @@ Install dependencies:
 yarn install
 ```
 
+Start MongoDB and Redis locally (or configure hosted instances), then create
+your environment file. Every variable validated by
+`src/app/config/env.ts` must have a non-empty value:
+
 Create the local environment file:
 
 ```bash
@@ -93,6 +98,13 @@ Run the API in development:
 
 ```bash
 yarn dev
+```
+
+Verify the installation:
+
+```text
+GET http://localhost:5000/api/v1/health/
+GET http://localhost:5000/api-docs
 ```
 
 Run the worker in a second terminal:
@@ -157,6 +169,15 @@ Optional:
 ## API Basics
 
 Full endpoint documentation lives in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
+
+## API Documentation
+
+- Local interactive Swagger UI: [http://localhost:5000/api-docs](http://localhost:5000/api-docs)
+- Production Swagger UI: [https://api.yeppads.com/api-docs](https://api.yeppads.com/api-docs)
+- Repository API reference: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
+- OpenAPI source: [src/app/docs/lamin.yaml](src/app/docs/lamin.yaml)
+
+The local Swagger URL uses the configured `PORT`; replace `5000` if needed.
 
 Protected endpoints require:
 
@@ -325,13 +346,4 @@ Known implementation notes that should be reviewed before public production laun
 - Some service-layer errors still use generic `Error(...)` strings and should be normalized to the shared API error format.
 - Production environments must use strong secrets and must not reuse example values from `.env.example`.
 
-## Documentation Roadmap
-
-Recommended next steps for long-term API quality:
-
-1. Add an `openapi.yaml` contract as the source of truth.
-2. Generate Postman, Swagger UI, or Redoc docs from the OpenAPI contract.
-3. Add CI checks that fail when routes or schemas change without documentation updates.
-4. Document webhook retry behavior and idempotency expectations.
-5. Add changelog entries for new endpoints, behavior changes, breaking changes, and migrations.
 

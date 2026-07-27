@@ -19,12 +19,6 @@ servers:
   - url: https://api.yeppads.com/api/v1
     description: Live server (v1)
   
-  - url: http://localhost:5000/api/v2
-    description: Local server (v2)
-
-  - url: https://api.yeppads.com/api/v2
-    description: Live server (v2)
-
 
 
 paths:
@@ -80,7 +74,7 @@ paths:
     $ref: './paths/deal.path.yaml#/DealCreateApi'
   /service/deals/location:
     $ref: './paths/deal.path.yaml#/DealSearchByLocationApi'
-  /service/deals/all_deals/{lng}/{lat}:
+  /service/deals/all_deals:
     $ref: './paths/deal.path.yaml#/DealAllDealsApi'
   /service/deals/analytic/{dealId}:
     $ref: './paths/deal.path.yaml#/DealAnalyticsApi'
@@ -104,6 +98,8 @@ paths:
     $ref: './paths/health.path.yaml#/HealthApi'
   /locations/suggestions:
     $ref: './paths/location.path.yaml#/LocationSuggestionsApi'
+  /locations/default:
+    $ref: './paths/location.path.yaml#/LocationDefaultApi'
   /locations/bulk/template:
     $ref: './paths/location.path.yaml#/LocationBulkTemplateApi'
   /locations/bulk/preview:
@@ -116,6 +112,92 @@ paths:
     $ref: './paths/location.path.yaml#/LocationUpdateApi'
 
 
+
+  /shop/create_shop:
+    $ref: './paths/application.path.yaml#/ShopCreate'
+  /shop/shop_details:
+    $ref: './paths/application.path.yaml#/ShopDetails'
+  /shop/update_shop/{shopId}:
+    $ref: './paths/application.path.yaml#/ShopUpdate'
+  /shop/analytics:
+    $ref: './paths/application.path.yaml#/ShopAnalytics'
+  /shop/yearly_analytics:
+    $ref: './paths/application.path.yaml#/ShopYearlyAnalytics'
+  /plan:
+    $ref: './paths/application.path.yaml#/PlanCollection'
+  /plan/:
+    $ref: './paths/application.path.yaml#/PlanCreate'
+  /plan/{planId}:
+    patch:
+      $ref: './paths/application.path.yaml#/PlanItem/patch'
+    delete:
+      $ref: './paths/application.path.yaml#/PlanDelete/delete'
+  /voucher:
+    $ref: './paths/application.path.yaml#/VoucherCollection'
+  /voucher/:
+    $ref: './paths/application.path.yaml#/VoucherCreate'
+  /voucher/apply_voucher:
+    $ref: './paths/application.path.yaml#/VoucherApply'
+  /voucher/{voucherId}:
+    get:
+      $ref: './paths/application.path.yaml#/VoucherItem/get'
+    patch:
+      $ref: './paths/application.path.yaml#/VoucherUpdate/patch'
+    delete:
+      $ref: './paths/application.path.yaml#/VoucherDelete/delete'
+  /payment/api/apple_in_app_purchase:
+    $ref: './paths/application.path.yaml#/ApplePurchase'
+  /payment/api/google_in_app_purchase:
+    $ref: './paths/application.path.yaml#/GooglePurchase'
+  /payment/stripe_pay:
+    $ref: './paths/application.path.yaml#/StripePay'
+  /payment/transaction_history:
+    $ref: './paths/application.path.yaml#/Transactions'
+  /notification/:
+    $ref: './paths/application.path.yaml#/Notifications'
+  /notification/panel/open:
+    $ref: './paths/application.path.yaml#/NotificationPanel'
+  /notification/{id}:
+    $ref: './paths/application.path.yaml#/NotificationItem'
+  /dashboard/deals_by_category_stats:
+    $ref: './paths/application.path.yaml#/DashboardCategory'
+  /dashboard/vendor_stats:
+    $ref: './paths/application.path.yaml#/DashboardVendors'
+  /dashboard/export_vendors:
+    $ref: './paths/application.path.yaml#/DashboardExport'
+  /dashboard/export_vendors/{jobId}/status:
+    $ref: './paths/application.path.yaml#/DashboardExportStatus'
+  /dashboard/export_vendors/{jobId}/download:
+    $ref: './paths/application.path.yaml#/DashboardExportDownload'
+  /dashboard/recent_deals:
+    $ref: './paths/application.path.yaml#/DashboardRecent'
+  /dashboard/deals_stats:
+    $ref: './paths/application.path.yaml#/DashboardDeals'
+  /dashboard/dashboard_analytics_total:
+    $ref: './paths/application.path.yaml#/DashboardTotals'
+  /dashboard/last_one_year_revenue_trend:
+    $ref: './paths/application.path.yaml#/DashboardRevenue'
+  /dashboard/latest_transactions:
+    $ref: './paths/application.path.yaml#/DashboardTransactions'
+  /dashboard/send_notification_and_email:
+    $ref: './paths/application.path.yaml#/DashboardMessage'
+  /dashboard/admin/deals/{dealId}/ban:
+    $ref: './paths/application.path.yaml#/DashboardBan'
+  /dashboard/admin/deals/{dealId}/unban:
+    $ref: './paths/application.path.yaml#/DashboardUnban'
+  /dashboard/seed_cities/template:
+    $ref: './paths/application.path.yaml#/CityTemplate'
+  /dashboard/seed_cities:
+    $ref: './paths/application.path.yaml#/CitySeed'
+  /static/create_page:
+    $ref: './paths/application.path.yaml#/StaticCreate'
+  /static/all_pages:
+    $ref: './paths/application.path.yaml#/StaticAll'
+  /static/{slug}:
+    get:
+      $ref: './paths/application.path.yaml#/StaticItem/get'
+    patch:
+      $ref: './paths/application.path.yaml#/StaticUpdate/patch'
 
 components:
   securitySchemes:

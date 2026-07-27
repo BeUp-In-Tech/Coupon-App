@@ -1,0 +1,916 @@
+ShopCreate:
+  post:
+    tags: [Shop]
+    summary: Create a vendor shop
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+ShopDetails:
+  get:
+    tags: [Shop]
+    summary: Get shop details
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+ShopUpdate:
+  patch:
+    tags: [Shop]
+    summary: Update a shop
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: shopId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+ShopAnalytics:
+  get:
+    tags: [Shop]
+    summary: Get shop analytics
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+ShopYearlyAnalytics:
+  get:
+    tags: [Shop]
+    summary: Get yearly shop analytics
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+PlanCollection:
+  get:
+    tags: [Plan]
+    summary: List plans
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+PlanCreate:
+  post:
+    tags: [Plan]
+    summary: Create a plan
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+PlanItem:
+  patch:
+    tags: [Plan]
+    summary: Update a plan
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: planId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+PlanDelete:
+  delete:
+    tags: [Plan]
+    summary: Delete a plan
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: planId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+VoucherCollection:
+  get:
+    tags: [Voucher]
+    summary: List vouchers
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+VoucherCreate:
+  post:
+    tags: [Voucher]
+    summary: Create a voucher
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+VoucherApply:
+  get:
+    tags: [Voucher]
+    summary: Apply a voucher code
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+VoucherItem:
+  get:
+    tags: [Voucher]
+    summary: Get a voucher
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: voucherId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+VoucherUpdate:
+  patch:
+    tags: [Voucher]
+    summary: Update a voucher
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: voucherId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+VoucherDelete:
+  delete:
+    tags: [Voucher]
+    summary: Delete a voucher
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: voucherId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+ApplePurchase:
+  post:
+    tags: [Payment]
+    summary: Verify an Apple in-app purchase
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+GooglePurchase:
+  post:
+    tags: [Payment]
+    summary: Verify a Google Play purchase
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+StripePay:
+  post:
+    tags: [Payment]
+    summary: Create a Stripe checkout session
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+Transactions:
+  get:
+    tags: [Payment]
+    summary: Get transaction history
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+Notifications:
+  get:
+    tags: [Notification]
+    summary: List notifications
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+NotificationPanel:
+  patch:
+    tags: [Notification]
+    summary: Mark notification panel opened
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+NotificationItem:
+  get:
+    tags: [Notification]
+    summary: Get a notification
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardCategory:
+  get:
+    tags: [Dashboard]
+    summary: Get deal category statistics
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardVendors:
+  get:
+    tags: [Dashboard]
+    summary: Get vendor statistics
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardExport:
+  post:
+    tags: [Dashboard]
+    summary: Queue vendor export
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardExportStatus:
+  get:
+    tags: [Dashboard]
+    summary: Get vendor export status
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: jobId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardExportDownload:
+  get:
+    tags: [Dashboard]
+    summary: Download vendor export
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: jobId
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardRecent:
+  get:
+    tags: [Dashboard]
+    summary: Get recent deals
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardDeals:
+  get:
+    tags: [Dashboard]
+    summary: Get deal statistics
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardTotals:
+  get:
+    tags: [Dashboard]
+    summary: Get dashboard totals
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardRevenue:
+  get:
+    tags: [Dashboard]
+    summary: Get annual revenue trend
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardTransactions:
+  get:
+    tags: [Dashboard]
+    summary: Get latest transactions
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardMessage:
+  post:
+    tags: [Dashboard]
+    summary: Send notification and email
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardBan:
+  patch:
+    tags: [Dashboard]
+    summary: Ban a deal
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: dealId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+DashboardUnban:
+  patch:
+    tags: [Dashboard]
+    summary: Unban a deal
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: dealId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+CityTemplate:
+  get:
+    tags: [Dashboard]
+    summary: Download city seed template
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+CitySeed:
+  post:
+    tags: [Dashboard]
+    summary: Upload and seed cities
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+StaticCreate:
+  post:
+    tags: [Static Content]
+    summary: Create a static page
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+StaticAll:
+  get:
+    tags: [Static Content]
+    summary: List static pages
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+StaticItem:
+  get:
+    tags: [Static Content]
+    summary: Get static page
+    parameters:
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+
+StaticUpdate:
+  patch:
+    tags: [Static Content]
+    summary: Update static page
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    responses:
+      '200':
+        $ref: '../components.yaml#/components/responses/successResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '401':
+        $ref: '../components.yaml#/components/responses/unauthorizeResponse'
+      '404':
+        $ref: '../components.yaml#/components/responses/notFoundResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'

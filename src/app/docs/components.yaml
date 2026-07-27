@@ -116,6 +116,24 @@ components:
         stack:
           nullable: true
           example: null
+    rateLimitError:
+      allOf:
+        - $ref: '#/components/schemas/badRequestError'
+        - type: object
+          properties:
+            statusCode:
+              example: 429
+            message:
+              example: Too many requests, please try again later.
+    serverError:
+      allOf:
+        - $ref: '#/components/schemas/badRequestError'
+        - type: object
+          properties:
+            statusCode:
+              example: 500
+            message:
+              example: Internal server error
   responses:
     successResponse:
       description: Standard success envelope returned by the API.
@@ -147,3 +165,15 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/notFoundError'
+    rateLimitResponse:
+      description: Request rate limit exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/rateLimitError'
+    serverErrorResponse:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/serverError'
