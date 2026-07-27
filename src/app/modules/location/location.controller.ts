@@ -6,6 +6,19 @@ import { StatusCodes } from 'http-status-codes';
 import { JwtPayload } from 'jsonwebtoken';
 import { locationServices } from './location.service';
 
+const getDefaultLocation = CatchAsync(
+  async (req: Request, res: Response, _next: NextFunction) => {
+    const result = await locationServices.getDefaultLocation();
+
+    SendResponse(res, {
+      success: true,
+      statusCode: StatusCodes.OK,
+      message: 'Default location fetched successfully',
+      trace_id: req.id as string,
+      data: result,
+    });
+  }
+);
 
 const downloadBulkLocationTemplate = CatchAsync(
   async (_req: Request, res: Response, _next: NextFunction) => {
@@ -131,6 +144,7 @@ const getLocationSuggestions = CatchAsync(
 );
 
 export const locationControllers = {
+  getDefaultLocation,
   downloadBulkLocationTemplate,
   previewBulkLocations,
   confirmBulkLocations,

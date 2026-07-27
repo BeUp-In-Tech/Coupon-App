@@ -42,3 +42,11 @@ export interface IDeal {
     unbannedBy?: Types.ObjectId;
     createdAt?: Date;
 }   
+
+
+export interface IQuery {
+  searchTerm?: string;
+  category?: Types.ObjectId;
+  page: number;
+  limit: number
+}

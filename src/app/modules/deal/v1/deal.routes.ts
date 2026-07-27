@@ -32,13 +32,11 @@ router.post(
 router.get('/deals/location', dealsControllers.searchDealsByLocation);
 
 // GET ALL DEALS
-router.get('/deals/all_deals/:lng/:lat', dealsControllers.getAllDeals);
+// router.get('/deals/all_deals/:lng/:lat', dealsControllers.getAllDeals);
+router.get('/deals/all_deals', dealsControllers.getAllDeals);
 
 // GET DEAL ANALYTICS
 router.get('/deals/analytic/:dealId', checkAuth(Role.VENDOR), dealsControllers.dealAnalytics);
-
-// GET NEAREST DEALS
-router.get('/deals/:lng/:lat', dealsControllers.getNearestDeals);
 
 // GET MY DEAL
 router.get('/my_deals', checkAuth(Role.VENDOR), dealsControllers.getMyDeals);

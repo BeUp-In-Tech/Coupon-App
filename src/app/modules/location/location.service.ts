@@ -28,6 +28,10 @@ const BULK_LOCATION_BATCH_TTL_SECONDS = 30 * 60;
 const bulkBatchKey = (batchId: string) => `bulk-location:${batchId}`;
 const bulkLockKey = (batchId: string) => `bulk-location-lock:${batchId}`;
 const bulkCompletedKey = (batchId: string) => `bulk-location-done:${batchId}`;
+const DEFAULT_LOCATION = {
+  city: 'detroit',
+  state: 'mi',
+} as const;
 
 const normalizeLocationText = (value?: string) => value?.trim().toLowerCase();
 
@@ -37,6 +41,30 @@ const toTitleCase = (value: string) =>
     .trim()
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+// GET DETROIT, MI AS THE DEFAULT LOCATION, OR A RANDOM ACTIVE LOCATION.
+const getDefaultLocation = async () => {
+  const defaultLocation = await Location.findOne({
+    isActive: true,
+    'normalized.city': DEFAULT_LOCATION.city,
+    'normalized.state': DEFAULT_LOCATION.state,
+  }).lean();
+
+  if (defaultLocation) {
+    return defaultLocation;
+  }
+
+  const [fallbackLocation] = await Location.aggregate([
+    { $match: { isActive: true } },
+    { $sample: { size: 1 } },
+  ]);
+
+  if (!fallbackLocation) {
+    throw new AppError(StatusCodes.NOT_FOUND, 'No active location found');
+  }
+
+  return fallbackLocation;
+};
 
 // CREATE LOCATION
 const createLocationService = async (
@@ -615,6 +643,7 @@ const getLocationSuggestions = async (query: Record<string, string>) => {
 };
 
 export const locationServices = {
+  getDefaultLocation,
   createLocationService,
   updateLocationService,
   previewBulkLocationsService,

@@ -19,6 +19,8 @@ import { requestId } from './app/middlewares/requestId.middleware';
 import { swaggerUiServer, swaggerUiSetup } from './app/config/swagger.config';
 
 const app = express();
+
+app.set('etag', 'strong');
 app.use(requestId);
 app.use(httpLogger);
 

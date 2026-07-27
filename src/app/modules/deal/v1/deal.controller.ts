@@ -5,8 +5,8 @@ import { SendResponse } from "../../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
 import { dealsServices } from "./deal.service";
 import { JwtPayload } from "jsonwebtoken";
-import { SearchDealsByLocationQuerySchema } from "../deal.validate";
-import { dealLogger } from "../../../utils/logger/logger.child";
+import { allDealsQueryValidation, SearchDealsByLocationQuerySchema } from "../deal.validate";
+import { IQuery } from "./deal.interface";
 
 
 export interface MulterRequest extends Request {
@@ -97,29 +97,11 @@ const getMyDeals = CatchAsync(async (req: Request, res: Response, next: NextFunc
     })
 });
 
-// GET NEAREST DEALS
-const getNearestDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const query = req.query as Record<string, string>;
-    const lng = Number(req.params.lng) as number;
-    const lat = Number(req.params.lat) as number;
-    const result = await dealsServices.getNearestDealsService(lng, lat, query);
-
-    SendResponse(res, {
-        success: true,
-        statusCode: StatusCodes.OK,
-        message: "Fetched all deals",
-        trace_id: req.id as string,
-        data: result
-    })
-});
 
 // GET ALL DEALS
 const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const query = req.query as Record<string, string>;
-    const lng = Number(req.params.lng);
-    const lat = Number(req.params.lat);
-    
-    const result = await dealsServices.getAllDealsService(lng, lat, query);
+    const query = await allDealsQueryValidation.parseAsync(req.query) as IQuery;
+    const result = await dealsServices.getAllDealsService(query);
 
     SendResponse(res, {
         success: true,
@@ -130,40 +112,6 @@ const getAllDeals = CatchAsync(async (req: Request, res: Response, next: NextFun
     })
 })
 
-/**
- * Assembles HATEOAS hypermedia links for paginated deal search responses.
- *
- * - `self`  — always present; mirrors the current request URL exactly.
- * - `next`  — present only when more pages follow (meta.page < meta.totalPages).
- * - `prev`  — present only when not on the first page (meta.page > 1).
- *
- * Link construction delegates to the Node.js URL API so that existing query
- * parameters are preserved and only `page` is overridden (REQ 3.4).
- */
-function buildHateoasLinks(
-    req: Request,
-    meta: { page: number; totalPages: number }
-): { self: string; next?: string; prev?: string } {
-    const base = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-
-    const links: { self: string; next?: string; prev?: string } = {
-        self: base,
-    };
-
-    if (meta.page < meta.totalPages) {
-        const nextUrl = new URL(base);
-        nextUrl.searchParams.set('page', String(meta.page + 1));
-        links.next = nextUrl.toString();
-    }
-
-    if (meta.page > 1) {
-        const prevUrl = new URL(base);
-        prevUrl.searchParams.set('page', String(meta.page - 1));
-        links.prev = prevUrl.toString();
-    }
-
-    return links;
-}
 
 // SEARCH DEALS BY ACTIVE LOCATION MODE
 const searchDealsByLocation = CatchAsync(async (req: Request, res: Response, next: NextFunction) => {
@@ -253,7 +201,6 @@ export const dealsControllers = {
     deleteDeals,
     updateSingleDeals,
     getMyDeals,
-    getNearestDeals,
     getDealsByCategory,
     getAllDeals,
     getDealsByIds,

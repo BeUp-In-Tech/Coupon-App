@@ -5,7 +5,7 @@ import { Shop } from '../../shop/shop.model';
 import { Role } from '../../user/user.interface';
 import AppError from '../../../errorHelpers/AppError';
 import StatusCodes from 'http-status-codes';
-import { IDeal } from './deal.interface';
+import { IDeal, IQuery } from './deal.interface';
 import { DealModel } from './deal.model';
 import { Category } from '../../categories/categories.model';
 import { QueryBuilder } from '../../../utils/QueryBuilder';
@@ -14,7 +14,6 @@ import { addImageDeleteJob } from '../../../utils/imageDeleteJobAdd';
 import { ShopApproval } from '../../shop/shop.interface';
 import { redisClient } from '../../../config/redis.config';
 import { Views_Impressions } from '../../views_impression/vi.model';
-import { generateCacheKey } from '../../../utils/cacheKeyGen';
 import { invalidateAllMachineryCache } from '../../../utils/deleteCachedData';
 import crypto from 'crypto';
 import { sortObject } from '../../../utils/sortObject';
@@ -334,7 +333,7 @@ const getSingleDealsService = async (
   }
 
   // IF THE DEAL IS NATIONWIDE, RETURN THIS RESPONSE
-  if (deal.nationwide) {
+  if (deal.nationwide || !lat || !lng) {
     // ADD VIEW
     Views_Impressions.create({
       deal: dealId,
@@ -1324,245 +1323,23 @@ const getDealsByCategoryService = async (
   };
 };
 
-// 6. GET NEAREST DEALS
-const getNearestDealsService = async (
-  userLng: number,
-  userLat: number,
-  query: Record<string, string>
-) => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const searchTerm = query.search || '';
-  const fields = query.select ? query.select.split(',') : [];
-  const filter: Record<string, any> = {};
-
-  // STEP 1: GENERATE CACHE KEY
-  if (query.category) filter.category = query.category;
-  if (query.brand) filter.brand = query.brand;
-
-  const cacheKey = generateCacheKey({
-    searchTerm,
-    filter,
-    page: Number(query.page) || 1,
-    limit: Number(query.limit) || 10,
-    sort: query.sort || '',
-    fields,
-    lat: userLat,
-    lng: userLng,
-  });
-
-  // STEP 2: CHECK CACHE
-  const cachedData = await redisClient.get(cacheKey);
-  if (cachedData) {
-    return JSON.parse(cachedData);
-  }
-
-  // DATABASE QUERY
-  const pipeline: PipelineStage[] = [
-    // STEP 1: GEO SEARCH (MUST BE FIRST STAGE)
-    {
-      $geoNear: {
-        near: {
-          type: 'Point',
-          coordinates: [userLng, userLat],
-        },
-        distanceField: 'distance',
-        spherical: true,
-        query: { isActive: true },
-        maxDistance: 48000, //  30 miles (approximate) radius
-      },
-    },
-
-    // STEP 2:  LOOKUP DEALS AVAILABLE IN OUTLET
-    {
-      $lookup: {
-        from: 'deals',
-        localField: '_id',
-        foreignField: 'available_in_location',
-        as: 'deals',
-      },
-    },
-
-    { $unwind: '$deals' },
-
-    // STEP 3: FILTER ONLY ACTIVE PROMOTED DEALS
-    {
-      $match: {
-        'deals.isPromoted': true,
-        'deals.promotedUntil': { $gt: new Date() },
-        'deals.isBanned': { $ne: true },
-      },
-    },
-
-    // STEP 4: ATTACH DISTANCE + NEAREST_OUTLET ID
-    {
-      $addFields: {
-        'deals.distance': '$distance',
-        'deals.nearest_location': '$_id',
-      },
-    },
-
-    { $replaceRoot: { newRoot: '$deals' } },
-
-    // STEP 5: SORT NEAREST FIRST
-    { $addFields: { locationSort: 0 } },
-    getNationwideDealsUnionStage(new Date()),
-    { $sort: { locationSort: 1, distance: 1 } },
-
-    // STEP 6: REMOVE DUPLICATES (IF DEAL AVAILABLE IN MULTIPLE OUTLETS)
-    {
-      $group: {
-        _id: '$_id',
-        doc: { $first: '$$ROOT' }, // nearest one preserved
-      },
-    },
-
-    { $replaceRoot: { newRoot: '$doc' } },
-
-    // STEP 7: SORT AGAIN AFTER GROUPING
-    { $sort: { locationSort: 1, distance: 1 } },
-
-    // STEP 8: PAGINATION
-    { $skip: skip },
-    { $limit: limit },
-
-    // STEP 9: LOOKUP MINIMAL SHOP INFO
-    {
-      $lookup: {
-        from: 'shops',
-        localField: 'shop',
-        foreignField: '_id',
-        as: 'shop',
-        pipeline: [
-          {
-            $project: {
-              business_name: 1,
-              business_logo: 1,
-            },
-          },
-        ],
-      },
-    },
-
-    { $unwind: '$shop' },
-
-    // STEP 10: FINAL PROJECTION
-    {
-      $project: {
-        title: 1,
-        regular_price: 1,
-        discount: 1,
-        discount_type: 1,
-        coupon_required: 1,
-        images: { $slice: ['$images', 1] },
-        distance: 1,
-        nearest_location: 1,
-        matched_location: 1,
-        shop: 1,
-        isPromoted: 1,
-        promotedUntil: 1,
-        nationwide: 1,
-      },
-    },
-  ];
-
-  // FETCH DEALS
-  const nearestDealsPromise = Location.aggregate(pipeline);
-
-  // TOTAL PROMOTED DEALS COUNT
-  const totalPromotedDocPromise = DealModel.countDocuments({
-    isPromoted: true,
-    promotedUntil: { $gte: new Date() },
-    ...visibleDealFilter,
-  });
-
-  // RESOLVE ALL PROMISE PARALLEL
-  const [nearestDeals, totalPromotedDoc] = await Promise.all([
-    nearestDealsPromise,
-    totalPromotedDocPromise,
-  ]);
-
-  // EXTRACT IDS
-  const ids = nearestDeals.map((doc) => doc._id.toString());
-  const uniqueIds = [...new Set(ids)];
-
-  // INCREASE IMPRESSION OF LOADED DATA
-  setImmediate(async () => {
-    // create analytics documents
-    const analyticsDocs = uniqueIds.map((dealId) => ({
-      deal: dealId,
-      type: 'impression',
-    }));
-
-    await Views_Impressions.insertMany(analyticsDocs);
-  });
-
-  // CREATE META DATA
-  const meta = {
-    page,
-    limit,
-    total: totalPromotedDoc,
-    totalPages: Math.ceil(totalPromotedDoc / limit),
-  };
-
-  const data = {
-    meta,
-    deals: nearestDeals,
-  };
-
-  // STEP 3: SAVE RESULT TO REDIS (10 min)
-  await redisClient.set(cacheKey, JSON.stringify(data), {
-    EX: 180, // 3 min
-  });
-
-  return data;
-};
-
 // 7. GET ALL DEALS
-const getAllDealsService = async (
-  userLng: number,
-  userLat: number,
-  query: Record<string, string>
-) => {
+const getAllDealsService = async (query: IQuery) => {
   const searchTerm = query.searchTerm || '';
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 20;
   const skip = (page - 1) * limit;
   const now = new Date();
 
-  // DEALS QUERY
-  const dealsPromise = Location.aggregate([
-    // STAGE 1: SEARCH NEAREST DEALS
-    {
-      $geoNear: {
-        near: {
-          type: 'Point',
-          coordinates: [Number(userLng), Number(userLat)],
-        },
-        distanceField: 'distance',
-        spherical: true,
-        key: 'location',
-        query: { isActive: true },
-      },
-    },
+  const match = {
+    isPromoted: true,
+    promotedUntil: { $gte: now },
+    ...visibleDealFilter,
+    ...(query.category && { category: new Types.ObjectId(query.category) }),
+  };
 
-    // STAGE 2: JOIN WITH DEALS
-    {
-      $lookup: {
-        from: 'deals',
-        localField: '_id',
-        foreignField: 'available_in_location',
-        as: 'deal',
-      },
-    },
-
-    {
-      $unwind: '$deal',
-    },
-
-    // STAGE 3: JOIN WITH SHOP FOR SHOP DETAILS
+  const [result] = await DealModel.aggregate([
+    { $match: match },
     {
       $lookup: {
         from: 'shops',
@@ -1571,189 +1348,62 @@ const getAllDealsService = async (
         as: 'shop',
       },
     },
-
-    {
-      $unwind: '$shop',
-    },
-
-    // STAGE 4: SEARCH WITH SEARCH KEYWORD
+    { $unwind: '$shop' },
     {
       $match: {
         $or: [
           { 'shop.business_name': { $regex: searchTerm, $options: 'i' } },
-          { 'deal.title': { $regex: searchTerm, $options: 'i' } },
-          { 'deal.description': { $regex: searchTerm, $options: 'i' } },
-          { 'deal.tags': { $regex: searchTerm, $options: 'i' } },
-          { 'deal.highlight': { $regex: searchTerm, $options: 'i' } },
-          { 'address.zip_code': { $regex: searchTerm, $options: 'i' } },
+          { title: { $regex: searchTerm, $options: 'i' } },
+          { description: { $regex: searchTerm, $options: 'i' } },
+          { tags: { $regex: searchTerm, $options: 'i' } },
+          { highlight: { $regex: searchTerm, $options: 'i' } },
         ],
       },
     },
-
-    {
-      $sort: { distance: 1 },
-    },
-
-    // STAGE 5: FETCH ONLY PROMOTED DEALS
-    {
-      $match: {
-        $and: [
-          { 'deal.isPromoted': true },
-          { 'deal.promotedUntil': { $gte: now } },
-          { 'deal.isBanned': { $ne: true } },
-          { 'deal.deal_status': { $ne: 'BANNED' } },
-        ],
-      },
-    },
-
-    // STAGE 6: PREVENT DUPLICATE RESULT FOR DISTANCE, KEEP ONLY NEAREST RESULT
-    {
-      $group: {
-        _id: '$deal._id',
-        doc: { $first: '$$ROOT' },
-      },
-    },
-    {
-      $replaceRoot: { newRoot: '$doc' },
-    },
-    { $addFields: { locationSort: 0 } },
-
-    // STAGE 6: FINAL PROJECTION
     {
       $project: {
         'shop.business_logo': 1,
         'shop.business_name': 1,
-        distance: 1,
-        locationSort: 1,
-        'deal._id': 1,
-        'deal.title': 1,
-        'deal.regular_price': 1,
-        'deal.discount': 1,
-        'deal.discount_type': 1,
-        'deal.coupon_required': 1,
-        'deal.isPromoted': 1,
-        'deal.promotedUntil': 1,
-        'deal.images': 1,
-        'deal.nationwide': 1,
+        deal: {
+          _id: '$_id',
+          title: '$title',
+          regular_price: '$regular_price',
+          discount: '$discount',
+          discount_type: '$discount_type',
+          coupon_required: '$coupon_required',
+          isPromoted: '$isPromoted',
+          promotedUntil: '$promotedUntil',
+          images: '$images',
+          nationwide: '$nationwide',
+        },
       },
     },
+    { $sort: { 'deal.promotedUntil': -1 } },
     {
-      $unionWith: {
-        coll: 'deals',
-        pipeline: [
-          {
-            $match: {
-              nationwide: true,
-              isPromoted: true,
-              promotedUntil: { $gte: now },
-              ...visibleDealFilter,
-            },
-          },
-          {
-            $lookup: {
-              from: 'shops',
-              localField: 'shop',
-              foreignField: '_id',
-              as: 'shop',
-              pipeline: [
-                {
-                  $project: {
-                    business_name: 1,
-                    business_logo: 1,
-                  },
-                },
-              ],
-            },
-          },
-          { $unwind: '$shop' },
-          {
-            $match: {
-              $or: [
-                { 'shop.business_name': { $regex: searchTerm, $options: 'i' } },
-                { title: { $regex: searchTerm, $options: 'i' } },
-                { description: { $regex: searchTerm, $options: 'i' } },
-                { tags: { $regex: searchTerm, $options: 'i' } },
-                { highlight: { $regex: searchTerm, $options: 'i' } },
-              ],
-            },
-          },
-          {
-            $project: {
-              'shop.business_logo': 1,
-              'shop.business_name': 1,
-              distance: { $literal: null },
-              locationSort: { $literal: 1 },
-              deal: {
-                _id: '$_id',
-                title: '$title',
-                regular_price: '$regular_price',
-                discount: '$discount',
-                discount_type: '$discount_type',
-                coupon_required: '$coupon_required',
-                isPromoted: '$isPromoted',
-                promotedUntil: '$promotedUntil',
-                images: '$images',
-                nationwide: '$nationwide',
-              },
-            },
-          },
-        ],
+      $facet: {
+        deals: [{ $skip: skip }, { $limit: limit }],
+        total: [{ $count: 'count' }],
       },
-    },
-    { $sort: { locationSort: 1, distance: 1 } },
-    {
-      $group: {
-        _id: '$deal._id',
-        doc: { $first: '$$ROOT' },
-      },
-    },
-    { $replaceRoot: { newRoot: '$doc' } },
-
-    // PAGINATE
-    {
-      $skip: skip,
-    },
-
-    {
-      $limit: limit,
     },
   ]);
 
-  // TOTAL PROMOTED DEALS COUNT
-  const totalPromotedDocPromise = DealModel.countDocuments({
-    isPromoted: true,
-    promotedUntil: { $gte: now },
-    ...visibleDealFilter,
-  });
+  const deals = result?.deals ?? [];
+  const total = result?.total?.[0]?.count ?? 0;
+  const ids = deals.map((doc: { deal: { _id: Types.ObjectId } }) =>
+    doc.deal._id.toString()
+  );
 
-  // RESOLVE ALL PROMISE HERE
-  const [deals, totalPromotedDoc] = await Promise.all([
-    dealsPromise,
-    totalPromotedDocPromise,
-  ]);
-
-  // EXTRACT IDS
-  const ids = deals.map((doc) => doc.deal._id.toString());
-  const uniqueIds = [...new Set(ids)];
-
-  // INCREASE IMPRESSION OF LOADED DATA
-  setImmediate(async () => {
-    await DealModel.updateMany(
-      { _id: { $in: uniqueIds } },
+  setImmediate(() => {
+    DealModel.updateMany(
+      { _id: { $in: ids } },
       { $inc: { total_impression: 1 } }
     );
   });
 
-  // CREATE META
-  const meta = {
-    page,
-    limit,
-    total: totalPromotedDoc,
-    totalPages: Math.ceil(totalPromotedDoc / limit),
+  return {
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    deals,
   };
-
-  // RETURN FINAL OUTPUT
-  return { meta, deals };
 };
 
 // 8. LOCATION MODE DEAL FETCH
@@ -2301,7 +1951,6 @@ export const dealsServices = {
   updateDealsService,
   getSingleDealsService,
   getMyDealsService,
-  getNearestDealsService,
   getDealsByCategoryService,
   getAllDealsService,
   getDealsByIdsService,
