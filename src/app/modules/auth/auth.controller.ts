@@ -47,8 +47,9 @@ const googleCallback = CatchAsync(
     const isIOS = /iphone|ipad|ipod/i.test(userAgent);
 
     if (isAndroid || isIOS) {
+      const baseDeepLink = env.DEEP_LINK.replace(/\/+$/, '');
       res.redirect(
-        `${env.DEEP_LINK}/auth/google?access=${token.accessToken}&refresh=${token.refreshToken}`
+        `${baseDeepLink}/auth/google?access=${token.accessToken}&refresh=${token.refreshToken}`
       );
     } else {
       res.redirect(
