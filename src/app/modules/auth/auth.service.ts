@@ -372,7 +372,7 @@ const appleLoginService = async (code: string, user_name: string, email: string)
   };
 };
 
-// =============================GOOGLE REGISTER/LOGIN HANDLING FOR APPLE (NO REDIRECT SYSTEM)===============
+// =============================GOOGLE REGISTER/LOGIN HANDLING FOR MOBILE & WEB (NO REDIRECT SYSTEM)===============
 const googleClient = new OAuth2Client();
 
 const googleAuthSystem = async (payload: { id_token: string }) => {
@@ -382,15 +382,31 @@ const googleAuthSystem = async (payload: { id_token: string }) => {
     throw new AppError(StatusCodes.BAD_REQUEST, 'Google idToken is required', LoggerModule.AUTH);
   }
 
-  const ticket = await googleClient.verifyIdToken({
-    idToken: id_token,
-    audience: process.env.GOOGLE_WEB_CLIENT_ID,
-  });
+  const allowedAudiences = [
+    env.GOOGLE_OAUTH_ID,
+    env.GOOGLE_IOS_CLIENT_ID,
+    env.GOOGLE_ANDROID_CLIENT_ID,
+    process.env.GOOGLE_WEB_CLIENT_ID,
+  ].filter(Boolean) as string[];
+
+  let ticket;
+  try {
+    ticket = await googleClient.verifyIdToken({
+      idToken: id_token,
+      audience: allowedAudiences.length > 0 ? allowedAudiences : undefined,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      StatusCodes.UNAUTHORIZED,
+      `Invalid Google token: ${error?.message || 'Verification failed'}`,
+      LoggerModule.AUTH
+    );
+  }
 
   const googlePayload = ticket.getPayload();
 
   if (!googlePayload) {
-    throw new AppError(StatusCodes.UNAUTHORIZED, 'Invalid Google token', LoggerModule.AUTH);
+    throw new AppError(StatusCodes.UNAUTHORIZED, 'Invalid Google token payload', LoggerModule.AUTH);
   }
 
   const {
@@ -404,36 +420,82 @@ const googleAuthSystem = async (payload: { id_token: string }) => {
     throw new AppError(StatusCodes.UNAUTHORIZED, 'Google email is not verified', LoggerModule.AUTH);
   }
 
-  // Important:
-  // Use `sub` as googleId. Do not use email as the permanent Google identifier.
-  // Find or create user by googleId/sub.
-  let user = await User.findOne({ email });
+  const userEmail = email.toLowerCase().trim();
 
-  const auth = [
+  // Find user by googleId (sub) first
+  let user = await User.findOne({
+    auths: {
+      $elemMatch: {
+        provider: 'google',
+        providerId: sub,
+      },
+    },
+  });
+
+  // If not found by googleId, find by email and link google auth provider
+  if (!user && userEmail) {
+    user = await User.findOne({ email: userEmail });
+    if (user) {
+      const alreadyLinked = user.auths?.some(
+        (provider) =>
+          provider.provider === 'google' && provider.providerId === sub
+      );
+
+      if (!alreadyLinked) {
+        user.auths = user.auths || [];
+        user.auths.push({
+          provider: 'google',
+          providerId: sub,
+        });
+      }
+      user.isVerified = true;
+      await user.save();
+    }
+  }
+
+  // If user still doesn't exist, create new user
+  if (!user) {
+    user = await User.create({
+      email: userEmail,
+      user_name: name || userEmail.split('@')[0] || 'Google User',
+      auths: [
         {
           provider: 'google',
           providerId: sub,
         },
-      ];
-
-  if (!user) {
-    user = await User.create({
-      email,
-      user_name: name,
-      auths: auth,
+      ],
       role: Role.VENDOR,
       isVerified: true,
     });
   }
 
-  // Generate your own JWT tokens
-  const tokens = await createUserTokens(user);
+  if (user.isDeleted) {
+    throw new AppError(StatusCodes.BAD_REQUEST, 'User was deleted!', LoggerModule.AUTH);
+  }
 
+  if (
+    user.isActive === IsActiveUser.INACTIVE ||
+    user.isActive === IsActiveUser.BLOCKED
+  ) {
+    throw new AppError(StatusCodes.BAD_REQUEST, `User is ${user.isActive}`, LoggerModule.AUTH);
+  }
+
+  // Generate JWT tokens
+  const userTokens = await createUserTokens({
+    _id: user._id,
+    email: user.email,
+    role: user.role,
+  } as JwtPayload);
 
   return {
-    user,
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
+    accessToken: userTokens.accessToken,
+    refreshToken: userTokens.refreshToken,
+    user: {
+      _id: user._id,
+      user_name: user.user_name,
+      email: user.email,
+      role: user.role,
+    },
   };
 };
 
