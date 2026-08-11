@@ -10,7 +10,7 @@
     "restart": "pm2 restart ecosystem.config.js",
     "stop": "pm2 delete all",
     "lint": "npx eslint ./src",
-    "build": "tsc && cp -r src/app/utils/templates dist/app/utils/",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 tsc && cp -r src/app/utils/templates dist/app/utils/",
     "format": "npx prettier --write .",
     "worker:dev": "nodemon --watch src --exec ts-node ./src/app/queue/worker.ts",
     "worker": "node ./src/app/queue/worker.ts"
