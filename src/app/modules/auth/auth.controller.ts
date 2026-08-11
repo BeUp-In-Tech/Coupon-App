@@ -42,11 +42,12 @@ const googleCallback = CatchAsync(
     const token = await createUserTokens(user);
 
     const userAgent = req.headers['user-agent'] || '';
-
     const isAndroid = /android/i.test(userAgent);
     const isIOS = /iphone|ipad|ipod/i.test(userAgent);
 
-    if (isAndroid || isIOS) {
+    const isAppRequest = redirectTo === 'app' || redirectTo === 'mobile' || req.query.platform === 'app';
+
+    if (isAppRequest && (isAndroid || isIOS)) {
       const baseDeepLink = env.DEEP_LINK.replace(/\/+$/, '');
       res.redirect(
         `${baseDeepLink}/auth/google?access=${token.accessToken}&refresh=${token.refreshToken}`
