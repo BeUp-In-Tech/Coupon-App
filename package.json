@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon --watch src --exec ts-node-dev ./src/server.ts",
+    "dev": "npx tsx watch ./src/server.ts",
     "start": "pm2 start ecosystem.config.js -i max",
     "restart": "pm2 restart ecosystem.config.js",
     "stop": "pm2 delete all",
