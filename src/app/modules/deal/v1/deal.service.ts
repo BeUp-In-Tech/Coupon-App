@@ -289,6 +289,11 @@ const createDealsService = async (params: {
     coupon_option: payload.coupon_option,
   };
   const doc = await DealModel.create(finalPayload);
+  const populatedDoc = await doc.populate([
+    { path: 'shop', select: 'business_name business_logo shop_approval website' },
+    { path: 'category', select: 'category_name category_image isDeleted' },
+    { path: 'available_in_location' }
+  ]);
 
   // REMOVE CACHE (DASHBOARD API CACHE)
   await redisClient.del('deals_by_category_stats');
@@ -297,7 +302,9 @@ const createDealsService = async (params: {
   await invalidateAllMachineryCache('deals_stats:*');
   await invalidateAllMachineryCache(`my_deals-userId:${user.userId}:*`);
 
-  return doc;
+  const result = populatedDoc.toObject() as any;
+  result.available_location = result.available_in_location;
+  return result;
 };
 
 // 2. VIEW DEAL
@@ -340,6 +347,7 @@ const getSingleDealsService = async (
       type: 'view',
     });
 
+    (deal as any).available_location = deal.available_in_location;
     return deal;
   }
 
@@ -416,6 +424,7 @@ const getSingleDealsService = async (
     {
       $addFields: {
         'deal.available_location': '$outlets',
+        'deal.available_in_location': '$outlets',
       },
     },
 
@@ -450,7 +459,6 @@ const getSingleDealsService = async (
     // CLEAN RESPONSE
     {
       $project: {
-        available_in_location: 0,
         activePromotion: 0,
 
         'category.createdAt': 0,
@@ -908,6 +916,16 @@ const updateDealsService = async (
   });
 
   // RETURN DATA
+  if (updateDeal) {
+    const populatedUpdateDeal = await updateDeal.populate([
+      { path: 'shop', select: 'business_name business_logo shop_approval website' },
+      { path: 'category', select: 'category_name category_image isDeleted' },
+      { path: 'available_in_location' }
+    ]);
+    const result = populatedUpdateDeal.toObject() as any;
+    result.available_location = result.available_in_location;
+    return result;
+  }
   return updateDeal;
 };
 
