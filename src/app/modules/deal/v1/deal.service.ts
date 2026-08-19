@@ -28,6 +28,7 @@ import {
   recordDealImpressions,
   resolveSelectedLocationDocs,
   visibleDealFilter,
+  FALLBACK_RADIUS_METERS,
 } from './deal.helper';
 import { DealDiscountType } from './deal.constant';
 
@@ -1131,14 +1132,174 @@ const getDealsByCategoryService = async (
     }
   }
 
+  const isNationwide = query.nationwide === 'true';
+  const isSelectedLocation =
+    query.locationMode === 'SELECTED_LOCATION' ||
+    Boolean(query.country && (query.city || query.state || query.zip_code));
+
+  // ── PATH SELECTED_LOCATION: filter strictly by resolved location docs ────
+  if (!isNationwide && isSelectedLocation) {
+    const selectedQuery = {
+      locationMode: 'SELECTED_LOCATION' as const,
+      city: query.city,
+      state: query.state,
+      country: query.country || 'usa',
+      zip_code: query.zip_code,
+      page,
+      limit,
+    };
+
+    const { locationIds } = await resolveSelectedLocationDocs(
+      selectedQuery,
+      false,
+      false
+    );
+
+    const [result] = await Location.aggregate([
+      {
+        $match: {
+          _id: { $in: locationIds },
+          isActive: true,
+        },
+      },
+      {
+        $lookup: {
+          from: 'deals',
+          localField: '_id',
+          foreignField: 'available_in_location',
+          as: 'deal',
+        },
+      },
+      { $unwind: '$deal' },
+      {
+        $match: {
+          'deal.category': categoryObjectId,
+          'deal.isBanned': { $ne: true },
+          'deal.isPromoted': true,
+          'deal.promotedUntil': { $gte: now },
+        },
+      },
+      {
+        $lookup: {
+          from: 'shops',
+          localField: 'shop',
+          foreignField: '_id',
+          as: 'shop',
+        },
+      },
+      { $unwind: '$shop' },
+      { $group: { _id: '$deal._id', doc: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$doc' } },
+      { $addFields: { locationSort: 0 } },
+      {
+        $project: {
+          distance: { $literal: null },
+          locationSort: 1,
+          'shop._id': 1,
+          'shop.business_name': 1,
+          'shop.business_logo': 1,
+          'deal._id': 1,
+          'deal.title': 1,
+          'deal.regular_price': 1,
+          'deal.discount': 1,
+          'deal.discount_type': 1,
+          'deal.coupon_required': 1,
+          'deal.isPromoted': 1,
+          'deal.promotedUntil': 1,
+          'deal.createdAt': 1,
+          'deal.images': 1,
+          'deal.nationwide': 1,
+        },
+      },
+      {
+        $unionWith: {
+          coll: 'deals',
+          pipeline: [
+            {
+              $match: {
+                category: categoryObjectId,
+                nationwide: true,
+                isPromoted: true,
+                promotedUntil: { $gte: now },
+                ...visibleDealFilter,
+              },
+            },
+            {
+              $lookup: {
+                from: 'shops',
+                localField: 'shop',
+                foreignField: '_id',
+                as: 'shop',
+                pipeline: [
+                  { $project: { business_name: 1, business_logo: 1 } },
+                ],
+              },
+            },
+            { $unwind: '$shop' },
+            {
+              $project: {
+                distance: { $literal: null },
+                locationSort: { $literal: 1 },
+                shop: 1,
+                deal: {
+                  _id: '$_id',
+                  title: '$title',
+                  regular_price: '$regular_price',
+                  discount: '$discount',
+                  discount_type: '$discount_type',
+                  coupon_required: '$coupon_required',
+                  isPromoted: '$isPromoted',
+                  promotedUntil: '$promotedUntil',
+                  createdAt: '$createdAt',
+                  images: '$images',
+                  nationwide: '$nationwide',
+                },
+              },
+            },
+          ],
+        },
+      },
+      { $sort: { locationSort: 1, ...sort } },
+      { $group: { _id: '$deal._id', doc: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$doc' } },
+      { $sort: { locationSort: 1, ...sort } },
+      {
+        $facet: {
+          deals: [{ $skip: skip }, { $limit: limit }],
+          total: [{ $count: 'count' }],
+        },
+      },
+    ]);
+
+    const deals = result?.deals ?? [];
+    const total = result?.total?.[0]?.count ?? 0;
+
+    setImmediate(() => {
+      const ids = deals.map((doc: { deal: { _id: Types.ObjectId } }) =>
+        doc.deal._id.toString()
+      );
+      DealModel.updateMany(
+        { _id: { $in: ids } },
+        { $inc: { total_impression: 1 } }
+      );
+    });
+
+    return {
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      deals,
+    };
+  }
+
   // ── PATH A: coords provided — use $geoNear to get local + nationwide ────
-  if (hasCoords) {
+  // Note: maxDistance is not set here since the 25 miles radius restriction is only for homepage
+  if (!isNationwide && hasCoords) {
     const [result] = await Location.aggregate([
       {
         $geoNear: {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           near: { type: 'Point', coordinates: [lng!, lat!] },
           distanceField: 'distance',
+          maxDistance: FALLBACK_RADIUS_METERS,
           spherical: true,
           key: 'location',
           query: { isActive: true },
