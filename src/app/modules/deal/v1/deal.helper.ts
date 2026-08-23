@@ -249,7 +249,7 @@ export type LocationResolutionResult =
 const EARTH_RADIUS_METERS = 6_378_137;
 
 /** 25 miles expressed in metres (the fallback search radius). */
-const FALLBACK_RADIUS_METERS = 40_233;
+export const FALLBACK_RADIUS_METERS = 40_233;
 
 /**
  * Resolves Location documents for a SELECTED_LOCATION query following the
@@ -267,7 +267,8 @@ const FALLBACK_RADIUS_METERS = 40_233;
  */
 export async function resolveSelectedLocationDocs(
   query: Extract<SearchDealsByLocationQuery, { locationMode: 'SELECTED_LOCATION' }>,
-  forceRadiusFallback = false
+  forceRadiusFallback = false,
+  skipRadiusFallback = false
 ): Promise<LocationResolutionResult> {
   const { city, state, country, zip_code } = query;
 
@@ -297,6 +298,14 @@ export async function resolveSelectedLocationDocs(
         fallbackReason: null,
       };
     }
+  }
+
+  if (skipRadiusFallback) {
+    return {
+      locationIds: [],
+      fallbackUsed: false,
+      fallbackReason: null,
+    };
   }
 
   // ── Step 2: No exact match — attempt radius fallback (REQ 2.3) ──

@@ -31,6 +31,7 @@ import {
   recordDealImpressions,
   resolveSelectedLocationDocs,
   visibleDealFilter,
+  FALLBACK_RADIUS_METERS,
 } from './deal.helper';
 import { DealDiscountType } from './deal.constant';
 
