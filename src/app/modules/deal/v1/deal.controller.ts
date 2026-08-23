@@ -5,7 +5,11 @@ import { SendResponse } from "../../../utils/SendResponse";
 import { StatusCodes } from "http-status-codes";
 import { dealsServices } from "./deal.service";
 import { JwtPayload } from "jsonwebtoken";
-import { allDealsQueryValidation, SearchDealsByLocationQuerySchema } from "../deal.validate";
+import {
+    allDealsQueryValidation,
+    CategoryDealsByLocationQuerySchema,
+    SearchDealsByLocationQuerySchema
+} from "../deal.validate";
 import { IQuery } from "./deal.interface";
 
 
@@ -151,7 +155,8 @@ const getDealsByIds = CatchAsync(async (req: Request, res: Response, next: NextF
 // GET DEALS BY CATEGORY
 const getDealsByCategory = CatchAsync(async  (req: Request, res: Response, next: NextFunction) => {
     const categoryId = req.params.categoryId as string;
-    const result = await dealsServices.getDealsByCategoryService(categoryId, req.query as Record<string, string>);
+    const query = await CategoryDealsByLocationQuerySchema.parseAsync(req.query);
+    const result = await dealsServices.getDealsByCategoryService(categoryId, query);
 
     SendResponse(res, {
         success: true,

@@ -216,6 +216,10 @@ export type SearchDealsByLocationQuery = z.infer<
   typeof SearchDealsByLocationQuerySchema
 >;
 
+export const CategoryDealsByLocationQuerySchema =
+  SearchDealsByLocationQuerySchema;
+
+export type CategoryDealsByLocationQuery = SearchDealsByLocationQuery;
 
 export const allDealsQueryValidation = z.object({
   searchTerm: z.string().optional(),

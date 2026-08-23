@@ -395,10 +395,11 @@ const googleAuthSystem = async (payload: { id_token: string }) => {
       idToken: id_token,
       audience: allowedAudiences.length > 0 ? allowedAudiences : undefined,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Verification failed';
     throw new AppError(
       StatusCodes.UNAUTHORIZED,
-      `Invalid Google token: ${error?.message || 'Verification failed'}`,
+      `Invalid Google token: ${message}`,
       LoggerModule.AUTH
     );
   }

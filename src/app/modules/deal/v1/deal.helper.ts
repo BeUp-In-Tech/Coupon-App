@@ -21,7 +21,10 @@ export const buildLocationLabel = (query: SearchDealsByLocationQuery) => {
   return [query.city, query.state, query.country].filter(Boolean).join(', ');
 };
 
-export const getDealLookupStage = (now: Date): PipelineStage.Lookup => ({
+export const getDealLookupStage = (
+  now: Date,
+  extraMatch: Record<string, unknown> = {}
+): PipelineStage.Lookup => ({
   $lookup: {
     from: 'deals',
     let: { locationId: '$_id' },
@@ -37,6 +40,7 @@ export const getDealLookupStage = (now: Date): PipelineStage.Lookup => ({
           isPromoted: true,
           promotedUntil: { $gte: now },
           ...visibleDealFilter,
+          ...extraMatch,
         },
       },
     ],

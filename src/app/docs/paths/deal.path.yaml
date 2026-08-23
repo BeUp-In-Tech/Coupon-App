@@ -186,16 +186,100 @@ DealsByCategoryApi:
     tags:
       - Deal
     summary: Get deals by category
-    description: Returns deals filtered by category ID.
+    description: >
+      Returns promoted deals filtered by category ID and location mode.
+      locationMode is required. For CURRENT_LOCATION, lat and lng are required.
+      For SELECTED_LOCATION, country is required and at least one of city, state,
+      or zip_code must be provided.
     parameters:
       - in: path
         name: categoryId
         required: true
         schema:
           type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+        description: MongoDB category ID.
+      - in: query
+        name: locationMode
+        required: true
+        schema:
+          type: string
+          enum:
+            - CURRENT_LOCATION
+            - SELECTED_LOCATION
+        description: Determines whether the request uses device coordinates or a selected address.
+      - in: query
+        name: lat
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+        description: Required when locationMode is CURRENT_LOCATION.
+      - in: query
+        name: lng
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+        description: Required when locationMode is CURRENT_LOCATION.
+      - in: query
+        name: radiusKm
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 25
+        description: Optional search radius in kilometres for CURRENT_LOCATION.
+      - in: query
+        name: city
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description: Optional selected city for SELECTED_LOCATION.
+      - in: query
+        name: state
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description: Optional selected state for SELECTED_LOCATION.
+      - in: query
+        name: country
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description: Required when locationMode is SELECTED_LOCATION.
+      - in: query
+        name: zip_code
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 30
+        description: Optional selected ZIP/postal code for SELECTED_LOCATION.
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
     responses:
       '200':
         $ref: '../schemas/deal.schema.yaml#/components/responses/DealListResponse'
+      '400':
+        $ref: '../components.yaml#/components/responses/badRequestResponse'
+      '429':
+        $ref: '../components.yaml#/components/responses/rateLimitResponse'
+      '500':
+        $ref: '../components.yaml#/components/responses/serverErrorResponse'
 
 DeleteDealApi:
   delete:

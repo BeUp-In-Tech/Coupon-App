@@ -18,7 +18,10 @@ import { invalidateAllMachineryCache } from '../../../utils/deleteCachedData';
 import crypto from 'crypto';
 import { sortObject } from '../../../utils/sortObject';
 import { dealLogger, LoggerModule } from '../../../utils/logger/logger.child';
-import { SearchDealsByLocationQuery } from '../deal.validate';
+import {
+  CategoryDealsByLocationQuery,
+  SearchDealsByLocationQuery,
+} from '../deal.validate';
 import {
   buildLocationDealsCacheKey,
   buildLocationLabel,
@@ -1035,32 +1038,8 @@ const getMyDealsService = async (
 // 6. GET DEALS BY CATEGORY
 const getDealsByCategoryService = async (
   categoryId: string,
-  query: Record<string, string>
+  query: CategoryDealsByLocationQuery
 ) => {
-  // Parse lat/lng from query string — treat missing, empty, or NaN as undefined
-  // so the no-coords path is used correctly regardless of client behavior
-  const parsedLat = Number(query.lat);
-  const parsedLng = Number(query.lng);
-  const lat: number | undefined =
-    query.lat !== undefined && query.lat !== '' && !isNaN(parsedLat)
-      ? parsedLat
-      : undefined;
-  const lng: number | undefined =
-    query.lng !== undefined && query.lng !== '' && !isNaN(parsedLng)
-      ? parsedLng
-      : undefined;
-
-  const requestedPage = Number(query.page);
-  const requestedLimit = Number(query.limit);
-  const page =
-    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const limit =
-    Number.isInteger(requestedLimit) && requestedLimit > 0
-      ? requestedLimit
-      : 20;
-  const skip = (page - 1) * limit;
-  const now = new Date();
-
   if (!mongoose.Types.ObjectId.isValid(categoryId)) {
     throw new AppError(
       StatusCodes.BAD_REQUEST,
@@ -1069,276 +1048,17 @@ const getDealsByCategoryService = async (
     );
   }
 
-  // Validate coords only when provided
-  const hasCoords =
-    lng !== undefined &&
-    lat !== undefined &&
-    Number.isFinite(lng) &&
-    Number.isFinite(lat);
-
-  dealLogger.debug(`testing: ${hasCoords}`);
-
-  if ((lng !== undefined || lat !== undefined) && !hasCoords) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      'Both lat and lng must be valid numbers when provided',
-      LoggerModule.DEAL
-    );
-  }
-
   const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
+  const categoryMatch = { category: categoryObjectId };
 
-  // Build sort — distance only makes sense when coords are provided
-  const sort: Record<string, 1 | -1> = {};
-  const allowedSortFields = new Set([
-    'distance',
-    'title',
-    'regular_price',
-    'discount',
-    'promotedUntil',
-    'createdAt',
-  ]);
-
-  if (query.sort) {
-    const sortField = query.sort.startsWith('-')
-      ? query.sort.substring(1)
-      : query.sort;
-
-    if (!allowedSortFields.has(sortField)) {
-      throw new AppError(
-        StatusCodes.BAD_REQUEST,
-        `Invalid sort field: ${sortField}`,
-        LoggerModule.DEAL
-      );
-    }
-
-    // Distance sort without coords falls back to promotedUntil
-    const resolvedSortField =
-      sortField === 'distance' && !hasCoords ? 'promotedUntil' : sortField;
-    const sortOrder = query.sort.startsWith('-') ? -1 : 1;
-
-    if (resolvedSortField === 'distance') {
-      sort[resolvedSortField] = sortOrder;
-    } else {
-      sort[`deal.${resolvedSortField}`] = sortOrder;
-    }
-  } else {
-    // Default: distance when coords present, otherwise promotedUntil desc
-    if (hasCoords) {
-      sort['distance'] = 1;
-    } else {
-      sort['deal.promotedUntil'] = -1;
-    }
+  if (query.locationMode === 'CURRENT_LOCATION') {
+    return searchCurrentLocationDeals(query, categoryMatch);
   }
 
-  // ── PATH A: coords provided — use $geoNear to get local + nationwide ────
-  if (hasCoords) {
-    const [result] = await Location.aggregate([
-      {
-        $geoNear: {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          near: { type: 'Point', coordinates: [lng!, lat!] },
-          distanceField: 'distance',
-          spherical: true,
-          key: 'location',
-          query: { isActive: true },
-        },
-      },
-      {
-        $lookup: {
-          from: 'deals',
-          localField: '_id',
-          foreignField: 'available_in_location',
-          as: 'deal',
-        },
-      },
-      { $unwind: '$deal' },
-      {
-        $match: {
-          'deal.category': categoryObjectId,
-          'deal.isBanned': { $ne: true },
-          'deal.isPromoted': true,
-          'deal.promotedUntil': { $gte: now },
-        },
-      },
-      {
-        $lookup: {
-          from: 'shops',
-          localField: 'shop',
-          foreignField: '_id',
-          as: 'shop',
-        },
-      },
-      { $unwind: '$shop' },
-      { $sort: { distance: 1 } },
-      { $group: { _id: '$deal._id', doc: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$doc' } },
-      { $addFields: { locationSort: 0 } },
-      {
-        $project: {
-          distance: 1,
-          locationSort: 1,
-          'shop._id': 1,
-          'shop.business_name': 1,
-          'shop.business_logo': 1,
-          'deal._id': 1,
-          'deal.title': 1,
-          'deal.regular_price': 1,
-          'deal.discount': 1,
-          'deal.discount_type': 1,
-          'deal.coupon_required': 1,
-          'deal.isPromoted': 1,
-          'deal.promotedUntil': 1,
-          'deal.createdAt': 1,
-          'deal.images': 1,
-          'deal.nationwide': 1,
-        },
-      },
-      {
-        $unionWith: {
-          coll: 'deals',
-          pipeline: [
-            {
-              $match: {
-                category: categoryObjectId,
-                nationwide: true,
-                isPromoted: true,
-                promotedUntil: { $gte: now },
-                ...visibleDealFilter,
-              },
-            },
-            {
-              $lookup: {
-                from: 'shops',
-                localField: 'shop',
-                foreignField: '_id',
-                as: 'shop',
-                pipeline: [
-                  { $project: { business_name: 1, business_logo: 1 } },
-                ],
-              },
-            },
-            { $unwind: '$shop' },
-            {
-              $project: {
-                distance: { $literal: null },
-                locationSort: { $literal: 1 },
-                shop: 1,
-                deal: {
-                  _id: '$_id',
-                  title: '$title',
-                  regular_price: '$regular_price',
-                  discount: '$discount',
-                  discount_type: '$discount_type',
-                  coupon_required: '$coupon_required',
-                  isPromoted: '$isPromoted',
-                  promotedUntil: '$promotedUntil',
-                  createdAt: '$createdAt',
-                  images: '$images',
-                  nationwide: '$nationwide',
-                },
-              },
-            },
-          ],
-        },
-      },
-      { $sort: { locationSort: 1, ...sort } },
-      { $group: { _id: '$deal._id', doc: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$doc' } },
-      { $sort: { locationSort: 1, ...sort } },
-      {
-        $facet: {
-          deals: [{ $skip: skip }, { $limit: limit }],
-          total: [{ $count: 'count' }],
-        },
-      },
-    ]);
-
-    const deals = result?.deals ?? [];
-    const total = result?.total?.[0]?.count ?? 0;
-
-    setImmediate(() => {
-      const ids = deals.map((doc: { deal: { _id: Types.ObjectId } }) =>
-        doc.deal._id.toString()
-      );
-      DealModel.updateMany(
-        { _id: { $in: ids } },
-        { $inc: { total_impression: 1 } }
-      );
-    });
-
-    return {
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      deals,
-    };
-  }
-
-  // ── PATH B: no coords — query deals directly without location/distance ──
-  const [result] = await DealModel.aggregate([
-    {
-      $match: {
-        category: categoryObjectId,
-        isPromoted: true,
-        promotedUntil: { $gte: now },
-        ...visibleDealFilter,
-      },
-    },
-    {
-      $lookup: {
-        from: 'shops',
-        localField: 'shop',
-        foreignField: '_id',
-        as: 'shop',
-        pipeline: [{ $project: { business_name: 1, business_logo: 1 } }],
-      },
-    },
-    { $unwind: '$shop' },
-    {
-      $project: {
-        distance: { $literal: null }, // no coords — distance is null
-        locationSort: { $literal: 0 },
-        shop: 1,
-        deal: {
-          _id: '$_id',
-          title: '$title',
-          regular_price: '$regular_price',
-          discount: '$discount',
-          discount_type: '$discount_type',
-          coupon_required: '$coupon_required',
-          isPromoted: '$isPromoted',
-          promotedUntil: '$promotedUntil',
-          createdAt: '$createdAt',
-          images: '$images',
-          nationwide: '$nationwide',
-        },
-      },
-    },
-    { $sort: sort },
-    {
-      $facet: {
-        deals: [{ $skip: skip }, { $limit: limit }],
-        total: [{ $count: 'count' }],
-      },
-    },
-  ]);
-
-  const deals = result?.deals ?? [];
-  const total = result?.total?.[0]?.count ?? 0;
-
-  setImmediate(() => {
-    const ids = deals.map((doc: { deal: { _id: Types.ObjectId } }) =>
-      doc.deal._id.toString()
-    );
-    DealModel.updateMany(
-      { _id: { $in: ids } },
-      { $inc: { total_impression: 1 } }
-    );
+  return searchSelectedLocationDeals(query, {
+    extraMatch: categoryMatch,
+    cacheResult: false,
   });
-
-  return {
-    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    deals,
-  };
 };
 
 // 7. GET ALL DEALS
@@ -1429,7 +1149,8 @@ const searchCurrentLocationDeals = async (
   query: Extract<
     SearchDealsByLocationQuery,
     { locationMode: 'CURRENT_LOCATION' }
-  >
+  >,
+  extraMatch: Record<string, unknown> = {}
 ) => {
   const now = new Date();
   const pipeline: PipelineStage[] = [
@@ -1446,7 +1167,7 @@ const searchCurrentLocationDeals = async (
         query: { isActive: true },
       },
     },
-    getDealLookupStage(now),
+    getDealLookupStage(now, extraMatch),
     { $unwind: '$deal' },
     {
       $addFields: {
@@ -1462,7 +1183,7 @@ const searchCurrentLocationDeals = async (
     },
     { $replaceRoot: { newRoot: '$deal' } },
     { $addFields: { locationSort: 1 } }, // 1 = local, sorts after nationwide
-    getNationwideDealsUnionStage(now),
+    getNationwideDealsUnionStage(now, extraMatch),
     { $sort: { locationSort: 1, distance: 1 } },
     {
       $group: {
@@ -1501,9 +1222,15 @@ const searchSelectedLocationDeals = async (
   query: Extract<
     SearchDealsByLocationQuery,
     { locationMode: 'SELECTED_LOCATION' }
-  >
+  >,
+  options: {
+    extraMatch?: Record<string, unknown>;
+    cacheResult?: boolean;
+  } = {}
 ) => {
   const now = new Date();
+  const extraMatch = options.extraMatch ?? {};
+  const shouldCache = options.cacheResult ?? true;
 
   // ── Step 1 + 2: Resolve location documents (exact match → radius fallback) ──
   // resolveSelectedLocationDocs encapsulates the two-step location resolution
@@ -1526,6 +1253,7 @@ const searchSelectedLocationDeals = async (
           isPromoted: true,
           promotedUntil: { $gte: now },
           ...visibleDealFilter,
+          ...extraMatch,
         },
       },
       {
@@ -1547,16 +1275,17 @@ const searchSelectedLocationDeals = async (
 
     recordDealImpressions(deals);
 
-    // Write to cache now that we know fallbackUsed — key includes fallback:true
-    const cacheKey = buildLocationDealsCacheKey(query, true);
-    await redisClient.set(
-      cacheKey,
-      JSON.stringify({
-        meta: buildSelectedMeta(query, total, true, 'NO_LOCATIONS_IN_REGION'),
-        deals,
-      }),
-      { EX: 180 }
-    );
+    if (shouldCache) {
+      const cacheKey = buildLocationDealsCacheKey(query, true);
+      await redisClient.set(
+        cacheKey,
+        JSON.stringify({
+          meta: buildSelectedMeta(query, total, true, 'NO_LOCATIONS_IN_REGION'),
+          deals,
+        }),
+        { EX: 180 }
+      );
+    }
 
     return {
       meta: buildSelectedMeta(query, total, true, 'NO_LOCATIONS_IN_REGION'),
@@ -1590,6 +1319,7 @@ const searchSelectedLocationDeals = async (
       isPromoted: true,
       promotedUntil: { $gte: now },
       ...visibleDealFilter,
+      ...extraMatch,
     });
 
     if (localDealCount === 0) {
@@ -1610,7 +1340,7 @@ const searchSelectedLocationDeals = async (
     { $match: { _id: { $in: resolvedLocationIds } } },
 
     // ── Step 3 (cont.): Join promoted deals for each location ──
-    getDealLookupStage(now),
+    getDealLookupStage(now, extraMatch),
 
     // Unwind so each deal becomes its own root document
     { $unwind: '$deal' },
@@ -1634,7 +1364,7 @@ const searchSelectedLocationDeals = async (
     { $addFields: { locationSort: 1 } },
 
     // ── Step 5: Merge nationwide deals into the pipeline ──
-    getNationwideDealsUnionStage(now),
+    getNationwideDealsUnionStage(now, extraMatch),
 
     // Primary sort before dedup so $group keeps the best document per deal.
     // Nationwide (0) sorts before local (1); within each group sort by promotedUntil.
@@ -1664,22 +1394,22 @@ const searchSelectedLocationDeals = async (
 
   recordDealImpressions(deals);
 
-  // Write to cache using the actual fallback state so that exact-match and
-  // radius-fallback results are stored under separate keys (REQ 2.15).
-  const cacheKey = buildLocationDealsCacheKey(query, actualFallbackUsed);
-  await redisClient.set(
-    cacheKey,
-    JSON.stringify({
-      meta: buildSelectedMeta(
-        query,
-        total,
-        actualFallbackUsed,
-        actualFallbackReason
-      ),
-      deals,
-    }),
-    { EX: 180 }
-  );
+  if (shouldCache) {
+    const cacheKey = buildLocationDealsCacheKey(query, actualFallbackUsed);
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify({
+        meta: buildSelectedMeta(
+          query,
+          total,
+          actualFallbackUsed,
+          actualFallbackReason
+        ),
+        deals,
+      }),
+      { EX: 180 }
+    );
+  }
 
   return {
     meta: buildSelectedMeta(
